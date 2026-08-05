@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // CENTRAUX - juste guestsProvider
-import '../../../staff/models/thix_weeding_models.dart';
-import '../../../staff/providers/thix_weeding_providers.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
 
 class RsvpManagementPage extends ConsumerWidget {
   final String weddingId;
