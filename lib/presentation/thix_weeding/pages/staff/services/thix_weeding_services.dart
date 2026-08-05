@@ -1,7 +1,6 @@
 // lib/presentation/thix_weeding/pages/staff/services/thix_weeding_services.dart
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// IMPORTANT: Assurez-vous que l'import de vos modèles est correct (chemin absolu ou relatif selon votre structure)
 import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
 
 class WeddingService {
@@ -137,7 +136,6 @@ class ChecklistService {
       .from('thix_weeding_checklist')
       .update({'is_done': done}).eq('id', id);
 
-  // Méthode update ajoutée pour la ChecklistPage
   Future<void> update(String id, Map<String, dynamic> data) async => await _c
       .from('thix_weeding_checklist')
       .update(data).eq('id', id);
@@ -161,7 +159,6 @@ class GalleryService {
   }
 
   Future<String> uploadFile(String weddingId, File file) async {
-    // Correction de la syntaxe d'interpolation Dart
     final path = '$weddingId/${DateTime.now().millisecondsSinceEpoch}.jpg';
     await _c.storage.from('thix-weeding-gallery').upload(path, file);
     return _c.storage.from('thix-weeding-gallery').getPublicUrl(path);
@@ -262,7 +259,6 @@ class PaymentService {
       await _c.from('thix_weeding_payments').delete().eq('id', id);
 }
 
-// ================= NOUVEAU SERVICE BUDGET =================
 class BudgetService {
   final _c = Supabase.instance.client;
 
@@ -276,9 +272,15 @@ class BudgetService {
       if (res == null) return null;
       return BudgetModel.fromJson(res);
     } catch (e) {
-      // Retourne null si le budget n'est pas encore créé
       return null;
     }
+  }
+
+  Future<void> upsert(String weddingId, double amount) async {
+    await _c.from('thix_weeding_budgets').upsert({
+      'wedding_id': weddingId,
+      'total_budget': amount,
+    }, onConflict: 'wedding_id');
   }
 
   Future<List<ExpenseModel>> getExpenses(String weddingId) async {
