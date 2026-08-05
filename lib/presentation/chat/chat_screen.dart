@@ -173,52 +173,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   StreamSubscription<List<UserStatus>>? _presenceSub;
 
   // ── Stickers organisés ──
-static const List<String> _emojis = [
-  '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹',
-  '😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗',
-  '😙','😚','🤩','🥳','🤗','🤔','🤭','🤫','🤥','😏',
-  '😒','🙄','😬','😮‍💨','😔','😪','🤤','😴','😷','🤒',
-  '🤕','🤢','🤮','🥵','🥶','😵','🤯','🤠','🥸','😎',
-  '🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳',
-  '🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖',
-  '😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬',
-];
+  static const List<String> _emojis = [
+    '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹',
+    '😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗',
+    '😙','😚','🤩','🥳','🤗','🤔','🤭','🤫','🤥','😏',
+    '😒','🙄','😬','😮‍💨','😔','😪','🤤','😴','😷','🤒',
+    '🤕','🤢','🤮','🥵','🥶','😵','🤯','🤠','🥸','😎',
+    '🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳',
+    '🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖',
+    '😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬',
+  ];
 
-static const List<String> _reactions = [
-  '👍','👎','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘',
-  '🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖',
-  '👋','👏','🙌','🫶','💪','🦾','🙏','✍️',
-  '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔',
-  '❣️','💕','💞','💓','💗','💖','💘','💝','💟','❤️‍🔥',
-  '🔥','⭐','🌟','✨','💫','💥','💯','🎉','🎊','🏆',
-  '🥇','🥈','🥉','🎯','✅','❌','⚡','💡','📌','🔔',
-];
+  static const List<String> _reactions = [
+    '👍','👎','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘',
+    '🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖',
+    '👋','👏','🙌','🫶','💪','🦾','🙏','✍️',
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔',
+    '❣️','💕','💞','💓','💗','💖','💘','💝','💟','❤️‍🔥',
+    '🔥','⭐','🌟','✨','💫','💥','💯','🎉','🎊','🏆',
+    '🥇','🥈','🥉','🎯','✅','❌','⚡','💡','📌','🔔',
+  ];
 
-static const List<String> _flags = [
-  '🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈','🏳️‍⚧️','🏴‍☠️',
-  '🇦🇫','🇿🇦','🇦🇱','🇩🇿','🇩🇪','🇦🇩','🇦🇴','🇦🇬',
-  '🇸🇦','🇦🇷','🇦🇲','🇦🇺','🇦🇹','🇦🇿','🇧🇸','🇧🇭',
-  '🇧🇩','🇧🇧','🇧🇪','🇧🇿','🇧🇯','🇧🇹','🇧🇾','🇲🇲',
-  '🇧🇴','🇧🇦','🇧🇼','🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮',
-  '🇰🇭','🇨🇲','🇨🇦','🇨🇻','🇨🇱','🇨🇳','🇨🇾','🇨🇴',
-  '🇰🇲','🇨🇬','🇨🇩','🇰🇵','🇰🇷','🇨🇷','🇨🇮','🇭🇷',
-  '🇨🇺','🇩🇰','🇩🇯','🇩🇲','🇪🇬','🇸🇻','🇦🇪','🇪🇨',
-  '🇪🇷','🇪🇸','🇪🇪','🇺🇸','🇪🇹','🇫🇯','🇫🇮','🇫🇷',
-  '🇬🇦','🇬🇲','🇬🇪','🇬🇭','🇬🇷','🇬🇩','🇬🇹','🇬🇳',
-  '🇬🇶','🇬🇾','🇭🇹','🇭🇳','🇭🇰','🇭🇺','🇮🇳','🇮🇩',
-  '🇮🇷','🇮🇶','🇮🇪','🇮🇸','🇮🇱','🇮🇹','🇯🇲','🇯🇵',
-  '🇯🇴','🇰🇿','🇰🇪','🇰🇬','🇰🇼','🇱🇦','🇱🇻','🇱🇧',
-  '🇱🇷','🇱🇾','🇱🇮','🇱🇹','🇱🇺','🇲🇬','🇲🇾','🇲🇼',
-  '🇲🇻','🇲🇱','🇲🇹','🇲🇦','🇲🇺','🇲🇽','🇲🇩','🇲🇨',
-  '🇲🇳','🇲🇪','🇲🇿','🇳🇦','🇳🇵','🇳🇮','🇳🇪','🇳🇬',
-  '🇳🇴','🇳🇿','🇴🇲','🇺🇬','🇺🇿','🇵🇰','🇵🇸','🇵🇦',
-  '🇵🇬','🇵🇾','🇳🇱','🇵🇪','🇵🇭','🇵🇱','🇵🇹','🇶🇦',
-  '🇨🇫','🇩🇴','🇷🇴','🇬🇧','🇷🇺','🇷🇼','🇸🇳','🇷🇸',
-  '🇸🇨','🇸🇱','🇸🇬','🇸🇰','🇸🇮','🇸🇴','🇸🇩','🇱🇰',
-  '🇸🇪','🇨🇭','🇸🇾','🇹🇯','🇹🇼','🇹🇿','🇹🇩','🇨🇿',
-  '🇹🇭','🇹🇬','🇹🇴','🇹🇹','🇹🇳','🇹🇷','🇺🇦','🇺🇾',
-  '🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼',
-];
+  static const List<String> _flags = [
+    '🏁','🚩','🎌','🏴','🏳️','🏳️‍⚧️','🏴‍☠️',
+    '🇦🇫','🇿🇦','🇦🇱','🇩🇿','🇩🇪','🇦🇩','🇦🇴','🇦🇬',
+    '🇸🇦','🇦🇷','🇦🇲','🇦🇺','🇦🇹','🇦🇿','🇧🇸','🇧🇭',
+    '🇧🇩','🇧🇧','🇧🇪','🇧🇿','🇧🇯','🇧🇹','🇧🇾','🇲🇲',
+    '🇧🇴','🇧🇦','🇧🇼','🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮',
+    '🇰🇭','🇨🇲','🇨🇦','🇨🇻','🇨🇱','🇨🇳','🇨🇾','🇨🇴',
+    '🇰🇲','🇨🇬','🇨🇩','🇰🇵','🇰🇷','🇨🇷','🇨🇮','🇭🇷',
+    '🇨🇺','🇩🇰','🇩🇯','🇩🇲','🇪🇬','🇸🇻','🇦🇪','🇪🇨',
+    '🇪🇷','🇪🇸','🇪🇪','🇺🇸','🇪🇹','🇫🇯','🇫🇮','🇫🇷',
+    '🇬🇦','🇬🇲','🇬🇪','🇬🇭','🇬🇷','🇬🇩','🇬🇹','🇬🇳',
+    '🇬🇶','🇬🇾','🇭🇹','🇭🇳','🇭🇰','🇭🇺','🇮🇳','🇮🇩',
+    '🇮🇷','🇮🇶','🇮🇪','🇮🇸','🇮🇱','🇮🇹','🇯🇲','🇯🇵',
+    '🇯🇴','🇰🇿','🇰🇪','🇰🇬','🇰🇼','🇱🇦','🇱🇻','🇱🇧',
+    '🇱🇷','🇱🇾','🇱🇮','🇱🇹','🇱🇺','🇲🇬','🇲🇾','🇲🇼',
+    '🇲🇻','🇲🇱','🇲🇹','🇲🇦','🇲🇺','🇲🇽','🇲🇩','🇲🇨',
+    '🇲🇳','🇲🇪','🇲🇿','🇳🇦','🇳🇵','🇳🇮','🇳🇪','🇳🇬',
+    '🇳🇴','🇳🇿','🇴🇲','🇺🇬','🇺🇿','🇵🇰','🇵🇸','🇵🇦',
+    '🇵🇬','🇵🇾','🇳🇱','🇵🇪','🇵🇭','🇵🇱','🇵🇹','🇶🇦',
+    '🇨🇫','🇩🇴','🇷🇴','🇬🇧','🇷🇺','🇷🇼','🇸🇳','🇷🇸',
+    '🇸🇨','🇸🇱','🇸🇬','🇸🇰','🇸🇮','🇸🇴','🇸🇩','🇱🇰',
+    '🇸🇪','🇨🇭','🇸🇾','🇹🇯','🇹🇼','🇹🇿','🇹🇩','🇨🇿',
+    '🇹🇭','🇹🇬','🇹🇴','🇹🇹','🇹🇳','🇹🇷','🇺🇦','🇺🇾',
+    '🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼',
+  ];
 
   @override
   void initState() {
@@ -535,100 +535,97 @@ static const List<String> _flags = [
   }
 
   void _showStickerPicker() {
-  void _showStickerPicker() {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.white,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-    ),
-    builder: (ctx) {
-      return DefaultTabController(
-        length: 3,
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.52,
-          maxChildSize: 0.9,
-          minChildSize: 0.35,
-          expand: false,
-          builder: (_, scrollCtrl) {
-            return Column(
-              children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: _C.border,
-                    borderRadius: BorderRadius.circular(4),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return DefaultTabController(
+          length: 3,
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.52,
+            maxChildSize: 0.9,
+            minChildSize: 0.35,
+            expand: false,
+            builder: (_, scrollCtrl) {
+              return Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _C.border,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const TabBar(
-                  labelColor: _C.primary,
-                  unselectedLabelColor: _C.textMuted,
-                  indicatorColor: _C.primary,
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                  tabs: [
-                    Tab(text: 'Emojis'),
-                    Tab(text: 'Réactions'),
-                    Tab(text: 'Drapeaux'),
-                  ],
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _stickerGrid(_emojis, scrollCtrl, ctx),
-                      _stickerGrid(_reactions, scrollCtrl, ctx),
-                      _stickerGrid(_flags, scrollCtrl, ctx),
+                  const SizedBox(height: 8),
+                  const TabBar(
+                    labelColor: _C.primary,
+                    unselectedLabelColor: _C.textMuted,
+                    indicatorColor: _C.primary,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                    tabs: [
+                      Tab(text: 'Emojis'),
+                      Tab(text: 'Réactions'),
+                      Tab(text: 'Drapeaux'),
                     ],
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _stickerGrid(_emojis, scrollCtrl, ctx),
+                        _stickerGrid(_reactions, scrollCtrl, ctx),
+                        _stickerGrid(_flags, scrollCtrl, ctx),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _stickerGrid(
+    List<String> items,
+    ScrollController scrollCtrl,
+    BuildContext sheetCtx,
+  ) {
+    return GridView.builder(
+      controller: scrollCtrl,
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 8,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+      ),
+      itemCount: items.length,
+      itemBuilder: (_, i) {
+        return InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () {
+            Navigator.pop(sheetCtx);
+            _inputController.text += items[i];
+            _inputController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _inputController.text.length),
             );
           },
-        ),
-      );
-    },
-  );
-}
-
-Widget _stickerGrid(
-  List<String> items,
-  ScrollController scrollCtrl,
-  BuildContext sheetCtx,
-) {
-  return GridView.builder(
-    controller: scrollCtrl,
-    padding: const EdgeInsets.all(12),
-    // 👇 LA CORRECTION EST ICI (tout sur une seule ligne) 👇
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 8,
-      crossAxisSpacing: 6,
-      mainAxisSpacing: 6,
-    ),
-    itemCount: items.length,
-    itemBuilder: (_, i) {
-      return InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () {
-          Navigator.pop(sheetCtx);
-          _inputController.text += items[i];
-          _inputController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _inputController.text.length),
-          );
-        },
-        child: Center(
-          child: Text(items[i], style: const TextStyle(fontSize: 26)),
-        ),
-      );
-    },
-  );
-}
-
+          child: Center(
+            child: Text(items[i], style: const TextStyle(fontSize: 26)),
+          ),
+        );
+      },
+    );
+  }
 
   void _showEphemeralTimerDialog() {
     showModalBottomSheet(
@@ -949,7 +946,7 @@ Widget _stickerGrid(
     );
   }
 
-    String _getPresenceText(UserStatus status) {
+  String _getPresenceText(UserStatus status) {
     final lastSeen = status.lastSeenAt;
     final diff = DateTime.now().difference(lastSeen);
     if (status.status == 'online' && diff.inMinutes <= 2) return 'En ligne';
@@ -961,8 +958,6 @@ Widget _stickerGrid(
     final diff = DateTime.now().difference(_otherParticipant!.lastSeenAt);
     return _otherParticipant!.status == 'online' && diff.inMinutes <= 2;
   }
-
-
 
   // ─────────────────────── UI ───────────────────────
 
@@ -1456,7 +1451,7 @@ class _WhatsAppPatternPainter extends CustomPainter {
     for (double y = 0; y < size.height; y += step) {
       for (double x = 0; x < size.width; x += step) {
         // petits losanges / points alternés
-        if (((x \~/ step) + (y \~/ step)) % 3 == 0) {
+        if (((x ~/ step) + (y ~/ step)) % 3 == 0) {
           canvas.drawCircle(Offset(x + 6, y + 6), 1.2, paint);
         }
       }
