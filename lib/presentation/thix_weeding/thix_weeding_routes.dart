@@ -20,6 +20,7 @@ import 'pages/guest/infos_page.dart';
 import 'pages/staff/staff_shell_page.dart';
 import 'pages/staff/staff_dashboard_page.dart';
 import 'pages/staff/my_weddings/my_weddings_page.dart';
+import 'pages/staff/my_weddings/create_wedding_page.dart'; // Import de la page de création
 import 'pages/staff/invités/guest_list_page.dart';
 import 'pages/staff/invités/add_guest_page.dart';
 import 'pages/staff/prestataires/vendors_list_page.dart';
@@ -51,6 +52,7 @@ class ThixWeedingRoutes {
 
   // STAFF NAMES
   static const String staffMyWeddings = 'staffMyWeddings';
+  static const String createWedding = 'createWedding';
   static const String staffDashboard = 'staffDashboard';
   static const String staffInvites = 'staffInvites';
   static const String staffAddInvite = 'staffAddInvite';
@@ -81,6 +83,13 @@ class ThixWeedingRoutes {
                 FadeTransition(opacity: animation, child: child),
           ),
           routes: [
+            // ================= CRÉATION =================
+            GoRoute(
+              path: 'create',
+              name: createWedding,
+              builder: (c, s) => const CreateWeddingPage(),
+            ),
+
             // ================= GUEST =================
             GoRoute(
               path: 'guest/:weddingId',
