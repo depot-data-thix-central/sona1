@@ -120,7 +120,8 @@ class _ShareCard extends StatelessWidget {
                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invitation publiée')));
                 },
                 icon: const Icon(Icons.public),
-                label: Text(wedding.isPublished ? 'Déjà publiée' : 'Publier'),
+                label: Text(wedding.id.isNotEmpty ? 'Publier' : 'Publier'),
+
               ),
             ),
             const SizedBox(width: 12),
