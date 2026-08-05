@@ -20,7 +20,7 @@ import 'pages/guest/infos_page.dart';
 import 'pages/staff/staff_shell_page.dart';
 import 'pages/staff/staff_dashboard_page.dart';
 import 'pages/staff/my_weddings/my_weddings_page.dart';
-import 'pages/staff/my_weddings/create_wedding_page.dart'; // Import de la page de création
+import 'pages/staff/my_weddings/create_wedding_page.dart';
 import 'pages/staff/invités/guest_list_page.dart';
 import 'pages/staff/invités/add_guest_page.dart';
 import 'pages/staff/prestataires/vendors_list_page.dart';
@@ -170,6 +170,13 @@ class ThixWeedingRoutes {
               path: 'staff/my-weddings',
               name: staffMyWeddings,
               builder: (c, s) => const MyWeddingsPage(),
+            ),
+            // 👇 ROUTE D'ÉDITION AJOUTÉE ICI
+            GoRoute(
+              path: 'edit/:weddingId',
+              builder: (c, s) => CreateWeddingPage(
+                // Si votre CreateWeddingPage gère l'édition via un ID, passez-le ici
+              ),
             ),
             GoRoute(
               path: 'staff/:weddingId',
