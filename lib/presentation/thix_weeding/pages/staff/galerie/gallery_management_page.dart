@@ -73,7 +73,7 @@ class GalleryManagementPage extends ConsumerWidget {
           children: [
             Center(child: Image.network(m.mediaUrl, fit: BoxFit.contain, errorBuilder: (_, __, ___) => Container(color: Colors.grey[300], child: const Icon(Icons.broken_image)))),
             Positioned(top: 8, right: 8, child: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context))),
-            Positioned(bottom: 12, left: 12, right: 12, child: Text(m.caption?? '', style: const TextStyle(color: Colors.white))),
+            Positioned(bottom: 12, left: 12, right: 12, child: Text(m.caption ?? '', style: const TextStyle(color: Colors.white))),
             if (m.mediaType == 'video') const Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 48)),
           ],
         ),
@@ -147,4 +147,9 @@ class _GalleryTile extends StatelessWidget {
               errorBuilder: (_, __, ___) => Container(color: Colors.grey[300], child: const Icon(Icons.broken_image)),
             ),
           ),
-          if (media.mediaType == 'video') const Center(child: Icon(Icons.play_circle_fill, color
+          if (media.mediaType == 'video') const Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 32)),
+        ],
+      ),
+    );
+  }
+}
