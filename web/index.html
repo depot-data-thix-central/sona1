@@ -1,34 +1,47 @@
-<script>
-  // Meilleure gestion de la perte de contexte WebGL (écran noir après inactivité)
-  function setupWebGLRecovery() {
-    const canvas = document.querySelector('flt-glass-pane canvas') || document.querySelector('canvas');
-    if (canvas) {
-      canvas.addEventListener('webglcontextlost', (e) => {
-        e.preventDefault();
-        console.warn('WebGL context lost → rechargement');
-        window.location.reload();
-      });
-      console.log('WebGL recovery listener attaché');
-    } else {
-      // Réessaie un peu plus tard (le canvas Flutter n’est pas toujours prêt)
-      setTimeout(setupWebGLRecovery, 500);
-    }
-  }
+ <!DOCTYPE html>
+<html lang="fr">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <!-- Vos autres balises meta, title, etc. -->
+</head>
+<body>
+  <!-- L'initialisation normale de Flutter -->
+  <script src="flutter_bootstrap.js" async></script>
 
-  window.addEventListener('load', setupWebGLRecovery);
-
-  // Quand on revient sur l’onglet
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      // Force un repaint
-      setTimeout(() => {
-        window.dispatchEvent(new Event('resize'));
-        // Optionnel : recharger si le canvas est mort
-        const canvas = document.querySelector('canvas');
-        if (canvas && canvas.getContext('webgl') === null) {
+  <!-- VOTRE SCRIPT ANTI-ÉCRAN NOIR ICI 👇 -->
+  <script>
+    // Meilleure gestion de la perte de contexte WebGL (écran noir après inactivité)
+    function setupWebGLRecovery() {
+      const canvas = document.querySelector('flt-glass-pane canvas') || document.querySelector('canvas');
+      if (canvas) {
+        canvas.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault();
+          console.warn('WebGL context lost → rechargement');
           window.location.reload();
-        }
-      }, 200);
+        });
+        console.log('WebGL recovery listener attaché');
+      } else {
+        // Réessaie un peu plus tard (le canvas Flutter n’est pas toujours prêt)
+        setTimeout(setupWebGLRecovery, 500);
+      }
     }
-  });
-</script>
+
+    window.addEventListener('load', setupWebGLRecovery);
+
+    // Quand on revient sur l’onglet
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        // Force un repaint
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+          // Optionnel : recharger si le canvas est mort
+          const canvas = document.querySelector('canvas');
+          if (canvas && canvas.getContext('webgl') === null) {
+            window.location.reload();
+          }
+        }, 200);
+      }
+    });
+  </script>
+</body>
+</html>
