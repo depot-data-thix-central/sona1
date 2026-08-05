@@ -1,5 +1,4 @@
 // Route: lib/services/chat/call_signaling_service.dart
-// PRODUCTION - Signaling Supabase Realtime - Anti-duplicate - Busy check
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,18 +11,29 @@ class CallSignalingService {
   StreamSubscription? _pollSub;
   bool _isListening = false;
 
+  StreamController<CallInvite>? _inviteController;
+
   // ============================================================
-  // LISTEN - Ecoute mes appels entrants
+  // LISTEN - Ecoute mes appels entrants (expose un Stream)
   // ============================================================
-  void listenMyInvites(
-    String myId,
-    Function(CallInvite invite) onRinging,
-  ) {
+  Stream<CallInvite> listenMyInvites(String myId) {
+    _inviteController?.close();
+    _inviteController = StreamController<CallInvite>.broadcast(
+      onCancel: () {
+        _stopListening();
+      },
+    );
+
+    _startListening(myId);
+    return _inviteController!.stream;
+  }
+
+  void _startListening(String myId) {
     if (_isListening) return;
     _isListening = true;
 
     _channel?.unsubscribe();
-    if (_channel!= null) {
+    if (_channel != null) {
       _db.removeChannel(_channel!);
     }
 
@@ -31,7 +41,7 @@ class CallSignalingService {
     _channel = _db.channel(chName);
 
     _channel!
-       .onPostgresChanges(
+        .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'call_invites',
@@ -46,14 +56,11 @@ class CallSignalingService {
               if (row.isEmpty) return;
 
               final status = row['status'] as String?;
-              if (status!= 'ringing') return;
+              if (status != 'ringing') return;
 
               final invite = CallInvite.fromJson(row);
-
-              // Anti self-call
               if (invite.callerId == myId) return;
 
-              // Busy check : si j'ai déjà un call en cours, je refuse direct
               final busy = await _isBusy(myId);
               if (busy) {
                 await update(invite.id, 'busy');
@@ -61,13 +68,13 @@ class CallSignalingService {
               }
 
               debugPrint('📞 Incoming call ${invite.id} from ${invite.callerId}');
-              onRinging(invite);
+              _inviteController?.add(invite);
             } catch (e) {
               debugPrint('❌ listenMyInvites parse error: $e');
             }
           },
         )
-       .onPostgresChanges(
+        .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'call_invites',
@@ -77,40 +84,50 @@ class CallSignalingService {
             value: myId,
           ),
           callback: (payload) {
-            // Optionnel: si l'appelant annule, tu peux fermer l'écran entrant
             final newStatus = payload.newRecord['status'];
             if (newStatus == 'ended' || newStatus == 'canceled') {
               debugPrint('📴 Caller canceled');
             }
           },
         )
-       .subscribe((status, err) {
+        .subscribe((status, err) {
           debugPrint('🔔 Realtime status $status err $err');
         });
 
-    // Fallback polling toutes les 8s si Realtime KO (réseau faible)
     _pollSub?.cancel();
     _pollSub = Stream.periodic(const Duration(seconds: 8)).listen((_) async {
       try {
         final rows = await _db
-           .from('call_invites')
-           .select()
-           .eq('callee_id', myId)
-           .eq('status', 'ringing')
-           .order('created_at', ascending: false)
-           .limit(1);
+            .from('call_invites')
+            .select()
+            .eq('callee_id', myId)
+            .eq('status', 'ringing')
+            .order('created_at', ascending: false)
+            .limit(1);
 
         if (rows.isNotEmpty) {
           final invite = CallInvite.fromJson(rows.first as Map<String, dynamic>);
-          // Seulement si créé il y a < 30s
           final age = DateTime.now().difference(invite.createdAt).inSeconds;
           if (age < 30) {
             final busy = await _isBusy(myId);
-            if (!busy) onRinging(invite);
+            if (!busy) _inviteController?.add(invite);
           }
         }
       } catch (_) {}
     });
+  }
+
+  void _stopListening() {
+    _isListening = false;
+    _pollSub?.cancel();
+    _pollSub = null;
+    if (_channel != null) {
+      try {
+        _channel!.unsubscribe();
+        _db.removeChannel(_channel!);
+      } catch (_) {}
+      _channel = null;
+    }
   }
 
   // ============================================================
@@ -123,17 +140,15 @@ class CallSignalingService {
   }) async {
     final uid = _db.auth.currentUser?.id;
     if (uid == null) throw Exception('Not authenticated');
-
     if (uid == calleeId) throw Exception('Cannot call yourself');
 
-    // Check callee busy
     final busy = await _isBusy(calleeId);
     if (busy) throw Exception('User is busy');
 
     final caller = _db.auth.currentUser;
     final meta = caller?.userMetadata;
-    final callerName = meta?['full_name']?? meta?['name']?? 'Inconnu';
-    final callerAvatar = meta?['avatar_url']?? meta?['picture'];
+    final callerName = meta?['full_name'] ?? meta?['name'] ?? 'Inconnu';
+    final callerAvatar = meta?['avatar_url'] ?? meta?['picture'];
 
     final res = await _db
         .from('call_invites')
@@ -153,18 +168,15 @@ class CallSignalingService {
     return res['id'] as String;
   }
 
-  // ============================================================
-  // UPDATE - Changement de statut
-  // ============================================================
   Future<void> update(String id, String status) async {
     try {
       await _db
-         .from('call_invites')
-         .update({
+          .from('call_invites')
+          .update({
             'status': status,
             'updated_at': DateTime.now().toIso8601String(),
           })
-         .eq('id', id);
+          .eq('id', id);
       debugPrint('📝 Invite $id -> $status');
     } catch (e) {
       debugPrint('❌ update error $e');
@@ -178,17 +190,14 @@ class CallSignalingService {
   Future<void> end(String id) => update(id, 'ended');
   Future<void> miss(String id) => update(id, 'missed');
 
-  // ============================================================
-  // HELPERS
-  // ============================================================
   Future<bool> _isBusy(String userId) async {
     try {
       final rows = await _db
-         .from('call_invites')
-         .select('id')
-         .or('caller_id.eq.$userId,callee_id.eq.$userId')
-         .inFilter('status', ['ringing', 'accepted', 'ongoing'])
-         .limit(1);
+          .from('call_invites')
+          .select('id')
+          .or('caller_id.eq.$userId,callee_id.eq.$userId')
+          .inFilter('status', ['ringing', 'accepted', 'ongoing'])
+          .limit(1);
       return rows.isNotEmpty;
     } catch (_) {
       return false;
@@ -204,19 +213,9 @@ class CallSignalingService {
     }
   }
 
-  // ============================================================
-  // DISPOSE - Safe
-  // ============================================================
   void dispose() {
-    _isListening = false;
-    _pollSub?.cancel();
-    _pollSub = null;
-    if (_channel!= null) {
-      try {
-        _channel!.unsubscribe();
-        _db.removeChannel(_channel!);
-      } catch (_) {}
-      _channel = null;
-    }
+    _stopListening();
+    _inviteController?.close();
+    _inviteController = null;
   }
 }
