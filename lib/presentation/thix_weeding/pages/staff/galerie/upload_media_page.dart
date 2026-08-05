@@ -7,7 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 // SEUL PROVIDER UTILE ICI
-import '../../../staff/providers/thix_weeding_providers.dart';
+
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
 
 class UploadMediaPage extends ConsumerStatefulWidget {
   final String weddingId;
