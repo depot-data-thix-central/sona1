@@ -936,7 +936,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 11,
-                                      fontWeight: FontWeight.w800 bel,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                 ),
