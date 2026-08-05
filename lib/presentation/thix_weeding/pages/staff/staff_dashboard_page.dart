@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 // CENTRAUX - SERVICE UNIQUEMENT VIA PROVIDERS
-import '../../staff/models/thix_weeding_models.dart';
-import '../../staff/providers/thix_weeding_providers.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
 
 class StaffDashboardPage extends ConsumerWidget {
   final String weddingId;
