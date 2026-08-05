@@ -415,39 +415,36 @@ class ChatService {
     return ChatMessage.fromJson(response);
   }
 
-  Future<ChatMessage> sendAudioMessage({
-    required String conversationId,
-    required Uint8List audioData,
-    required int duration,
-    String? fileName,
-  }) async {
-    final bucket = 'audio';
-    final extension = fileName?.split('.').last ?? 'm4a';
-    final uniqueName = '${const Uuid().v4()}.$extension';
-    final path = 'messages/$conversationId/$uniqueName';
+  // AUDIO (avec support ephemeral)
+// ============================================================
 
-    await _supabase.storage.from(bucket).uploadBinary(path, audioData);
-    final audioUrl = _supabase.storage.from(bucket).getPublicUrl(path);
+Future<ChatMessage> sendAudioMessage({
+  required String conversationId,
+  required Uint8List audioData,
+  required int duration,
+  String? fileName,
+  bool isEphemeral = false,
+  int? ephemeralDuration,
+  String? replyToId,
+}) async {
+  final bucket = 'audio';
+  final extension = fileName?.split('.').last ?? 'm4a';
+  final uniqueName = '${const Uuid().v4()}.$extension';
+  final path = 'messages/$conversationId/$uniqueName';
 
-    return sendMessage(
-      conversationId: conversationId,
-      content: '🎤 Message audio (${duration}s)',
-      mediaUrl: audioUrl,
-      mediaType: 'audio',
-    );
-  }
+  await _supabase.storage.from(bucket).uploadBinary(path, audioData);
+  final audioUrl = _supabase.storage.from(bucket).getPublicUrl(path);
 
-  Future<void> deleteMessage(String messageId) async {
-    try {
-      await _supabase.from('messages').update({
-        'is_deleted': true,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', messageId);
-    } catch (e) {
-      debugPrint('❌ deleteMessage: $e');
-      rethrow;
-    }
-  }
+  return sendMessage(
+    conversationId: conversationId,
+    content: '🎤 Message audio (${duration}s)',
+    mediaUrl: audioUrl,
+    mediaType: 'audio',
+    isEphemeral: isEphemeral,
+    ephemeralDuration: ephemeralDuration,
+    replyToId: replyToId,
+  );
+}
 
   Future<void> toggleReaction(String messageId, String reaction) async {
     final uid = currentUserId;
@@ -476,23 +473,28 @@ class ChatService {
     }
   }
 
-  // ============================================================
-  // UPLOAD
-  // ============================================================
+  /// ============================================================
+// UPLOAD (signature attendue par chat_screen)
+// ============================================================
 
-  Future<String> uploadFileWithUniqueName({
-    required String bucket,
-    required Uint8List data,
-    required String fileName,
-    String? folder,
-  }) async {
-    final extension = fileName.split('.').last;
+/// Signature positionnelle utilisée dans chat_screen.dart
+Future<String?> uploadFileWithUniqueName(
+  String bucket,
+  String folder,
+  Uint8List data,
+  String extension,
+) async {
+  try {
     final uniqueName = '${const Uuid().v4()}.$extension';
-    final path = folder != null ? '$folder/$uniqueName' : uniqueName;
+    final path = '$folder/$uniqueName';
 
     await _supabase.storage.from(bucket).uploadBinary(path, data);
     return _supabase.storage.from(bucket).getPublicUrl(path);
+  } catch (e) {
+    debugPrint('❌ uploadFileWithUniqueName: $e');
+    return null;
   }
+}
 
   // ============================================================
   // REALTIME (basique)
