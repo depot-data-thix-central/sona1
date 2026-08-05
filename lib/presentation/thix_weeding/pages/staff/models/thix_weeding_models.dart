@@ -315,26 +315,45 @@ class MessageModel {
 class PaymentModel {
   final String id;
   final String weddingId;
+  final String? vendorId;
+  final String? expenseId;
   final double amount;
   final String method;
   final String status;
+  final String? referenceCode;
   final DateTime createdAt;
+  final String? vendorName;
+  final String? expenseTitle;
 
   PaymentModel({
     required this.id,
     required this.weddingId,
+    this.vendorId,
+    this.expenseId,
     required this.amount,
     required this.method,
     required this.status,
+    this.referenceCode,
     required this.createdAt,
+    this.vendorName,
+    this.expenseTitle,
   });
 
   factory PaymentModel.fromJson(Map<String, dynamic> j) => PaymentModel(
         id: j['id'],
         weddingId: j['wedding_id'],
+        vendorId: j['vendor_id'],
+        expenseId: j['expense_id'],
         amount: (j['amount'] as num).toDouble(),
         method: j['method'] ?? 'cash',
         status: j['status'] ?? 'pending',
+        referenceCode: j['reference_code'],
         createdAt: DateTime.parse(j['created_at']),
+        vendorName: j['thix_weeding_vendors'] is Map
+            ? j['thix_weeding_vendors']['name']
+            : null,
+        expenseTitle: j['thix_weeding_expenses'] is Map
+            ? j['thix_weeding_expenses']['title']
+            : null,
       );
 }
