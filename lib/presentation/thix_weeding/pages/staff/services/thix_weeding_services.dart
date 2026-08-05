@@ -90,6 +90,15 @@ class VendorService {
         .toList();
   }
 
+  Future<VendorModel> getById(String id) async {
+    final res = await _c
+        .from('thix_weeding_vendors')
+        .select('*, thix_weeding_vendor_packages(*)')
+        .eq('id', id)
+        .single();
+    return VendorModel.fromJson(res);
+  }
+
   Future<VendorModel> create(Map<String, dynamic> data) async {
     final res =
         await _c.from('thix_weeding_vendors').insert(data).select().single();
@@ -101,48 +110,6 @@ class VendorService {
 
   Future<void> delete(String id) async =>
       await _c.from('thix_weeding_vendors').delete().eq('id', id);
-}
-
-class BudgetService {
-  final _c = Supabase.instance.client;
-
-  Future<BudgetModel?> getBudget(String weddingId) async {
-    final res = await _c
-        .from('thix_weeding_budget')
-        .select()
-        .eq('wedding_id', weddingId)
-        .maybeSingle();
-    return res == null ? null : BudgetModel.fromJson(res);
-  }
-
-  Future<BudgetModel> upsert(String weddingId, double total) async {
-    final res = await _c
-        .from('thix_weeding_budget')
-        .upsert({'wedding_id': weddingId, 'total_budget': total})
-        .select()
-        .single();
-    return BudgetModel.fromJson(res);
-  }
-
-  Future<List<ExpenseModel>> getExpenses(String weddingId) async {
-    final res = await _c
-        .from('thix_weeding_expenses')
-        .select()
-        .eq('wedding_id', weddingId)
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(res)
-        .map((e) => ExpenseModel.fromJson(e))
-        .toList();
-  }
-
-  Future<ExpenseModel> createExpense(Map<String, dynamic> data) async {
-    final res =
-        await _c.from('thix_weeding_expenses').insert(data).select().single();
-    return ExpenseModel.fromJson(res);
-  }
-
-  Future<void> deleteExpense(String id) async =>
-      await _c.from('thix_weeding_expenses').delete().eq('id', id);
 }
 
 class ChecklistService {
