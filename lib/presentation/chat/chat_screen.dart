@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +35,7 @@ import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
 // CHARTE THIX + STYLE WHATSAPP ENTERPRISE
 // ─────────────────────────────────────────────────────────────
 class _C {
-  static const bg = Color(0xFFE5DDD5); // fond type WhatsApp
+  static const bg = Color(0xFFEFE6DD); // fond beige type WhatsApp
   static const surface = Colors.white;
   static const surfaceAlt = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
@@ -47,7 +48,7 @@ class _C {
   static const green = Color(0xFF22C55E);
   static const orange = Color(0xFFF59E0B);
   static const gold = Color(0xFFE3B23C);
-  static const bubbleOwn = Color(0xFFDCF8C6); // vert WhatsApp soft
+  static const bubbleOwn = Color(0xFFE7FFDB); // Vert WhatsApp classique
   static const bubbleOther = Colors.white;
 }
 
@@ -308,7 +309,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _markAsRead() async {
     await ref.read(chatServiceProvider).markAsRead(widget.conversationId);
     try {
-      ref.read(chatListProvider.notifier).refresh();
+      ref.read(chatListProvider.notifier).refresh(silent: true);
     } catch (_) {}
   }
 
@@ -627,57 +628,133 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // MODIFICATION : MINUTEUR ÉPHÉMÈRE AVEC CHAMP PERSONNALISÉ
+  // ─────────────────────────────────────────────────────────────
   void _showEphemeralTimerDialog() {
+    bool showCustomInput = false;
+    final customTimeCtrl = TextEditingController();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _C.border,
-                borderRadius: BorderRadius.circular(4),
+      isScrollControlled: true, // Permet au bottom sheet de monter avec le clavier
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return Padding(
+            // Padding dynamique pour éviter que le clavier ne cache le champ
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _C.border,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Message éphémère',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  if (!showCustomInput) ...[
+                    // Options prédéfinies
+                    ...[
+                      ('Désactivé', null),
+                      ('10 secondes', 10),
+                      ('1 minute', 60),
+                      ('1 heure', 3600),
+                      ('24 heures', 86400),
+                    ].map((e) {
+                      final selected = _ephemeralDuration == e.$2;
+                      return ListTile(
+                        title: Text(e.$1),
+                        trailing: selected
+                            ? const Icon(Icons.check_circle, color: _C.primary)
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _ephemeralDuration = e.$2;
+                            _isEphemeral = e.$2 != null;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    }),
+                    // Bouton pour activer le champ personnalisé
+                    ListTile(
+                      title: const Text('Personnalisé...', style: TextStyle(color: _C.primary, fontWeight: FontWeight.w600)),
+                      leading: const Icon(Icons.timer_outlined, color: _C.primary),
+                      onTap: () {
+                        setModalState(() => showCustomInput = true);
+                      },
+                    ),
+                  ] else ...[
+                    // Champ de saisie personnalisé
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: customTimeCtrl,
+                              keyboardType: TextInputType.number,
+                              autofocus: true,
+                              decoration: InputDecoration(
+                                labelText: 'Durée en secondes',
+                                hintText: 'Ex: 45',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _C.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                            ),
+                            onPressed: () {
+                              final val = int.tryParse(customTimeCtrl.text.trim());
+                              if (val != null && val > 0) {
+                                setState(() {
+                                  _ephemeralDuration = val;
+                                  _isEphemeral = true;
+                                });
+                                Navigator.pop(ctx);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Veuillez entrer un nombre valide.'), backgroundColor: _C.orange)
+                                );
+                              }
+                            },
+                            child: const Text('Valider', style: TextStyle(color: Colors.white)),
+                          )
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => setModalState(() => showCustomInput = false),
+                      child: const Text('Retour aux options', style: TextStyle(color: _C.textMuted)),
+                    )
+                  ]
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Message éphémère',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            ...[
-              ('Désactivé', null),
-              ('10 secondes', 10),
-              ('1 minute', 60),
-              ('1 heure', 3600),
-              ('24 heures', 86400),
-            ].map((e) {
-              final selected = _ephemeralDuration == e.$2;
-              return ListTile(
-                title: Text(e.$1),
-                trailing: selected
-                    ? const Icon(Icons.check_circle, color: _C.primary)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _ephemeralDuration = e.$2;
-                    _isEphemeral = e.$2 != null;
-                  });
-                  Navigator.pop(ctx);
-                },
-              );
-            }),
-          ],
-        ),
+          );
+        }
       ),
     );
   }
@@ -949,12 +1026,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   String _getPresenceText(UserStatus status) {
     final lastSeen = status.lastSeenAt;
     final diff = DateTime.now().difference(lastSeen);
-    if (status.status == 'online' && diff.inMinutes <= 2) return 'En ligne';
+    if (status.status == 'online' && diff.inMinutes <= 2) {
+      return 'En ligne';
+    }
     return 'Vu ${_formatLastSeen(lastSeen)}';
   }
 
   bool get _isOnline {
-    if (_otherParticipant == null) return false;
+    if (_otherParticipant == null) {
+      return false;
+    }
     final diff = DateTime.now().difference(_otherParticipant!.lastSeenAt);
     return _otherParticipant!.status == 'online' && diff.inMinutes <= 2;
   }
@@ -972,10 +1053,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       appBar: _buildAppBar(),
       body: Stack(
         children: [
-          // Fond type WhatsApp (motif discret)
+          // Fond Thix Chat Doodle façon WhatsApp
           Positioned.fill(
             child: CustomPaint(
-              painter: _WhatsAppPatternPainter(),
+              painter: _WhatsAppDoodlePainter(),
             ),
           ),
           Column(
@@ -1439,23 +1520,133 @@ class _FilesPreview extends StatelessWidget {
   }
 }
 
-/// Motif de fond discret style WhatsApp
-class _WhatsAppPatternPainter extends CustomPainter {
+// ─────────────────────────────────────────────────────────────
+// NOUVEAU FOND D'ÉCRAN : "DOODLE" STYLE WHATSAPP
+// ─────────────────────────────────────────────────────────────
+class _WhatsAppDoodlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFD1C7B7).withValues(alpha: 0.35)
-      ..style = PaintingStyle.fill;
+      ..color = const Color(0xFFD3C7B5).withOpacity(0.4) // Couleur subtile 
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    const step = 28.0;
+    final double step = 60.0; // Espacement de la grille
+    int i = 0;
+
     for (double y = 0; y < size.height; y += step) {
       for (double x = 0; x < size.width; x += step) {
-        // petits losanges / points alternés
-        if (((x ~/ step) + (y ~/ step)) % 3 == 0) {
-          canvas.drawCircle(Offset(x + 6, y + 6), 1.2, paint);
+        canvas.save();
+        // Léger décalage pour ne pas faire trop "grille parfaite"
+        final offsetX = x + (y % (step * 2) == 0 ? 0 : step / 2);
+        canvas.translate(offsetX + 30, y + 30);
+        
+        // Rotation aléatoire légère pour le style dessiné à la main
+        canvas.rotate((i * 0.5) % (2 * math.pi));
+
+        // Dessine une forme différente selon la position (motif répétitif)
+        int shapeType = i % 7;
+        
+        switch (shapeType) {
+          case 0:
+            _drawStar(canvas, paint);
+            break;
+          case 1:
+            _drawBubble(canvas, paint);
+            break;
+          case 2:
+            _drawZigZag(canvas, paint);
+            break;
+          case 3:
+            _drawCircleDot(canvas, paint);
+            break;
+          case 4:
+            _drawTriangle(canvas, paint);
+            break;
+          case 5:
+            _drawPaperclip(canvas, paint);
+            break;
+          case 6:
+            _drawHeart(canvas, paint);
+            break;
         }
+        
+        canvas.restore();
+        i++;
       }
     }
+  }
+
+  void _drawStar(Canvas canvas, Paint paint) {
+    Path path = Path();
+    path.moveTo(0, -6);
+    path.lineTo(2, -2);
+    path.lineTo(6, -2);
+    path.lineTo(3, 1);
+    path.lineTo(4, 5);
+    path.lineTo(0, 3);
+    path.lineTo(-4, 5);
+    path.lineTo(-3, 1);
+    path.lineTo(-6, -2);
+    path.lineTo(-2, -2);
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawBubble(Canvas canvas, Paint paint) {
+    Path path = Path();
+    path.addRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-6, -5, 12, 10), const Radius.circular(3)));
+    path.moveTo(-3, 5);
+    path.lineTo(-4, 8);
+    path.lineTo(-1, 5);
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawZigZag(Canvas canvas, Paint paint) {
+    Path path = Path();
+    path.moveTo(-6, -3);
+    path.lineTo(-2, 3);
+    path.lineTo(2, -3);
+    path.lineTo(6, 3);
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawCircleDot(Canvas canvas, Paint paint) {
+    canvas.drawCircle(const Offset(0, 0), 5, paint);
+    canvas.drawCircle(const Offset(0, 0), 1, paint..style = PaintingStyle.fill);
+    paint.style = PaintingStyle.stroke; // reset
+  }
+
+  void _drawTriangle(Canvas canvas, Paint paint) {
+    Path path = Path();
+    path.moveTo(0, -5);
+    path.lineTo(5, 4);
+    path.lineTo(-5, 4);
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawPaperclip(Canvas canvas, Paint paint) {
+    Path path = Path();
+    path.moveTo(-2, 4);
+    path.lineTo(-2, -3);
+    path.arcToPoint(const Offset(2, -3), radius: const Radius.circular(2));
+    path.lineTo(2, 5);
+    path.arcToPoint(const Offset(-4, 5), radius: const Radius.circular(3));
+    path.lineTo(-4, -2);
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawHeart(Canvas canvas, Paint paint) {
+    Path path = Path();
+    path.moveTo(0, 2);
+    path.cubicTo(-6, -2, -6, -6, -3, -6);
+    path.cubicTo(-1, -6, 0, -4, 0, -4);
+    path.cubicTo(0, -4, 1, -6, 3, -6);
+    path.cubicTo(6, -6, 6, -2, 0, 2);
+    canvas.drawPath(path, paint);
   }
 
   @override
