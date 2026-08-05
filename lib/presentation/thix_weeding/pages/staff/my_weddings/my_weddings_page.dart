@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../staff/models/thix_weeding_models.dart';
-import '../../../staff/providers/thix_weeding_providers.dart';
-import '../../../staff/services/thix_weeding_services.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/services/thix_weeding_services.dart';
 
 class MyWeddingsPage extends ConsumerWidget {
   const MyWeddingsPage({super.key});
