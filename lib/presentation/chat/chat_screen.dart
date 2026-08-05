@@ -956,12 +956,12 @@ Widget _stickerGrid(
     return 'Vu ${_formatLastSeen(lastSeen)}';
   }
 
-  bool get _isOnline {
+    bool get _isOnline {
     if (_otherParticipant == null) return false;
-    final diff =
-        DateTime.now().difference(_otherParticipant!.lastSeenAt);
+    final diff = DateTime.now().difference(_otherParticipant!.lastSeenAt);
     return _otherParticipant!.status == 'online' && diff.inMinutes <= 2;
   }
+
 
   // ─────────────────────── UI ───────────────────────
 
