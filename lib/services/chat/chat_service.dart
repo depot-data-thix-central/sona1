@@ -257,7 +257,7 @@ Future<void> markAsRead(String conversationId) async {
 }
 
 /// Membres d'un groupe
-Future<List<Map<String, dynamic>>> getGroupMembers(String conversationId) async {
+Future<List<GroupMember>> getGroupMembers(String conversationId) async {
   try {
     final response = await _supabase
         .from('conversation_participants')
@@ -272,11 +272,26 @@ Future<List<Map<String, dynamic>>> getGroupMembers(String conversationId) async 
         ''')
         .eq('conversation_id', conversationId);
 
-    return List<Map<String, dynamic>>.from(response as List);
+    return (response as List).map((row) {
+      final map = Map<String, dynamic>.from(row as Map);
+      final profile = map['profiles'] as Map<String, dynamic>?;
+
+      return GroupMember(
+        userId: map['user_id']?.toString() ?? '',
+        displayName: profile?['display_name']?.toString() ??
+            profile?['full_name']?.toString() ??
+            'Utilisateur',
+        avatarUrl: profile?['avatar_url']?.toString(),
+        role: map['role']?.toString() ?? 'member',
+        isOnline: false,
+        joinedAt: DateTime.now(),
+      );
+    }).toList();
   } catch (e) {
     debugPrint('❌ getGroupMembers: $e');
     return [];
   }
+}
 }
 
 /// Stream de présence pour une liste d'utilisateurs
