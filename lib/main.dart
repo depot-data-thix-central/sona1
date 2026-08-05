@@ -67,11 +67,11 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     try {
       final supabaseClient = Supabase.instance.client;
       final currentSession = supabaseClient.auth.currentSession;
+      
       if (currentSession != null && currentSession.isExpired) {
         await supabaseClient.auth.refreshSession();
-      } else if (currentSession == null) {
-        await supabaseClient.auth.recoverSession();
       }
+      
       await _auth.init();
     } catch (e) {
       debugPrint('⚠️ Erreur de réveil session: $e');
