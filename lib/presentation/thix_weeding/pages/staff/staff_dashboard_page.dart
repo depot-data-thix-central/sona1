@@ -430,4 +430,164 @@ class _DashCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color),
+                ),
+                const SizedBox(height: 8),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                const Spacer(),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Icon(Icons.chevron_right, size: 16, color: Colors.grey[400]),
+                ),
+              ],
+            ),
+            if (badge.isNotEmpty && badge != '0')
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badge,
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentsCard extends StatelessWidget {
+  final double totalSpent;
+  final double totalBudget;
+  final VoidCallback onTap;
+
+  const _PaymentsCard({required this.totalSpent, required this.totalBudget, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.credit_card, color: Colors.green),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Paiements', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Suivez vos paiements', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    ],
+                  ),
+                ),
+                Text('\$${totalSpent.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 11)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: (totalBudget > 0 ? totalSpent / totalBudget : 0.0).clamp(0.0, 1.0).toDouble(),
+              color: Colors.green,
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Sur \$${totalBudget.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                const Icon(Icons.chevron_right, size: 16),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountdownCard extends StatelessWidget {
+  final int days;
+  final String dateStr;
+
+  const _CountdownCard({required this.days, required this.dateStr});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('J - $days ❤️', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          Text(dateStr, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _TimeBox(v: '$days', l: 'Jours'),
+              _TimeBox(v: '${DateTime.now().hour}', l: 'Heures'),
+              _TimeBox(v: '${DateTime.now().minute}', l: 'Min'),
+              _TimeBox(v: '${DateTime.now().second}', l: 'Sec'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimeBox extends StatelessWidget {
+  final String v;
+  final String l;
+
+  const _TimeBox({required this.v, required this.l});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(v, style: const TextStyle(color: Colors.pink, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(l, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ],
+    );
+  }
+}
