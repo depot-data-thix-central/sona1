@@ -50,15 +50,21 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
 
   void _subscribeRealtime() {
     _channel = Supabase.instance.client
-        .channel('chat_${widget.weddingId}_${widget.guestIdOrName}')
+        .channel('chat_\( {widget.weddingId}_ \){widget.guestIdOrName}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'thix_weeding_messages',
-          filter: PostgresChangeFilter(column: 'wedding_id', value: widget.weddingId),
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'wedding_id',
+            value: widget.weddingId,
+          ),
           callback: (payload) {
             final newMsg = MessageModel.fromJson(payload.newRecord);
-            if (newMsg.guestId == widget.guestIdOrName || newMsg.senderName == widget.guestIdOrName || widget.guestIdOrName.length > 20) {
+            if (newMsg.guestId == widget.guestIdOrName ||
+                newMsg.senderName == widget.guestIdOrName ||
+                widget.guestIdOrName.length > 20) {
               setState(() => _messages.add(newMsg));
               _jumpToBottom();
             }
