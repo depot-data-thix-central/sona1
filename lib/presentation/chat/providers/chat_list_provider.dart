@@ -8,6 +8,7 @@ import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
+
 // ============================================================
 // STATE
 // ============================================================
@@ -67,7 +68,9 @@ class ChatListState {
 // ============================================================
 
 class ChatListNotifier extends StateNotifier<ChatListState> {
-  
+  final ChatService _chatService;
+  final PresenceService _presenceService;
+
   static const int _limit = 20;
 
   Timer? _debounce;
@@ -81,9 +84,6 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
     loadInitial();
   }
 
-  // ----------------------------------------------------------
-  // REALTIME (léger)
-  // ----------------------------------------------------------
   void _subscribeRealtime() {
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
@@ -95,9 +95,7 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
           schema: 'public',
           table: 'messages',
           callback: (_) {
-            if (!_isDisposed) {
-              loadInitial(silent: true);
-            }
+            if (!_isDisposed) loadInitial(silent: true);
           },
         )
         .onPostgresChanges(
@@ -105,37 +103,31 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
           schema: 'public',
           table: 'messages',
           callback: (_) {
-            if (!_isDisposed) {
-              _refreshCounts();
-            }
+            if (!_isDisposed) _refreshCounts();
           },
         )
         .subscribe();
   }
 
-  // ----------------------------------------------------------
-  // CHARGEMENT
-  // ----------------------------------------------------------
   Future<void> loadInitial({bool silent = false}) async {
     if (!silent) {
       state = state.copyWith(isLoading: true);
     }
 
     try {
-      final results = await Future.wait([
-        _chatService.getConversations(limit: _limit, offset: 0),
-        _chatService.getTotalUnreadCount(),
-        _getPendingEscalations(),
-      ]);
+      final convs = await _chatService.getConversations(
+        limit: _limit,
+        offset: 0,
+      );
+      final unread = await _chatService.getTotalUnreadCount();
+      final escalations = await _getPendingEscalations();
 
       if (_isDisposed) return;
 
-      final convs = results[0] as List<ChatConversation>;
-
       state = state.copyWith(
         all: convs,
-        totalUnread: results[1] as int,
-        pendingEscalations: results[2] as int,
+        totalUnread: unread,
+        pendingEscalations: escalations,
         hasMore: convs.length == _limit,
         isLoading: false,
       );
@@ -162,9 +154,10 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
 
       if (_isDisposed) return;
 
-      final merged = [...state.all, ...newConvs];
+      final merged = <ChatConversation>[...state.all, ...newConvs];
       final seen = <String>{};
-      final deduped = merged.where((c) => seen.add(c.id)).toList();
+      final deduped =
+          merged.where((c) => seen.add(c.id)).toList();
 
       state = state.copyWith(
         all: deduped,
@@ -183,9 +176,6 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
 
   Future<void> refresh() => loadInitial();
 
-  // ----------------------------------------------------------
-  // COMPTEURS
-  // ----------------------------------------------------------
   Future<void> _refreshCounts() async {
     try {
       final unread = await _chatService.getTotalUnreadCount();
@@ -213,9 +203,6 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
     }
   }
 
-  // ----------------------------------------------------------
-  // RECHERCHE + FILTRES
-  // ----------------------------------------------------------
   void search(String raw) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () {
@@ -231,7 +218,7 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
   }
 
   void _applyFilter() {
-    List<ChatConversation> base = List.from(state.all);
+    List<ChatConversation> base = List<ChatConversation>.from(state.all);
 
     if (state.searchQuery.isNotEmpty) {
       final q = state.searchQuery;
@@ -242,13 +229,13 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
     }
 
     switch (state.filterIndex) {
-      case 1: // Non lues
+      case 1:
         base = base.where((c) => c.unreadCount > 0).toList();
         break;
-      case 2: // Équipes (groupes)
+      case 2:
         base = base.where((c) => c.isGroup).toList();
         break;
-      case 3: // Personnelles
+      case 3:
         base = base.where((c) => !c.isGroup).toList();
         break;
       default:
@@ -258,22 +245,15 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
     state = state.copyWith(filtered: base);
   }
 
-  // ----------------------------------------------------------
-  // MARK AS READ (optimiste + RPC)
-  // ----------------------------------------------------------
   Future<void> markAsRead(String convId) async {
-    // 1. Optimistic UI
     final updated = state.all.map((c) {
-      if (c.id == convId) {
-        return c.copyWith(unreadCount: 0);
-      }
+      if (c.id == convId) return c.copyWith(unreadCount: 0);
       return c;
     }).toList();
 
     state = state.copyWith(all: updated);
     _applyFilter();
 
-    // 2. Appel réel
     try {
       await _chatService.markConversationAsRead(convId);
       await _refreshCounts();
@@ -282,9 +262,6 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
     }
   }
 
-  // ----------------------------------------------------------
-  // DISPOSE
-  // ----------------------------------------------------------
   @override
   void dispose() {
     _isDisposed = true;
@@ -294,13 +271,9 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
   }
 }
 
-/// ============================================================
-// PROVIDERS — importés depuis la source unique
 // ============================================================
-
-
-
-// (garde uniquement chatListProvider ici)
+// PROVIDER
+// ============================================================
 
 final chatListProvider =
     StateNotifierProvider<ChatListNotifier, ChatListState>((ref) {
