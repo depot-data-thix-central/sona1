@@ -2,55 +2,130 @@
 <html lang="fr">
 <head>
   <base href="$FLUTTER_BASE_HREF">
-  <!-- Vos autres balises meta, title, etc. -->
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="THIX ID CENTRAL - Identité numérique sécurisée">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="THIX ID">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>THIX ID CENTRAL</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Empêche le flash blanc/noir au chargement */
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #000000;
+      overflow: hidden;
+    }
+    /* Loading indicator pendant le bootstrap Flutter */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      color: #ffffff;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
-  <!-- L'initialisation normale de Flutter -->
+  <!-- Indicateur de chargement (optionnel) -->
+  <div id="loading" class="loading">Chargement THIX ID...</div>
+
+  <!-- Bootstrap Flutter -->
   <script src="flutter_bootstrap.js" async></script>
 
-  <!-- Gestion fiable de la perte de contexte WebGL -->
+  <!-- ============================================================
+       Gestion robuste de la perte de contexte WebGL
+       (cause principale de l'écran noir après inactivité)
+       ============================================================ -->
   <script>
     (function () {
       let contextLost = false;
+      let lastVisibility = document.visibilityState;
 
-      function attachRecovery(canvas) {
+      function attachToCanvas(canvas) {
         if (!canvas || canvas.__thixRecoveryAttached) return;
         canvas.__thixRecoveryAttached = true;
 
-        canvas.addEventListener('webglcontextlost', (e) => {
+        canvas.addEventListener('webglcontextlost', function (e) {
           e.preventDefault();
           contextLost = true;
-          console.warn('WebGL context lost');
-        });
+          console.warn('[THIX] WebGL context lost');
+        }, false);
 
-        canvas.addEventListener('webglcontextrestored', () => {
-          console.log('WebGL context restored');
+        canvas.addEventListener('webglcontextrestored', function () {
           contextLost = false;
+          console.log('[THIX] WebGL context restored');
+        }, false);
+      }
+
+      function attachToAllCanvases() {
+        // Sélecteurs compatibles avec les anciennes et nouvelles versions de Flutter
+        const selectors = [
+          'flt-glass-pane canvas',
+          'flutter-view canvas',
+          'flt-scene-host canvas',
+          'canvas'
+        ];
+
+        selectors.forEach(function (sel) {
+          document.querySelectorAll(sel).forEach(attachToCanvas);
         });
       }
 
-      function findCanvasAndAttach() {
-        const canvas = document.querySelector('flt-glass-pane canvas') || document.querySelector('canvas');
-        if (canvas) {
-          attachRecovery(canvas);
-        } else {
-          setTimeout(findCanvasAndAttach, 500);
-        }
-      }
+      // Observer le DOM car Flutter crée le canvas dynamiquement
+      const observer = new MutationObserver(function () {
+        attachToAllCanvases();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
 
-      window.addEventListener('load', findCanvasAndAttach);
-
-      // Au retour de l'app / de l'onglet : ne recharger QUE si le contexte
-      // a réellement été perdu (flag mis par webglcontextlost), jamais sur
-      // un test getContext() qui renvoie toujours null pour un contexte
-      // déjà de type webgl2/bitmaprenderer.
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+      // Au retour de l'onglet / de l'app
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && lastVisibility === 'hidden') {
           if (contextLost) {
-            console.warn('Reprise après perte de contexte WebGL confirmée → reload');
+            console.warn('[THIX] Context lost détecté → reload forcé');
             window.location.reload();
+          } else {
+            // Filet de sécurité : si le canvas est mort (width 0)
+            setTimeout(function () {
+              const canvas = document.querySelector('canvas');
+              if (canvas && (canvas.width === 0 || canvas.height === 0)) {
+                console.warn('[THIX] Canvas mort détecté → reload');
+                window.location.reload();
+              }
+            }, 400);
           }
         }
+        lastVisibility = document.visibilityState;
+      });
+
+      // Attachement initial + filet de sécurité périodique
+      window.addEventListener('load', function () {
+        // Cache le loading indicator une fois Flutter prêt
+        setTimeout(function () {
+          const loading = document.getElementById('loading');
+          if (loading) loading.style.display = 'none';
+        }, 2500);
+
+        setTimeout(attachToAllCanvases, 600);
+        setTimeout(attachToAllCanvases, 1500);
+        // Vérification périodique (utile sur mobile)
+        setInterval(attachToAllCanvases, 4000);
       });
     })();
   </script>
