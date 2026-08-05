@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// TES 3 FICHIERS CENTRAUX
+// TES FICHIERS CENTRAUX (Imports propres)
 import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
 import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
 
@@ -46,7 +46,7 @@ class _ChecklistPageState extends ConsumerState<ChecklistPage> {
 
   Future<void> _toggleDone(ChecklistModel task, bool? value) async {
     try {
-      await ref.read(checklistServiceProvider).toggleDone(task.id, value?? false);
+      await ref.read(checklistServiceProvider).toggleDone(task.id, value ?? false);
       ref.invalidate(checklistProvider(widget.weddingId));
       ref.invalidate(dashboardStatsProvider(widget.weddingId));
     } catch (e) {
@@ -69,11 +69,11 @@ class _ChecklistPageState extends ConsumerState<ChecklistPage> {
         data: (List<ChecklistModel> tasks) {
           final total = tasks.length;
           final done = tasks.where((t) => t.isDone).length;
-          final percent = total > 0? done / total : 0.0;
+          final percent = total > 0 ? done / total : 0.0;
 
           final filtered = tasks.where((t) {
             if (_filter == 'done') return t.isDone;
-            if (_filter == 'todo') return!t.isDone;
+            if (_filter == 'todo') return !t.isDone;
             return true;
           }).toList();
 
@@ -96,7 +96,7 @@ class _ChecklistPageState extends ConsumerState<ChecklistPage> {
   }
 }
 
-// ================= WIDGETS INTERNES - Bonne lecture =================
+// ================= WIDGETS INTERNES =================
 
 class _ProgressCard extends StatelessWidget {
   final int done; final int total; final double percent;
@@ -184,8 +184,9 @@ class _TaskList extends StatelessWidget {
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
               child: ListTile(
                 leading: Checkbox(value: t.isDone, activeColor: const Color(0xFF0B3B8F), onChanged: (v) => onToggle(t, v)),
-                title: Text(t.title, style: TextStyle(decoration: t.isDone? TextDecoration.lineThrough : null, fontWeight: t.isDone? FontWeight.normal : FontWeight.bold, color: t.isDone? Colors.grey : Colors.black)),
-                subtitle: Text('ID: ${t.id.substring(0, 6)} • ${t.dueDate!= null? t.dueDate.toString().substring(0, 10) : 'Sans date'} • ${t.category}'),
+                title: Text(t.title, style: TextStyle(decoration: t.isDone ? TextDecoration.lineThrough : null, fontWeight: t.isDone ? FontWeight.normal : FontWeight.bold, color: t.isDone ? Colors.grey : Colors.black)),
+                // Corrigé : suppression de la référence à .category qui n'existe pas dans le modèle
+                subtitle: Text('ID: ${t.id.substring(0, 6)} • ${t.dueDate != null ? t.dueDate.toString().substring(0, 10) : 'Sans date'}'),
                 trailing: IconButton(icon: const Icon(Icons.more_vert), onPressed: () => context.push('/thix-weeding/staff/$weddingId/checklist/${t.id}')),
                 onTap: () => context.push('/thix-weeding/staff/$weddingId/checklist/${t.id}'),
               ),
