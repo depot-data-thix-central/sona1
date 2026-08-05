@@ -81,39 +81,17 @@ class GuestModel {
       );
 }
 
-class VendorPackageModel {
-  final String id;
-  final String vendorId;
-  final String title;
-  final double price;
-  final String? description;
-
-  VendorPackageModel({
-    required this.id,
-    required this.vendorId,
-    required this.title,
-    required this.price,
-    this.description,
-  });
-
-  factory VendorPackageModel.fromJson(Map<String, dynamic> j) =>
-      VendorPackageModel(
-        id: j['id'],
-        vendorId: j['vendor_id'],
-        title: j['title'],
-        price: (j['price'] as num).toDouble(),
-        description: j['description'],
-      );
-}
-
 class VendorModel {
   final String id;
   final String weddingId;
   final String name;
   final String category;
+  final String? contactName;
   final String? phone;
   final String? email;
   final double? price;
+  final String status; // ex: pending, confirmed, cancelled
+  final String? notes;
   final bool isBooked;
   final List<VendorPackageModel> packages;
   final DateTime createdAt;
@@ -123,9 +101,12 @@ class VendorModel {
     required this.weddingId,
     required this.name,
     required this.category,
+    this.contactName,
     this.phone,
     this.email,
     this.price,
+    this.status = 'pending',
+    this.notes,
     this.isBooked = false,
     this.packages = const [],
     required this.createdAt,
@@ -134,11 +115,14 @@ class VendorModel {
   factory VendorModel.fromJson(Map<String, dynamic> j) => VendorModel(
         id: j['id'],
         weddingId: j['wedding_id'],
-        name: j['name'],
-        category: j['category'],
+        name: j['name'] ?? '',
+        category: j['category'] ?? '',
+        contactName: j['contact_name'],
         phone: j['phone'],
         email: j['email'],
         price: (j['price'] as num?)?.toDouble(),
+        status: j['status'] ?? 'pending',
+        notes: j['notes'],
         isBooked: j['is_booked'] ?? false,
         packages: j['thix_weeding_vendor_packages'] != null
             ? (j['thix_weeding_vendor_packages'] as List)
