@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <base href="$FLUTTER_BASE_HREF">
@@ -8,40 +8,51 @@
   <!-- L'initialisation normale de Flutter -->
   <script src="flutter_bootstrap.js" async></script>
 
-  <!-- VOTRE SCRIPT ANTI-ÉCRAN NOIR ICI 👇 -->
+  <!-- Gestion fiable de la perte de contexte WebGL -->
   <script>
-    // Meilleure gestion de la perte de contexte WebGL (écran noir après inactivité)
-    function setupWebGLRecovery() {
-      const canvas = document.querySelector('flt-glass-pane canvas') || document.querySelector('canvas');
-      if (canvas) {
+    (function () {
+      let contextLost = false;
+
+      function attachRecovery(canvas) {
+        if (!canvas || canvas.__thixRecoveryAttached) return;
+        canvas.__thixRecoveryAttached = true;
+
         canvas.addEventListener('webglcontextlost', (e) => {
           e.preventDefault();
-          console.warn('WebGL context lost → rechargement');
-          window.location.reload();
+          contextLost = true;
+          console.warn('WebGL context lost');
         });
-        console.log('WebGL recovery listener attaché');
-      } else {
-        // Réessaie un peu plus tard (le canvas Flutter n’est pas toujours prêt)
-        setTimeout(setupWebGLRecovery, 500);
+
+        canvas.addEventListener('webglcontextrestored', () => {
+          console.log('WebGL context restored');
+          contextLost = false;
+        });
       }
-    }
 
-    window.addEventListener('load', setupWebGLRecovery);
+      function findCanvasAndAttach() {
+        const canvas = document.querySelector('flt-glass-pane canvas') || document.querySelector('canvas');
+        if (canvas) {
+          attachRecovery(canvas);
+        } else {
+          setTimeout(findCanvasAndAttach, 500);
+        }
+      }
 
-    // Quand on revient sur l’onglet
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        // Force un repaint
-        setTimeout(() => {
-          window.dispatchEvent(new Event('resize'));
-          // Optionnel : recharger si le canvas est mort
-          const canvas = document.querySelector('canvas');
-          if (canvas && canvas.getContext('webgl') === null) {
+      window.addEventListener('load', findCanvasAndAttach);
+
+      // Au retour de l'app / de l'onglet : ne recharger QUE si le contexte
+      // a réellement été perdu (flag mis par webglcontextlost), jamais sur
+      // un test getContext() qui renvoie toujours null pour un contexte
+      // déjà de type webgl2/bitmaprenderer.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          if (contextLost) {
+            console.warn('Reprise après perte de contexte WebGL confirmée → reload');
             window.location.reload();
           }
-        }, 200);
-      }
-    });
+        }
+      });
+    })();
   </script>
 </body>
 </html>
