@@ -5,9 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-// CENTRAUX
+// Imports des modèles et providers centraux
 import '../../../staff/models/thix_weeding_models.dart';
 import '../../../staff/providers/thix_weeding_providers.dart';
+import '../../../staff/services/thix_weeding_services.dart';
 
 final weddingInvitationProvider = FutureProvider.family<WeddingModel, String>((ref, weddingId) async {
   final data = await Supabase.instance.client.from('thix_weeding_weddings').select().eq('id', weddingId).single();
