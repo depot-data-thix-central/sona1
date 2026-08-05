@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as app_provider;
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
@@ -32,7 +33,7 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends ConsumerState<MyApp> {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   late final AuthController _auth;
   late final LocaleController _locale;
   GoRouter? _router;
@@ -41,9 +42,40 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _locale = LocaleController()..init();
     _auth = AuthController.instance;
     _initAuth();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🔄 Application résumée après inactivité (rafraîchissement session)');
+      _recoverSessionOnResume();
+    }
+  }
+
+  Future<void> _recoverSessionOnResume() async {
+    try {
+      final supabaseClient = Supabase.instance.client;
+      final currentSession = supabaseClient.auth.currentSession;
+      if (currentSession != null && currentSession.isExpired) {
+        await supabaseClient.auth.refreshSession();
+      } else if (currentSession == null) {
+        await supabaseClient.auth.recoverSession();
+      }
+      await _auth.init();
+    } catch (e) {
+      debugPrint('⚠️ Erreur de réveil session: $e');
+    }
   }
 
   Future<void> _initAuth() async {
@@ -53,11 +85,10 @@ class _MyAppState extends ConsumerState<MyApp> {
 
     final merged = Listenable.merge([_auth, _locale]);
 
-    // ⚠️ Passe le navigatorKey au router
     _router = AppRouter.create(
       _auth,
       extraRefreshListenable: merged,
-      navigatorKey: rootNavigatorKey, // ← à ajouter dans AppRouter.create
+      navigatorKey: rootNavigatorKey,
     );
 
     if (mounted) setState(() => _ready = true);
@@ -99,7 +130,6 @@ class _MyAppState extends ConsumerState<MyApp> {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        // GlobalCallListener enveloppe toute l'app
         builder: (context, child) {
           return GlobalCallListener(
             navigatorKey: rootNavigatorKey,
