@@ -1,4 +1,4 @@
-// lib/presentation/thix_weeding/staff/models/thix_weeding_models.dart
+// lib/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart
 
 class WeddingModel {
   final String id;
@@ -51,6 +51,8 @@ class GuestModel {
   final String name;
   final String? email;
   final String? phone;
+  final String? groupName;
+  final int guestsCount;
   final String rsvpStatus;
   final bool isPresent;
   final int? tableNumber;
@@ -62,6 +64,8 @@ class GuestModel {
     required this.name,
     this.email,
     this.phone,
+    this.groupName,
+    this.guestsCount = 1,
     this.rsvpStatus = 'pending',
     this.isPresent = false,
     this.tableNumber,
@@ -71,15 +75,20 @@ class GuestModel {
   factory GuestModel.fromJson(Map<String, dynamic> j) => GuestModel(
         id: j['id'],
         weddingId: j['wedding_id'],
-        name: j['name'],
+        name: j['name'] ?? '',
         email: j['email'],
         phone: j['phone'],
+        groupName: j['group_name'],
+        guestsCount: j['guests_count'] is int
+            ? j['guests_count'] as int
+            : int.tryParse('${j['guests_count']}') ?? 1,
         rsvpStatus: j['rsvp_status'] ?? 'pending',
         isPresent: j['is_present'] ?? false,
         tableNumber: j['table_number'],
         createdAt: DateTime.parse(j['created_at']),
       );
 }
+
 class VendorPackageModel {
   final String id;
   final String vendorId;
@@ -104,6 +113,7 @@ class VendorPackageModel {
         description: j['description'],
       );
 }
+
 class VendorModel {
   final String id;
   final String weddingId;
@@ -113,7 +123,7 @@ class VendorModel {
   final String? phone;
   final String? email;
   final double? price;
-  final String status; // ex: pending, confirmed, cancelled
+  final String status;
   final String? notes;
   final bool isBooked;
   final List<VendorPackageModel> packages;
@@ -175,7 +185,7 @@ class BudgetModel {
         id: j['id'],
         weddingId: j['wedding_id'],
         totalBudget: (j['total_budget'] as num).toDouble(),
-        totalSpent: (j['total_spent'] as num).toDouble(),
+        totalSpent: (j['total_spent'] as num?)?.toDouble() ?? 0,
         createdAt: DateTime.parse(j['created_at']),
       );
 }
@@ -205,9 +215,9 @@ class ExpenseModel {
         id: j['id'],
         weddingId: j['wedding_id'],
         vendorId: j['vendor_id'],
-        title: j['title'],
+        title: j['title'] ?? '',
         amount: (j['amount'] as num).toDouble(),
-        category: j['category'],
+        category: j['category'] ?? '',
         isPaid: j['is_paid'] ?? false,
         createdAt: DateTime.parse(j['created_at']),
       );
@@ -233,7 +243,7 @@ class ChecklistModel {
   factory ChecklistModel.fromJson(Map<String, dynamic> j) => ChecklistModel(
         id: j['id'],
         weddingId: j['wedding_id'],
-        title: j['title'],
+        title: j['title'] ?? '',
         isDone: j['is_done'] ?? false,
         dueDate:
             j['due_date'] != null ? DateTime.parse(j['due_date']) : null,
@@ -259,7 +269,7 @@ class GalleryModel {
   factory GalleryModel.fromJson(Map<String, dynamic> j) => GalleryModel(
         id: j['id'],
         weddingId: j['wedding_id'],
-        imageUrl: j['image_url'],
+        imageUrl: j['image_url'] ?? '',
         caption: j['caption'],
         createdAt: DateTime.parse(j['created_at']),
       );
@@ -285,8 +295,8 @@ class GuestbookModel {
   factory GuestbookModel.fromJson(Map<String, dynamic> j) => GuestbookModel(
         id: j['id'],
         weddingId: j['wedding_id'],
-        guestName: j['guest_name'],
-        message: j['message'],
+        guestName: j['guest_name'] ?? '',
+        message: j['message'] ?? '',
         isApproved: j['is_approved'] ?? false,
         createdAt: DateTime.parse(j['created_at']),
       );
@@ -297,7 +307,7 @@ class MessageModel {
   final String weddingId;
   final String? guestId;
   final String senderName;
-  final String senderType; // 'staff' | 'guest'
+  final String senderType;
   final String content;
   final bool isRead;
   final DateTime createdAt;
