@@ -288,7 +288,9 @@ class GuestbookModel {
 class MessageModel {
   final String id;
   final String weddingId;
+  final String? guestId;
   final String senderName;
+  final String senderType; // 'staff' | 'guest'
   final String content;
   final bool isRead;
   final DateTime createdAt;
@@ -296,7 +298,9 @@ class MessageModel {
   MessageModel({
     required this.id,
     required this.weddingId,
+    this.guestId,
     required this.senderName,
+    this.senderType = 'guest',
     required this.content,
     this.isRead = false,
     required this.createdAt,
@@ -305,8 +309,10 @@ class MessageModel {
   factory MessageModel.fromJson(Map<String, dynamic> j) => MessageModel(
         id: j['id'],
         weddingId: j['wedding_id'],
-        senderName: j['sender_name'],
-        content: j['content'],
+        guestId: j['guest_id'],
+        senderName: j['sender_name'] ?? '',
+        senderType: j['sender_type'] ?? 'guest',
+        content: j['content'] ?? '',
         isRead: j['is_read'] ?? false,
         createdAt: DateTime.parse(j['created_at']),
       );
