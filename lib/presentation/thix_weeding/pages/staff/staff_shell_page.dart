@@ -8,8 +8,8 @@ import 'messages/staff_messages_page.dart';
 import 'parametres/settings_page.dart';
 
 // CENTRAUX
-import '../staff/providers/thix_weeding_providers.dart';
-import '../staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
 
 class StaffShellPage extends ConsumerStatefulWidget {
   final String weddingId;
