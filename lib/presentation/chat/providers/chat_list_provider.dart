@@ -1,11 +1,16 @@
-// lib/presentation/chat/chat_list_provider.dart
+// lib/presentation/chat/providers/chat_list_provider.dart
 import 'dart:async';
-import 'package:flutter/foundation.dart'; // 🌟 AJOUT : Nécessaire pour debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
+
+// ============================================================
+// STATE
+// ============================================================
 
 class ChatListState {
   final List<ChatConversation> all;
@@ -15,7 +20,7 @@ class ChatListState {
   final bool hasMore;
   final int totalUnread;
   final int pendingEscalations;
-  final int filterIndex; // 0:Tous 1:Groupes 2:Persos 3:Non lus
+  final int filterIndex; // 0:Toutes  1:Non lues  2:Équipes  3:Personnelles
   final String searchQuery;
 
   const ChatListState({
@@ -40,65 +45,64 @@ class ChatListState {
     int? pendingEscalations,
     int? filterIndex,
     String? searchQuery,
-  }) =>
-      ChatListState(
-        all: all ?? this.all,
-        filtered: filtered ?? this.filtered,
-        isLoading: isLoading ?? this.isLoading,
-        isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-        hasMore: hasMore ?? this.hasMore,
-        totalUnread: totalUnread ?? this.totalUnread,
-        pendingEscalations: pendingEscalations ?? this.pendingEscalations,
-        filterIndex: filterIndex ?? this.filterIndex,
-        searchQuery: searchQuery ?? this.searchQuery,
-      );
+  }) {
+    return ChatListState(
+      all: all ?? this.all,
+      filtered: filtered ?? this.filtered,
+      isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      totalUnread: totalUnread ?? this.totalUnread,
+      pendingEscalations: pendingEscalations ?? this.pendingEscalations,
+      filterIndex: filterIndex ?? this.filterIndex,
+      searchQuery: searchQuery ?? this.searchQuery,
+    );
+  }
 
   bool get isEmpty => filtered.isEmpty && !isLoading;
 }
 
+// ============================================================
+// NOTIFIER
+// ============================================================
+
 class ChatListNotifier extends StateNotifier<ChatListState> {
   final ChatService _chatService;
   final PresenceService _presenceService;
+
   static const int _limit = 20;
 
   Timer? _debounce;
   RealtimeChannel? _channel;
   bool _isDisposed = false;
 
-  ChatListNotifier(this._chatService, this._presenceService) : super(const ChatListState()) {
+  ChatListNotifier(this._chatService, this._presenceService)
+      : super(const ChatListState()) {
     _presenceService.initPresence();
     _subscribeRealtime();
     loadInitial();
   }
 
+  // ----------------------------------------------------------
+  // REALTIME (léger)
+  // ----------------------------------------------------------
   void _subscribeRealtime() {
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
 
     _channel = Supabase.instance.client
         .channel('thix_chat_list_$uid')
-        // Changements sur les conversations (pin, update_at, etc.)
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'conversations',
-          callback: (_) {
-            if (!_isDisposed) loadInitial(silent: true);
-          },
-        )
-        // Nouveau message → refresh counts + liste
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
           callback: (_) {
             if (!_isDisposed) {
-              _refreshCounts();
+              // On rafraîchit silencieusement la liste + compteurs
               loadInitial(silent: true);
             }
           },
         )
-        // ← CORRECTION CRITIQUE : quand un message passe is_read = true
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
@@ -106,24 +110,31 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
           callback: (_) {
             if (!_isDisposed) {
               _refreshCounts();
-              loadInitial(silent: true);
             }
           },
         )
         .subscribe();
   }
 
+  // ----------------------------------------------------------
+  // CHARGEMENT
+  // ----------------------------------------------------------
   Future<void> loadInitial({bool silent = false}) async {
-    if (!silent) state = state.copyWith(isLoading: true);
+    if (!silent) {
+      state = state.copyWith(isLoading: true);
+    }
+
     try {
       final results = await Future.wait([
         _chatService.getConversations(limit: _limit, offset: 0),
         _chatService.getTotalUnreadCount(),
         _getPendingEscalations(),
       ]);
+
       if (_isDisposed) return;
 
       final convs = results[0] as List<ChatConversation>;
+
       state = state.copyWith(
         all: convs,
         totalUnread: results[1] as int,
@@ -131,21 +142,27 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
         hasMore: convs.length == _limit,
         isLoading: false,
       );
+
       _applyFilter();
     } catch (e) {
       debugPrint('❌ loadInitial error: $e');
-      if (!_isDisposed) state = state.copyWith(isLoading: false);
+      if (!_isDisposed) {
+        state = state.copyWith(isLoading: false);
+      }
     }
   }
 
   Future<void> loadMore() async {
     if (state.isLoadingMore || !state.hasMore || state.isLoading) return;
+
     state = state.copyWith(isLoadingMore: true);
+
     try {
       final newConvs = await _chatService.getConversations(
         limit: _limit,
         offset: state.all.length,
       );
+
       if (_isDisposed) return;
 
       final merged = [...state.all, ...newConvs];
@@ -157,13 +174,21 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
         hasMore: newConvs.length == _limit,
         isLoadingMore: false,
       );
+
       _applyFilter();
     } catch (e) {
       debugPrint('❌ loadMore error: $e');
-      if (!_isDisposed) state = state.copyWith(isLoadingMore: false);
+      if (!_isDisposed) {
+        state = state.copyWith(isLoadingMore: false);
+      }
     }
   }
 
+  Future<void> refresh() => loadInitial();
+
+  // ----------------------------------------------------------
+  // COMPTEURS
+  // ----------------------------------------------------------
   Future<void> _refreshCounts() async {
     try {
       final unread = await _chatService.getTotalUnreadCount();
@@ -176,6 +201,7 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
   Future<int> _getPendingEscalations() async {
     final u = Supabase.instance.client.auth.currentUser;
     if (u == null) return 0;
+
     try {
       final r = await Supabase.instance.client
           .from('escalation_steps')
@@ -183,13 +209,16 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
           .eq('to_agent_id', u.id)
           .eq('status', 0)
           .count();
+
       return (r.count as int?) ?? 0;
     } catch (_) {
       return 0;
     }
   }
 
-  // Debounce 350ms pour ne pas spammer Supabase
+  // ----------------------------------------------------------
+  // RECHERCHE + FILTRES
+  // ----------------------------------------------------------
   void search(String raw) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () {
@@ -205,8 +234,9 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
   }
 
   void _applyFilter() {
-    List<ChatConversation> base = state.all;
+    List<ChatConversation> base = List.from(state.all);
 
+    // Recherche locale (sur les conversations déjà chargées)
     if (state.searchQuery.isNotEmpty) {
       final q = state.searchQuery;
       base = base.where((c) {
@@ -215,58 +245,69 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
       }).toList();
     }
 
+    // Filtres
     switch (state.filterIndex) {
-      case 1:
+      case 1: // Non lues
+        base = base.where((c) => c.unreadCount > 0).toList();
+        break;
+      case 2: // Équipes (groupes)
         base = base.where((c) => c.isGroup).toList();
         break;
-      case 2:
+      case 3: // Personnelles
         base = base.where((c) => !c.isGroup).toList();
         break;
-      case 3:
-        base = base.where((c) => c.unreadCount > 0).toList();
+      default:
         break;
     }
 
     state = state.copyWith(filtered: base);
   }
 
-  // 🌟 AJOUT : Méthode appelée depuis l'interface (chat_list_page)
+  // ----------------------------------------------------------
+  // MARK AS READ (optimiste + RPC)
+  // ----------------------------------------------------------
   Future<void> markAsRead(String convId) async {
-    debugPrint('Marquer la conversation $convId comme lue');
+    // 1. Optimistic UI
+    final updated = state.all.map((c) {
+      if (c.id == convId) {
+        return c.copyWith(unreadCount: 0);
+      }
+      return c;
+    }).toList();
+
+    state = state.copyWith(all: updated);
+    _applyFilter();
+
+    // 2. Appel réel
     try {
-      // Dé-commentez la ligne ci-dessous si votre ChatService gère déjà cette méthode :
-      // await _chatService.markConversationAsRead(convId);
+      await _chatService.markConversationAsRead(convId);
       await _refreshCounts();
     } catch (e) {
-      debugPrint('❌ Erreur markAsRead: $e');
+      debugPrint('❌ markAsRead error: $e');
+      // En cas d'erreur on pourrait recharger, mais on reste optimiste pour l'UX
     }
   }
 
-  Future<void> refresh() => loadInitial();
-
+  // ----------------------------------------------------------
+  // DISPOSE
+  // ----------------------------------------------------------
   @override
   void dispose() {
     _isDisposed = true;
     _debounce?.cancel();
-    if (_channel != null) {
-      Supabase.instance.client.removeChannel(_channel!);
-    }
-    _presenceService.dispose();
+    _channel?.unsubscribe();
     super.dispose();
   }
 }
 
-// Providers
-final chatServiceProvider = Provider<ChatService>((ref) {
-  return ChatService(Supabase.instance.client);
-});
+// ============================================================
+// PROVIDER
+// ============================================================
 
-final presenceServiceProvider = Provider<PresenceService>((ref) {
-  return PresenceService(Supabase.instance.client);
-});
+final chatListProvider =
+    StateNotifierProvider<ChatListNotifier, ChatListState>((ref) {
+  final chatService = ref.watch(chatServiceProvider);
+  final presenceService = ref.watch(presenceServiceProvider);
 
-final chatListProvider = StateNotifierProvider<ChatListNotifier, ChatListState>((ref) {
-  final chat = ref.watch(chatServiceProvider);
-  final presence = ref.watch(presenceServiceProvider);
-  return ChatListNotifier(chat, presence);
+  return ChatListNotifier(chatService, presenceService);
 });
