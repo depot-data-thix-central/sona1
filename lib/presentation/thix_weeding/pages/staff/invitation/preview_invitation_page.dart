@@ -5,10 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-// Imports des modèles et providers centraux
-import '../../../staff/models/thix_weeding_models.dart';
-import '../../../staff/providers/thix_weeding_providers.dart';
-import '../../../staff/services/thix_weeding_services.dart';
+// NOUVEAUX IMPORTS ABSOLUS (Infaillibles)
+import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/services/thix_weeding_services.dart';
 
 final weddingInvitationProvider = FutureProvider.family<WeddingModel, String>((ref, weddingId) async {
   final data = await Supabase.instance.client.from('thix_weeding_weddings').select().eq('id', weddingId).single();
@@ -112,12 +112,15 @@ class _ShareCard extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: () async {
                   await Supabase.instance.client.from('thix_weeding_weddings').update({'invitation_published': true}).eq('id', weddingId);
+                  
                   ref.invalidate(weddingInvitationProvider(weddingId));
+                  // La fameuse ligne est réactivée !
                   ref.invalidate(weddingProvider(weddingId));
+                  
                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invitation publiée')));
                 },
                 icon: const Icon(Icons.public),
-                label: Text(wedding.isPublished? 'Déjà publiée' : 'Publier'),
+                label: Text(wedding.isPublished ? 'Déjà publiée' : 'Publier'),
               ),
             ),
             const SizedBox(width: 12),
