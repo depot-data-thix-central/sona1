@@ -8,7 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../models/chat/chat_message.dart';
 import '../../models/chat/chat_conversation.dart';
 import '../../models/chat/user_status.dart';
-import '../../models/chat/group_info.dart'; // Ajouté pour GroupMember
+import '../../models/chat/group_info.dart';
 
 class ChatService {
   final SupabaseClient _supabase;
@@ -97,37 +97,6 @@ class ChatService {
     }
   }
 
-  /// Stream de présence pour une liste d'utilisateurs
-  Stream<List<UserStatus>> subscribeToPresence(List<String> userIds) {
-    final controller = StreamController<List<UserStatus>>();
-
-    // Première charge
-    getUsersPresence(userIds).then((list) {
-      if (!controller.isClosed) controller.add(list);
-    });
-
-    // Écoute realtime simple
-    final channel = _supabase.channel('presence-${userIds.join('-')}');
-    channel
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'user_presence',
-          callback: (_) async {
-            final list = await getUsersPresence(userIds);
-            if (!controller.isClosed) controller.add(list);
-          },
-        )
-        .subscribe();
-
-    controller.onCancel = () {
-      _supabase.removeChannel(channel);
-      controller.close();
-    };
-
-    return controller.stream;
-  }
-
   // ============================================================
   // CONVERSATIONS — VERSION ENTERPRISE (RPC)
   // ============================================================
@@ -156,7 +125,6 @@ class ChatService {
       return data.map((row) {
         final map = Map<String, dynamic>.from(row as Map);
 
-        // ChatMessage compatible avec le modèle réel (pas de paramètre "type")
         ChatMessage? lastMessage;
         final preview = map['last_message_preview'] as String?;
         if (preview != null && preview.isNotEmpty) {
@@ -280,65 +248,6 @@ class ChatService {
     }
   }
 
-  // ============================================================
-  // MÉTHODES MANQUANTES UTILISÉES PAR chat_screen
-  // ============================================================
-
-  /// Alias utilisé par chat_screen
-  Future<void> markAsRead(String conversationId) async {
-    return markConversationAsRead(conversationId);
-  }
-
-  /// Membres d'un groupe
-  Future<List<GroupMember>> getGroupMembers(String conversationId) async {
-    try {
-      final response = await _supabase
-          .from('conversation_participants')
-          .select('''
-            user_id,
-            role,
-            profiles!user_id (
-              display_name,
-              full_name,
-              avatar_url
-            )
-          ''')
-          .eq('conversation_id', conversationId);
-
-      return (response as List).map((row) {
-        final map = Map<String, dynamic>.from(row as Map);
-        final profile = map['profiles'] as Map<String, dynamic>?;
-
-        return GroupMember(
-          userId: map['user_id']?.toString() ?? '',
-          displayName: profile?['display_name']?.toString() ??
-              profile?['full_name']?.toString() ??
-              'Utilisateur',
-          avatarUrl: profile?['avatar_url']?.toString(),
-          role: map['role']?.toString() ?? 'member',
-          isOnline: false,
-          joinedAt: DateTime.now(),
-        );
-      }).toList();
-    } catch (e) {
-      debugPrint('❌ getGroupMembers: $e');
-      return [];
-    }
-  }
-
-  /// Soft delete d'un message
-  Future<void> deleteMessage(String messageId) async {
-    try {
-      await _supabase.from('messages').update({
-        'is_deleted': true,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', messageId);
-    } catch (e) {
-      debugPrint('❌ deleteMessage: $e');
-      rethrow;
-    }
-  }
-    
   // ============================================================
   // CRÉATION DE CONVERSATIONS
   // ============================================================
@@ -502,40 +411,7 @@ class ChatService {
     response['sender_name'] = _resolveDisplayName(profile);
     response['sender_avatar'] = profile?['avatar_url'];
 
-    // last_message + unread gérés par le trigger SQL
     return ChatMessage.fromJson(response);
-  }
-
-  // ============================================================
-  // AUDIO (avec support ephemeral)
-  // ============================================================
-
-  Future<ChatMessage> sendAudioMessage({
-    required String conversationId,
-    required Uint8List audioData,
-    required int duration,
-    String? fileName,
-    bool isEphemeral = false,
-    int? ephemeralDuration,
-    String? replyToId,
-  }) async {
-    final bucket = 'audio';
-    final extension = fileName?.split('.').last ?? 'm4a';
-    final uniqueName = '${const Uuid().v4()}.$extension';
-    final path = 'messages/$conversationId/$uniqueName';
-
-    await _supabase.storage.from(bucket).uploadBinary(path, audioData);
-    final audioUrl = _supabase.storage.from(bucket).getPublicUrl(path);
-
-    return sendMessage(
-      conversationId: conversationId,
-      content: '🎤 Message audio (${duration}s)',
-      mediaUrl: audioUrl,
-      mediaType: 'audio',
-      isEphemeral: isEphemeral,
-      ephemeralDuration: ephemeralDuration,
-      replyToId: replyToId,
-    );
   }
 
   Future<void> toggleReaction(String messageId, String reaction) async {
@@ -566,29 +442,6 @@ class ChatService {
   }
 
   // ============================================================
-  // UPLOAD (signature attendue par chat_screen)
-  // ============================================================
-
-  /// Signature positionnelle utilisée dans chat_screen.dart
-  Future<String?> uploadFileWithUniqueName(
-    String bucket,
-    String folder,
-    Uint8List data,
-    String extension,
-  ) async {
-    try {
-      final uniqueName = '${const Uuid().v4()}.$extension';
-      final path = '$folder/$uniqueName';
-
-      await _supabase.storage.from(bucket).uploadBinary(path, data);
-      return _supabase.storage.from(bucket).getPublicUrl(path);
-    } catch (e) {
-      debugPrint('❌ uploadFileWithUniqueName: $e');
-      return null;
-    }
-  }
-
-  // ============================================================
   // REALTIME (basique)
   // ============================================================
 
@@ -607,7 +460,6 @@ class ChatService {
             value: conversationId,
           ),
           callback: (payload) async {
-            // Pour une meilleure perf, préfère Riverpod + refresh ciblé
             final messages = await getMessages(conversationId);
             if (!controller.isClosed) {
               controller.add(messages);
@@ -622,5 +474,139 @@ class ChatService {
     };
 
     return controller.stream;
+  }
+
+  // ============================================================
+  // ALIAS + GROUPES + PRESENCE STREAM + DELETE + UPLOAD
+  // ============================================================
+
+  /// Alias utilisé par chat_screen
+  Future<void> markAsRead(String conversationId) {
+    return markConversationAsRead(conversationId);
+  }
+
+  /// Membres d'un groupe → List<GroupMember>
+  Future<List<GroupMember>> getGroupMembers(String conversationId) async {
+    try {
+      final response = await _supabase
+          .from('conversation_participants')
+          .select('''
+            user_id,
+            role,
+            profiles!user_id (
+              display_name,
+              full_name,
+              avatar_url
+            )
+          ''')
+          .eq('conversation_id', conversationId);
+
+      return (response as List).map((row) {
+        final map = Map<String, dynamic>.from(row as Map);
+        final profile = map['profiles'] as Map<String, dynamic>?;
+
+        return GroupMember(
+          userId: map['user_id']?.toString() ?? '',
+          displayName: profile?['display_name']?.toString() ??
+              profile?['full_name']?.toString() ??
+              'Utilisateur',
+          avatarUrl: profile?['avatar_url']?.toString(),
+          role: map['role']?.toString() ?? 'member',
+          isOnline: false,
+          joinedAt: DateTime.now(),
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('❌ getGroupMembers: $e');
+      return [];
+    }
+  }
+
+  /// Stream de présence
+  Stream<List<UserStatus>> subscribeToPresence(List<String> userIds) {
+    final controller = StreamController<List<UserStatus>>();
+
+    getUsersPresence(userIds).then((list) {
+      if (!controller.isClosed) controller.add(list);
+    });
+
+    final channel = _supabase.channel('presence-${userIds.join('-')}');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'user_presence',
+          callback: (_) async {
+            final list = await getUsersPresence(userIds);
+            if (!controller.isClosed) controller.add(list);
+          },
+        )
+        .subscribe();
+
+    controller.onCancel = () {
+      _supabase.removeChannel(channel);
+      controller.close();
+    };
+
+    return controller.stream;
+  }
+
+  /// Soft delete
+  Future<void> deleteMessage(String messageId) async {
+    try {
+      await _supabase.from('messages').update({
+        'is_deleted': true,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', messageId);
+    } catch (e) {
+      debugPrint('❌ deleteMessage: $e');
+      rethrow;
+    }
+  }
+
+  /// Upload (signature positionnelle attendue par chat_screen)
+  Future<String?> uploadFileWithUniqueName(
+    String bucket,
+    String folder,
+    Uint8List data,
+    String extension,
+  ) async {
+    try {
+      final uniqueName = '${const Uuid().v4()}.$extension';
+      final path = '$folder/$uniqueName';
+      await _supabase.storage.from(bucket).uploadBinary(path, data);
+      return _supabase.storage.from(bucket).getPublicUrl(path);
+    } catch (e) {
+      debugPrint('❌ uploadFileWithUniqueName: $e');
+      return null;
+    }
+  }
+
+  /// Audio avec ephemeral
+  Future<ChatMessage> sendAudioMessage({
+    required String conversationId,
+    required Uint8List audioData,
+    required int duration,
+    String? fileName,
+    bool isEphemeral = false,
+    int? ephemeralDuration,
+    String? replyToId,
+  }) async {
+    final extension = fileName?.split('.').last ?? 'm4a';
+    final uniqueName = '${const Uuid().v4()}.$extension';
+    final path = 'messages/$conversationId/$uniqueName';
+
+    await _supabase.storage.from('audio').uploadBinary(path, audioData);
+    final audioUrl = _supabase.storage.from('audio').getPublicUrl(path);
+
+    return sendMessage(
+      conversationId: conversationId,
+      content: '🎤 Message audio (${duration}s)',
+      mediaUrl: audioUrl,
+      mediaType: 'audio',
+      isEphemeral: isEphemeral,
+      ephemeralDuration: ephemeralDuration,
+      replyToId: replyToId,
+    );
   }
 }
