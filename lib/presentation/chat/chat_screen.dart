@@ -604,8 +604,8 @@ Widget _stickerGrid(
   return GridView.builder(
     controller: scrollCtrl,
     padding: const EdgeInsets.all(12),
-    gridDelegate: const Sli
-verGridDelegateWithFixedCrossAxisCount(
+    // 👇 LA CORRECTION EST ICI (tout sur une seule ligne) 👇
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: 8,
       crossAxisSpacing: 6,
       mainAxisSpacing: 6,
@@ -628,6 +628,7 @@ verGridDelegateWithFixedCrossAxisCount(
     },
   );
 }
+
 
   void _showEphemeralTimerDialog() {
     showModalBottomSheet(
