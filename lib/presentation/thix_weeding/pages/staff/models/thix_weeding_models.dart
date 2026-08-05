@@ -23,6 +23,18 @@ class WeddingModel {
     required this.createdAt,
   });
 
+  // --- Alias UI ---
+  DateTime? get date => weddingDate;
+  String? get locationName => venue;
+  String get coupleNames {
+    final b = brideName.trim();
+    final g = groomName.trim();
+    if (b.isEmpty && g.isEmpty) return '';
+    if (b.isEmpty) return g;
+    if (g.isEmpty) return b;
+    return '$b & $g';
+  }
+
   factory WeddingModel.fromJson(Map<String, dynamic> j) => WeddingModel(
         id: j['id'],
         ownerId: j['owner_id'],
@@ -71,6 +83,9 @@ class GuestModel {
     this.tableNumber,
     required this.createdAt,
   });
+
+  // --- Alias UI ---
+  String get fullName => name;
 
   factory GuestModel.fromJson(Map<String, dynamic> j) => GuestModel(
         id: j['id'],
