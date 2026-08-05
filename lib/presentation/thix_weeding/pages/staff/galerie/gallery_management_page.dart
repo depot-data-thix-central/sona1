@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// TES 3 FICHIERS CENTRAUX
 import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
 import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
 import 'package:thix_id/presentation/thix_weeding/pages/staff/services/thix_weeding_services.dart';
@@ -61,7 +60,7 @@ class GalleryManagementPage extends ConsumerWidget {
     );
   }
 
-  // ================= ACTIONS - Tes Services =================
+  // ================= ACTIONS =================
 
   void _openViewer(BuildContext context, GalleryModel m) {
     showDialog(
@@ -71,10 +70,9 @@ class GalleryManagementPage extends ConsumerWidget {
         insetPadding: const EdgeInsets.all(12),
         child: Stack(
           children: [
-            Center(child: Image.network(m.mediaUrl, fit: BoxFit.contain, errorBuilder: (_, __, ___) => Container(color: Colors.grey[300], child: const Icon(Icons.broken_image)))),
+            Center(child: Image.network(m.imageUrl, fit: BoxFit.contain, errorBuilder: (_, __, ___) => Container(color: Colors.grey[300], child: const Icon(Icons.broken_image)))),
             Positioned(top: 8, right: 8, child: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context))),
             Positioned(bottom: 12, left: 12, right: 12, child: Text(m.caption ?? '', style: const TextStyle(color: Colors.white))),
-            if (m.mediaType == 'video') const Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 48)),
           ],
         ),
       ),
@@ -142,12 +140,11 @@ class _GalleryTile extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.network(
-              media.mediaUrl,
+              media.imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(color: Colors.grey[300], child: const Icon(Icons.broken_image)),
             ),
           ),
-          if (media.mediaType == 'video') const Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 32)),
         ],
       ),
     );
