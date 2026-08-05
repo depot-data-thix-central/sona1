@@ -5,8 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 // CENTRAUX
-import '../../../staff/models/thix_weeding_models.dart';
-import '../../../staff/providers/thix_weeding_providers.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
 
 final guestDetailProvider = FutureProvider.family<GuestModel, String>((ref, guestId) async {
   final data = await Supabase.instance.client.from('thix_weeding_guests').select().eq('id', guestId).single();
