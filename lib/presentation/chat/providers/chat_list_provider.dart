@@ -98,7 +98,6 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
           table: 'messages',
           callback: (_) {
             if (!_isDisposed) {
-              // On rafraîchit silencieusement la liste + compteurs
               loadInitial(silent: true);
             }
           },
@@ -236,7 +235,6 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
   void _applyFilter() {
     List<ChatConversation> base = List.from(state.all);
 
-    // Recherche locale (sur les conversations déjà chargées)
     if (state.searchQuery.isNotEmpty) {
       final q = state.searchQuery;
       base = base.where((c) {
@@ -245,7 +243,6 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
       }).toList();
     }
 
-    // Filtres
     switch (state.filterIndex) {
       case 1: // Non lues
         base = base.where((c) => c.unreadCount > 0).toList();
@@ -284,7 +281,6 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
       await _refreshCounts();
     } catch (e) {
       debugPrint('❌ markAsRead error: $e');
-      // En cas d'erreur on pourrait recharger, mais on reste optimiste pour l'UX
     }
   }
 
@@ -301,13 +297,20 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
 }
 
 // ============================================================
-// PROVIDER
+// PROVIDERS
 // ============================================================
+
+final chatServiceProvider = Provider<ChatService>((ref) {
+  return ChatService(Supabase.instance.client);
+});
+
+final presenceServiceProvider = Provider<PresenceService>((ref) {
+  return PresenceService();
+});
 
 final chatListProvider =
     StateNotifierProvider<ChatListNotifier, ChatListState>((ref) {
   final chatService = ref.watch(chatServiceProvider);
   final presenceService = ref.watch(presenceServiceProvider);
-
   return ChatListNotifier(chatService, presenceService);
 });
