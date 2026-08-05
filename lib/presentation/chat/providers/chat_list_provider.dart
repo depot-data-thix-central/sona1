@@ -298,7 +298,7 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
 // PROVIDERS — importés depuis la source unique
 // ============================================================
 
-import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
+
 
 // (garde uniquement chatListProvider ici)
 
