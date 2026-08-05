@@ -29,7 +29,8 @@ jobs:
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Build Web
-        run: flutter build web --release --base-href /sona1/ --web-renderer html --pwa-strategy none
+        # L'option obsolète "--web-renderer html" a été supprimée ici 👇
+        run: flutter build web --release --base-href /sona1/ --pwa-strategy none
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
