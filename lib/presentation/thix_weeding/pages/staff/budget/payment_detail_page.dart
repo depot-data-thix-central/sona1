@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // TES 3 FICHIERS CENTRAUX
-import '../../../staff/models/thix_weeding_models.dart';
-import '../../../staff/providers/thix_weeding_providers.dart';
-import '../../../staff/services/thix_weeding_services.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/services/thix_weeding_services.dart';
 
 // Provider typé pour un seul expense
 final expenseDetailProvider = FutureProvider.family<ExpenseModel, String>((ref, expenseId) async {
