@@ -25,6 +25,9 @@ class _P {
   static const ink = Color(0xFF241521);
   static const inkSoft = Color(0xFF8A7580);
   static const border = Color(0xFFF3E1E6);
+  static const logoBlue = Color(0xFF2D6CDF);
+  static const trustGreen = Color(0xFF1CA050);
+  static const trustPurple = Color(0xFF8B5CF6);
   static const gradPrimary = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -122,6 +125,7 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
   final PageController _promoController = PageController();
   int _promoIndex = 0;
   Timer? _promoTimer;
+  final int _notificationCount = 3;
 
   @override
   void initState() {
@@ -198,6 +202,10 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanner QR bientôt disponible')));
   }
 
+  void _onNotifications() {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notifications bientôt disponibles')));
+  }
+
   void _onTapGeneric(String label) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label bientôt disponible')));
   }
@@ -215,13 +223,22 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
+            child: SafeArea(
+              bottom: false,
+              child: _TopHeader(
+                notificationCount: _notificationCount,
+                onNotificationsTap: _onNotifications,
+                onProfileTap: _onStaffAccess,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
             child: _HeroSearchSection(
               controller: _idController,
               focusNode: _focusNode,
               isLoading: _isSearching,
               onSearch: _onSearch,
               onScanQr: _onScanQr,
-              onStaffTap: _onStaffAccess,
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 28)),
@@ -243,7 +260,7 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 36)),
-          const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: _SectionHeader(title: "Prestataires d'Excellence"))),
+          const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: _SectionHeader(title: 'Prestataires recommandés'))),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           SliverToBoxAdapter(
             child: providersAsync.when(
@@ -272,7 +289,95 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
 }
 
 // ============================================================
-// HERO SECTION — AVEC BOUTON STAFF
+// HEADER — LOGO + TITRE + NOTIFICATIONS + PROFIL
+// ============================================================
+class _TopHeader extends StatelessWidget {
+  final int notificationCount;
+  final VoidCallback onNotificationsTap;
+  final VoidCallback onProfileTap;
+
+  const _TopHeader({
+    required this.notificationCount,
+    required this.onNotificationsTap,
+    required this.onProfileTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: _P.logoBlue, borderRadius: BorderRadius.circular(14)),
+            alignment: Alignment.center,
+            child: const Text('R', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: const TextSpan(
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    children: [
+                      TextSpan(text: 'THIX ', style: TextStyle(color: _P.ink)),
+                      TextSpan(text: 'RÉSERVATION', style: TextStyle(color: _P.primary)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text('Tout pour un mariage parfait 💗', style: TextStyle(fontSize: 12, color: _P.inkSoft, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+          InkWell(
+            onTap: onNotificationsTap,
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: _P.surface, shape: BoxShape.circle, boxShadow: _P.shadowSoft),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Center(child: Icon(Icons.notifications_none_rounded, size: 22, color: _P.ink)),
+                  if (notificationCount > 0)
+                    Positioned(
+                      top: 4,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(color: _P.primary, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 1.5)),
+                        child: Text('$notificationCount', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          InkWell(
+            onTap: onProfileTap,
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: _P.surface, shape: BoxShape.circle, boxShadow: _P.shadowSoft),
+              child: const Icon(Icons.person_outline_rounded, size: 22, color: _P.ink),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// HERO SECTION — PHOTO PLEINE HAUTEUR
 // ============================================================
 class _HeroSearchSection extends StatelessWidget {
   final TextEditingController controller;
@@ -280,7 +385,6 @@ class _HeroSearchSection extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onSearch;
   final VoidCallback onScanQr;
-  final VoidCallback onStaffTap;
 
   const _HeroSearchSection({
     required this.controller,
@@ -288,79 +392,90 @@ class _HeroSearchSection extends StatelessWidget {
     required this.isLoading,
     required this.onSearch,
     required this.onScanQr,
-    required this.onStaffTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-      decoration: const BoxDecoration(
-        color: _P.primarySoft,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            Positioned(
-              right: -20,
-              top: 0,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: Opacity(
-                  opacity: 0.9,
-                  child: Image.network('https://picsum.photos/seed/wedding-hero/500/650', width: 190, height: 260, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 190, height: 260, color: _P.border)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 24, 0, 24),
+          decoration: const BoxDecoration(color: _P.primarySoft),
+          child: Stack(
+            children: [
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: Image.network(
+                  'https://picsum.photos/seed/wedding-hero/500/650',
+                  width: 190,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(width: 190, color: _P.border),
                 ),
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Padding(
+                padding: const EdgeInsets.only(right: 210),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    RichText(text: const TextSpan(style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 1.2), children: [TextSpan(text: 'THIX ', style: TextStyle(color: _P.ink)), TextSpan(text: 'MARIAGE', style: TextStyle(color: _P.primary))])),
-                    InkWell(
-                      onTap: onStaffTap,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                        decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(12), boxShadow: _P.shadowSoft, border: Border.all(color: _P.border)),
-                        child: const Row(children: [Icon(Icons.dashboard_customize_rounded, size: 16, color: _P.primary), SizedBox(width: 6), Text('Espace Staff', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _P.ink))]),
+                    const Text('Vous avez un\nID de mariage ?', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: _P.ink, height: 1.15)),
+                    const SizedBox(height: 8),
+                    const Text('Accédez à tous les détails\nde votre événement', style: TextStyle(fontSize: 12.5, color: _P.inkSoft, fontWeight: FontWeight.w400, height: 1.3)),
+                    const SizedBox(height: 22),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(18), boxShadow: _P.shadow),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 10),
+                          const Icon(Icons.search_rounded, size: 18, color: _P.inkSoft),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              textCapitalization: TextCapitalization.characters,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _P.ink),
+                              decoration: const InputDecoration(isDense: true, hintText: 'ID de mariage', hintStyle: TextStyle(fontSize: 12, color: _P.inkSoft, fontWeight: FontWeight.w400), border: InputBorder.none),
+                              onSubmitted: (_) => onSearch(),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: isLoading ? null : onSearch,
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                              decoration: BoxDecoration(gradient: _P.gradPrimary, borderRadius: BorderRadius.circular(14)),
+                              child: isLoading
+                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
+                                  : const Text('Rechercher', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    const SizedBox(height: 14),
+                    Row(children: [const Expanded(child: Divider(color: _P.border, thickness: 1)), Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('OU', style: TextStyle(fontSize: 11, color: _P.inkSoft, fontWeight: FontWeight.w600))), const Expanded(child: Divider(color: _P.border, thickness: 1))]),
+                    const SizedBox(height: 14),
+                    InkWell(
+                      onTap: onScanQr,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _P.border)),
+                        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.qr_code_scanner_rounded, size: 17, color: _P.primary), SizedBox(width: 8), Text('Scanner un QR Code', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _P.ink))]),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
-                const SizedBox(height: 18),
-                const SizedBox(width: 230, child: Text('Vous avez un\nID de mariage?', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: _P.ink, height: 1.15))),
-                const SizedBox(height: 8),
-                const SizedBox(width: 210, child: Text('Accédez à tous les détails de votre événement', style: TextStyle(fontSize: 13, color: _P.inkSoft, fontWeight: FontWeight.w400, height: 1.3))),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(18), boxShadow: _P.shadow),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 12),
-                      const Icon(Icons.search_rounded, size: 20, color: _P.inkSoft),
-                      const SizedBox(width: 8),
-                      Expanded(child: TextField(controller: controller, focusNode: focusNode, textCapitalization: TextCapitalization.characters, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _P.ink), decoration: const InputDecoration(isDense: true, hintText: 'Entrez votre ID de mariage', hintStyle: TextStyle(fontSize: 13, color: _P.inkSoft, fontWeight: FontWeight.w400), border: InputBorder.none), onSubmitted: (_) => onSearch())),
-                      InkWell(
-                        onTap: isLoading? null : onSearch,
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12), decoration: BoxDecoration(gradient: _P.gradPrimary, borderRadius: BorderRadius.circular(14)), child: isLoading? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white))) : const Text('Rechercher', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700))),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(children: [const Expanded(child: Divider(color: _P.border, thickness: 1)), Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('OU', style: TextStyle(fontSize: 11, color: _P.inkSoft, fontWeight: FontWeight.w600))), const Expanded(child: Divider(color: _P.border, thickness: 1))]),
-                const SizedBox(height: 14),
-                InkWell(onTap: onScanQr, borderRadius: BorderRadius.circular(16), child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _P.border)), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.qr_code_scanner_rounded, size: 18, color: _P.primary), SizedBox(width: 10), Text('Scanner un QR Code', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _P.ink))]))),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -493,20 +608,44 @@ class _AnnouncementsList extends StatelessWidget {
   }
 }
 
+// ============================================================
+// TRUST ROW — 4 BADGES AVEC TITRE + SOUS-TITRE
+// ============================================================
 class _TrustRow extends StatelessWidget {
   const _TrustRow();
   static const _items = [
-    {'icon': Icons.shield_outlined, 'label': 'Sécurisé'},
-    {'icon': Icons.headset_mic_outlined, 'label': 'Support 24/7'},
-    {'icon': Icons.verified_outlined, 'label': 'Vérifié'},
-    {'icon': Icons.favorite_border_rounded, 'label': 'Fait avec Amour'},
+    {'icon': Icons.shield_outlined, 'title': 'Prestataires\nvérifiés', 'subtitle': 'Qualité garantie', 'bubble': Color(0xFFDCEAFB), 'color': _P.logoBlue},
+    {'icon': Icons.lock_outline_rounded, 'title': 'Paiement\nsécurisé', 'subtitle': 'Transactions sûres', 'bubble': Color(0xFFDDF5E6), 'color': _P.trustGreen},
+    {'icon': Icons.headset_mic_outlined, 'title': 'Support\n24/7', 'subtitle': 'Nous sommes là\npour vous', 'bubble': Color(0xFFEBE1FB), 'color': _P.trustPurple},
+    {'icon': Icons.star_border_rounded, 'title': 'Avis\ncertifiés', 'subtitle': 'Basés sur de\nvrais avis', 'bubble': Color(0xFFFDF6E3), 'color': _P.accent},
   ];
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(gradient: _P.gradPrimary, borderRadius: BorderRadius.circular(20)),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: _items.map((e) => Column(mainAxisSize: MainAxisSize.min, children: [Icon(e['icon'] as IconData, size: 22, color: Colors.white), const SizedBox(height: 8), Text(e['label'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600))])).toList()),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+      decoration: BoxDecoration(color: _P.surface, borderRadius: BorderRadius.circular(20), boxShadow: _P.shadowSoft),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: _items.map((e) {
+          return Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: e['bubble'] as Color, shape: BoxShape.circle),
+                  child: Icon(e['icon'] as IconData, size: 19, color: e['color'] as Color),
+                ),
+                const SizedBox(height: 8),
+                Text(e['title'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: _P.ink, fontWeight: FontWeight.w700, height: 1.2)),
+                const SizedBox(height: 2),
+                Text(e['subtitle'] as String, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: _P.inkSoft, fontWeight: FontWeight.w400, height: 1.2)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
