@@ -305,9 +305,8 @@ final chatServiceProvider = Provider<ChatService>((ref) {
 });
 
 final presenceServiceProvider = Provider<PresenceService>((ref) {
-  return PresenceService();
+  return PresenceService(Supabase.instance.client);  
 });
-
 final chatListProvider =
     StateNotifierProvider<ChatListNotifier, ChatListState>((ref) {
   final chatService = ref.watch(chatServiceProvider);
