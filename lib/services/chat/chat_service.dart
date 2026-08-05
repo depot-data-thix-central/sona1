@@ -247,6 +247,82 @@ class ChatService {
       return null;
     }
   }
+// ============================================================
+// MÉTHODES MANQUANTES UTILISÉES PAR chat_screen
+// ============================================================
+
+/// Alias utilisé par chat_screen
+Future<void> markAsRead(String conversationId) async {
+  return markConversationAsRead(conversationId);
+}
+
+/// Membres d'un groupe
+Future<List<Map<String, dynamic>>> getGroupMembers(String conversationId) async {
+  try {
+    final response = await _supabase
+        .from('conversation_participants')
+        .select('''
+          user_id,
+          role,
+          profiles!user_id (
+            display_name,
+            full_name,
+            avatar_url
+          )
+        ''')
+        .eq('conversation_id', conversationId);
+
+    return List<Map<String, dynamic>>.from(response as List);
+  } catch (e) {
+    debugPrint('❌ getGroupMembers: $e');
+    return [];
+  }
+}
+
+/// Stream de présence pour une liste d'utilisateurs
+Stream<List<UserStatus>> subscribeToPresence(List<String> userIds) {
+  final controller = StreamController<List<UserStatus>>();
+
+  // Première charge
+  getUsersPresence(userIds).then((list) {
+    if (!controller.isClosed) controller.add(list);
+  });
+
+  // Écoute realtime simple
+  final channel = _supabase.channel('presence-${userIds.join('-')}');
+  channel
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'user_presence',
+        callback: (_) async {
+          final list = await getUsersPresence(userIds);
+          if (!controller.isClosed) controller.add(list);
+        },
+      )
+      .subscribe();
+
+  controller.onCancel = () {
+    _supabase.removeChannel(channel);
+    controller.close();
+  };
+
+  return controller.stream;
+}
+
+/// Soft delete d'un message
+Future<void> deleteMessage(String messageId) async {
+  try {
+    await _supabase.from('messages').update({
+      'is_deleted': true,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', messageId);
+  } catch (e) {
+    debugPrint('❌ deleteMessage: $e');
+    rethrow;
+  }
+}
+  
 
   // ============================================================
   // CRÉATION DE CONVERSATIONS
