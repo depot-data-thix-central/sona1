@@ -80,7 +80,30 @@ class GuestModel {
         createdAt: DateTime.parse(j['created_at']),
       );
 }
+class VendorPackageModel {
+  final String id;
+  final String vendorId;
+  final String title;
+  final double price;
+  final String? description;
 
+  VendorPackageModel({
+    required this.id,
+    required this.vendorId,
+    required this.title,
+    required this.price,
+    this.description,
+  });
+
+  factory VendorPackageModel.fromJson(Map<String, dynamic> j) =>
+      VendorPackageModel(
+        id: j['id'],
+        vendorId: j['vendor_id'],
+        title: j['title'] ?? '',
+        price: (j['price'] as num).toDouble(),
+        description: j['description'],
+      );
+}
 class VendorModel {
   final String id;
   final String weddingId;
