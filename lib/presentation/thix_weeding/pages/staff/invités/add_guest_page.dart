@@ -84,7 +84,7 @@ class _AddGuestPageState extends ConsumerState<AddGuestPage> {
           'name': _nameCtrl.text.trim(),
           'phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
           'email': _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
-          'group_name': _group,
+          'group_name': _group = g.groupName ?? 'Amis';
           'guests_count': _count,
         }).eq('id', widget.editGuestId!);
       }
