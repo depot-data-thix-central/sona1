@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
-
+import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 // ============================================================
 // STATE
 // ============================================================
@@ -67,9 +67,7 @@ class ChatListState {
 // ============================================================
 
 class ChatListNotifier extends StateNotifier<ChatListState> {
-  final ChatService _chatService;
-  final PresenceService _presenceService;
-
+  
   static const int _limit = 20;
 
   Timer? _debounce;
@@ -296,17 +294,14 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
   }
 }
 
-// ============================================================
-// PROVIDERS
+/// ============================================================
+// PROVIDERS — importés depuis la source unique
 // ============================================================
 
-final chatServiceProvider = Provider<ChatService>((ref) {
-  return ChatService(Supabase.instance.client);
-});
+import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 
-final presenceServiceProvider = Provider<PresenceService>((ref) {
-  return PresenceService(Supabase.instance.client);  
-});
+// (garde uniquement chatListProvider ici)
+
 final chatListProvider =
     StateNotifierProvider<ChatListNotifier, ChatListState>((ref) {
   final chatService = ref.watch(chatServiceProvider);
