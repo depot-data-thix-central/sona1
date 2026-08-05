@@ -5,9 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // CENTRAUX
-import '../../../staff/models/thix_weeding_models.dart';
-import '../../../staff/providers/thix_weeding_providers.dart';
-
+import 'package:thix_id/presentation/thix_weeding/pages/staff/models/thix_weeding_models.dart';
+import 'package:thix_id/presentation/thix_weeding/pages/staff/providers/thix_weeding_providers.dart';
 final conversationsProvider = FutureProvider.family<List<MessageModel>, String>((ref, weddingId) async {
   final res = await Supabase.instance.client.from('thix_weeding_messages').select().eq('wedding_id', weddingId).order('created_at', ascending: false);
   final models = res.map((e) => MessageModel.fromJson(e)).toList();
