@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// CENTRAUX
+/// Imports des modèles et providers centraux
 import '../../../staff/models/thix_weeding_models.dart';
 import '../../../staff/providers/thix_weeding_providers.dart';
+import '../../../staff/services/thix_weeding_services.dart';
+
 
 class GuestbookManagementPage extends ConsumerStatefulWidget {
   final String weddingId;
