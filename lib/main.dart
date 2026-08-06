@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as app_provider;
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
@@ -14,7 +15,7 @@ import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/theme.dart';
 import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 
-/// Clé globale pour ouvrir IncomingCallPage depuis n'importe où
+/// Clé globale pour ouvrir IncomingCallPage au-dessus de tout
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
@@ -29,6 +30,7 @@ Future<void> main() async {
 
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
+
   @override
   ConsumerState<MyApp> createState() => _MyAppState();
 }
@@ -58,23 +60,21 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      debugPrint('🔄 Application résumée après inactivité (rafraîchissement session)');
+      debugPrint('🔄 App resumed — refresh session');
       _recoverSessionOnResume();
     }
   }
 
   Future<void> _recoverSessionOnResume() async {
     try {
-      final supabaseClient = Supabase.instance.client;
-      final currentSession = supabaseClient.auth.currentSession;
-      
-      if (currentSession != null && currentSession.isExpired) {
-        await supabaseClient.auth.refreshSession();
+      final client = Supabase.instance.client;
+      final session = client.auth.currentSession;
+      if (session != null && session.isExpired) {
+        await client.auth.refreshSession();
       }
-      
       await _auth.init();
     } catch (e) {
-      debugPrint('⚠️ Erreur de réveil session: $e');
+      debugPrint('⚠️ Session recover error: $e');
     }
   }
 
@@ -130,6 +130,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
+        // Appels entrants au-dessus de toute la navigation
         builder: (context, child) {
           return GlobalCallListener(
             navigatorKey: rootNavigatorKey,
