@@ -1284,7 +1284,7 @@ class _PostCardState extends ConsumerState<PostCard>
       _quoteController.clear();
     }
   }
-
+}
 // ─────────────────────────────────────────────────────────────
 class _FullScreenGallery extends StatefulWidget {
   final List<String> imageUrls;
