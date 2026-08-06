@@ -1,3 +1,4 @@
+// lib/models/network_story.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -58,7 +59,7 @@ class NetworkStory {
     );
   }
 
-  // FIX PRINCIPAL ICI
+  // 🔥 FIX PRINCIPAL : Extraction ultra-robuste
   factory NetworkStory.fromJson(Map<String, dynamic> json) {
     final profiles = json['profiles'] is Map
         ? Map<String, dynamic>.from(json['profiles'] as Map)
@@ -75,53 +76,58 @@ class NetworkStory {
       }
     }
 
-    // ── URL média : TOUS les alias possibles ──
-    final media = (
-      json['media_url'] ??
-      json['image_url'] ??
-      json['imageUrl'] ??
-      json['mediaUrl'] ??
-      json['url'] ??
-      ''
-    ).toString().trim();
+    // 1. Extraction Image (Capture de tous les formats et noms de colonnes possibles)
+    String media = '';
+    if (json['media_urls'] is List && (json['media_urls'] as List).isNotEmpty) {
+      media = (json['media_urls'] as List).first.toString();
+    } else if (json['image_urls'] is List && (json['image_urls'] as List).isNotEmpty) {
+      media = (json['image_urls'] as List).first.toString();
+    } else {
+      media = (json['media_url'] ?? 
+               json['image_url'] ?? 
+               json['file_url'] ?? 
+               json['photo_url'] ?? 
+               json['imageUrl'] ?? 
+               json['url'] ?? 
+               '').toString().trim();
+    }
+    if (media.toLowerCase() == 'null') media = ''; // Contourne le bug du String "null"
 
-    final name = (
-      profiles?['display_name'] ??
-      profiles?['full_name'] ??
-      json['user_name'] ??
-      json['display_name'] ??
-      json['author_name'] ??
-      'Utilisateur'
-    ).toString();
+    // 2. Extraction Texte (Capture de tous les noms de colonnes possibles)
+    String text = (json['text_content'] ?? 
+                   json['content'] ?? 
+                   json['text'] ?? 
+                   json['description'] ?? 
+                   json['caption'] ?? 
+                   '').toString().trim();
+    if (text.toLowerCase() == 'null') text = ''; // Contourne le bug du String "null"
 
-    final avatar = (
-      profiles?['avatar_url'] ??
-      profiles?['photo_url'] ??
-      json['user_avatar'] ??
-      json['avatar_url'] ??
-      json['author_avatar']
-    )?.toString();
+    // 3. Extraction Profil
+    String name = (profiles?['display_name'] ?? 
+                   profiles?['full_name'] ?? 
+                   json['user_name'] ?? 
+                   json['display_name'] ?? 
+                   json['author_name'] ?? 
+                   'Utilisateur').toString().trim();
+    if (name.toLowerCase() == 'null') name = 'Utilisateur';
 
-    final title = (
-      profiles?['profession'] ??
-      profiles?['title'] ??
-      json['user_title'] ??
-      json['profession'] ??
-      'Membre THIX'
-    ).toString();
+    String? avatar = (profiles?['avatar_url'] ?? 
+                      profiles?['photo_url'] ?? 
+                      json['user_avatar'] ?? 
+                      json['avatar_url'] ?? 
+                      json['author_avatar'])?.toString().trim();
+    if (avatar?.toLowerCase() == 'null') avatar = null;
 
-    final text = (
-      json['text_content'] ??
-      json['textContent'] ??
-      json['text'] ??
-      ''
-    ).toString();
+    String title = (profiles?['profession'] ?? 
+                    profiles?['title'] ?? 
+                    json['user_title'] ?? 
+                    json['profession'] ?? 
+                    'Membre THIX').toString().trim();
+    if (title.toLowerCase() == 'null') title = 'Membre THIX';
 
-    final type = (
-      json['media_type'] ??
-      json['mediaType'] ??
-      (media.isNotEmpty ? 'image' : 'text')
-    ).toString();
+    final type = (json['media_type'] ?? 
+                  json['mediaType'] ?? 
+                  (media.isNotEmpty ? 'image' : 'text')).toString().trim();
 
     return NetworkStory(
       id: (json['id'] ?? '').toString(),
@@ -129,7 +135,7 @@ class NetworkStory {
       userName: name,
       userAvatar: avatar,
       userTitle: title,
-      imageUrl: media, // ← media_url SQL → imageUrl Flutter
+      imageUrl: media,
       textContent: text.isEmpty ? null : text,
       mediaType: type,
       duration: (json['duration'] as num?)?.toInt() ?? 24,
@@ -145,13 +151,12 @@ class NetworkStory {
   Map<String, dynamic> toJson() => {
     'user_id': userId,
     'media_url': imageUrl,
-    'text': textContent, // on écrit 'text' pour compatibilité avec ton insert actuel
-    'text_content': textContent, // + text_content pour le futur
+    'text': textContent,
+    'text_content': textContent,
     'media_type': mediaType,
     'duration': duration,
   };
 
-  // Getters pour ne plus crasher dans StoriesList / StoryViewer
   bool get isCurrentUser {
     if (isCurrentUserOverride != null) return isCurrentUserOverride!;
     try { return Supabase.instance.client.auth.currentUser?.id == userId; } catch (_) { return false; }
