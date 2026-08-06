@@ -1,26 +1,30 @@
 // lib/presentation/chat/widgets/chat_message_bubble.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:thix_id/models/chat/chat_message.dart';
-import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
-import 'package:thix_id/presentation/chat/encryption_service.dart';
-import 'chat_code_snippet.dart';
-import 'chat_ephemeral_timer.dart';
-import 'package:thix_id/models/chat/sentiment.dart';
-import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
-// Assurez-vous d'importer le widget s'il est dans un autre fichier, ou définissez-le ci-dessous :
-// import 'message_status_ticks.dart'; 
 
+import 'package:thix_id/models/chat/chat_message.dart';
+import 'package:thix_id/presentation/chat/encryption_service.dart';
+import 'package:thix_id/presentation/chat/widgets/audio_player.dart';
+import 'package:thix_id/presentation/chat/widgets/chat_code_snippet.dart';
+import 'package:thix_id/presentation/chat/widgets/chat_ephemeral_timer.dart';
+import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
+
+// ─────────────────────────────────────────────────────────────
+// CHARTE
+// ─────────────────────────────────────────────────────────────
 class _C {
-  static const bg = Colors.white;
+  static const ownBubble = Color(0xFFDCF8C6); // vert type WhatsApp
+  static const otherBubble = Colors.white;
+  static const noteBubble = Color(0xFFFFF7ED); // orange soft — note interne
   static const searchBg = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
   static const primary = Color(0xFF1D4ED8);
-  static const primaryLight = Color(0xFFEFF6FF);
   static const textMain = Color(0xFF0F172A);
   static const textMuted = Color(0xFF64748B);
   static const red = Color(0xFFEF4444);
+  static const orange = Color(0xFFF59E0B);
   static const gold = Color(0xFFE3B23C);
 }
 
@@ -53,427 +57,718 @@ class ChatMessageBubble extends ConsumerStatefulWidget {
 }
 
 class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
-  bool _hover = false;
   bool _showReact = false;
   bool _isDecrypted = false;
   String? _decrypted;
 
-  final _quick = ['❤️','😂','🔥','👍','😮','😢'];
+  static const _quickReactions = ['❤️', '😂', '🔥', '👍', '😮', '😢'];
 
-  static const List<String> flags = [
-    '🇦🇫','🇦🇱','🇩🇿','🇦🇩','🇦🇴','🇦🇬','🇦🇷','🇦🇲','🇦🇺','🇦🇹',
-    '🇦🇿','🇧🇸','🇧🇭','🇧🇩','🇧🇧','🇧🇾','🇧🇪','🇧🇿','🇧🇯','🇧🇹',
-    '🇧🇴','🇧🇦','🇧🇼','🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮','🇰🇭','🇨🇲',
-    '🇨🇦','🇨🇻','🇨🇫','🇹🇩','🇨🇱','🇨🇳','🇨🇴','🇰🇲','🇨🇬','🇨🇩',
-    '🇨🇷','🇭🇷','🇨🇺','🇨🇾','🇨🇿','🇩🇰','🇩🇯','🇩🇲','🇩🇴','🇪🇨',
-    '🇪🇬','🇸🇻','🇬🇶','🇪🇷','🇪🇪','🇸🇿','🇪🇹','🇫🇯','🇫🇮','🇫🇷',
-    '🇬🇦','🇬🇲','🇬🇪','🇩🇪','🇬🇭','🇬🇷','🇬🇩','🇬🇹','🇬🇳','🇬🇼',
-    '🇬🇾','🇭🇹','🇭🇳','🇭🇺','🇮🇸','🇮🇳','🇮🇩','🇮🇷','🇮🇶','🇮🇪',
-    '🇮🇱','🇮🇹','🇯🇲','🇯🇵','🇯🇴','🇰🇿','🇰🇪','🇰🇮','🇰🇵','🇰🇷',
-    '🇰🇼','🇰🇬','🇱🇦','🇱🇻','🇱🇧','🇱🇸','🇱🇷','🇱🇾','🇱🇮','🇱🇹',
-    '🇱🇺','🇲🇬','🇲🇼','🇲🇾','🇲🇻','🇲🇱','🇲🇹','🇲🇭','🇲🇷','🇲🇺',
-    '🇲🇽','🇫🇲','🇲🇩','🇲🇨','🇲🇳','🇲🇪','🇲🇦','🇲🇿','🇲🇲','🇳🇦',
-    '🇳🇷','🇳🇵','🇳🇱','🇳🇿','🇳🇮','🇳🇪','🇳🇬','🇲🇰','🇳🇴','🇴🇲',
-    '🇵🇰','🇵🇼','🇵🇸','🇵🇦','🇵🇬','🇵🇾','🇵🇪','🇵🇭','🇵🇱','🇵🇹',
-    '🇶🇦','🇷🇴','🇷🇺','🇷🇼','🇰🇳','🇱🇨','🇻🇨','🇼🇸','🇸🇲','🇸🇹',
-    '🇸🇦','🇸🇳','🇷🇸','🇸🇨','🇸🇱','🇸🇬','🇸🇰','🇸🇮','🇸🇧','🇸🇴',
-    '🇿🇦','🇸🇸','🇪🇸','🇱🇰','🇸🇩','🇸🇷','🇸🇪','🇨🇭','🇸🇾','🇹🇯',
-    '🇹🇿','🇹🇭','🇹🇱','🇹🇬','🇹🇴','🇹🇹','🇹🇳','🇹🇷','🇹🇲','🇹🇻',
-    '🇺🇬','🇺🇦','🇦🇪','🇬🇧','🇺🇸','🇺🇾','🇺🇿','🇻🇺','🇻🇦','🇻🇪',
-    '🇻🇳','🇾🇪','🇿🇲','🇿🇼','🇹🇼','🇭🇰','🇲🇴','🇵🇷','🇬🇺','🇽🇰',
-    '🇪🇺','🇺🇳',
-  ];
+  ChatMessage get m => widget.message;
 
-  static const List<String> stickers = [
-    '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇',
-    '🙂','😉','😌','😍','🥰','😘','🤩','🥳','🤗','🤔',
-    '😏','😒','🙄','😬','😔','😪','😴','🤒','😷','🥵',
-    '🥶','😵','🤯','🥴','🤠','❤️','🧡','💛','💚','💙',
-    '💜','🖤','🤍','💔','💕','💞','💓','💗','💖','💝',
-    '💘','💌','💋','💯','🔥','⭐','🌟','💫','✨','🎉',
-    '🎊','🎈','🎁','🏆','👍','👎','👌','✌️','👈','👉',
-    '👆','👇','✋','👋','🙏','💪','👀','🐶','🐱','🦊',
-    '🐻','🐼','🐨','🦁','🐮','🐷','🐸','🐵','🐔','🐧',
-    '🐦','🐤','🦆','🐺','🐴','🦄','🐝','🦋','🐌','🐢',
-    '🐍','🐙','🐠','🐬','🐳','🐋','🦈','🍏','🍎','🍐',
-    '🍊','🍋','🍌','🍉','🍇','🍓','🍒','🍑','🥭','🍍',
-    '🥝','🍅','🥑','🥦','🥒','🌽','🥕','🍞','🧀','🍔',
-    '🍟','🍕','🌮','🍝','🍣','🍱','🍙','🍚','🍦','🍰',
-    '🎂','🍭','🍫','🍿','🍩','☕','🍵','🍺','⚽','🏀',
-    '🏈','🎾','🏐','🎱','🏓','🥊','🛹','🎿','🎯','🎮',
-    '🎲','🧩','🎨','🎤','🎧','🎵','🎶','🎹','🥁','🎸',
-  ];
+  bool get _isNote => widget.isInternalNote || m.isInternalNote;
 
-  bool get _isEncrypted {
-    final c = widget.message.content;
-    return c.startsWith('🔒') || (c.length > 50 && c.contains('+') && c.contains('/')) || EncryptionService.isEncrypted(c);
+  // Note interne : visible seulement en vue agent
+  bool get _shouldHideNote {
+    if (!_isNote) return false;
+    return !widget.isAgentView;
   }
 
-  Future<void> _decrypt() async {
-    final c = TextEditingController();
-    final pass = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: _C.bg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [Icon(Icons.lock_rounded, color: _C.gold, size: 18), SizedBox(width: 8), Text('Message chiffré', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _C.textMain))]),
-        content: TextField(
-          controller: c,
-          obscureText: true,
-          style: const TextStyle(color: _C.textMain, fontSize: 13),
-          decoration: InputDecoration(
-            labelText: 'Mot de passe',
-            hintText: '••••••••',
-            filled: true,
-            fillColor: _C.searchBg,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _C.border)),
-            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: _C.primary)),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler', style: TextStyle(color: _C.textMuted))),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: _C.primary), onPressed: () => Navigator.pop(ctx, c.text), child: const Text('Déchiffrer', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700))),
-        ],
-      ),
-    );
-    if (pass != null && pass.isNotEmpty) {
-      try {
-        final d = EncryptionService.decryptMessage(widget.message.content, pass);
-        setState(() { _decrypted = d; _isDecrypted = true; });
-      } catch (_) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mot de passe incorrect'), backgroundColor: _C.red));
-      }
-    }
+  Color get _bubbleColor {
+    if (_isNote) return _C.noteBubble;
+    return widget.isOwn ? _C.ownBubble : _C.otherBubble;
   }
 
-  String get _display {
-    if (_isEncrypted && !_isDecrypted) return '🔒 Message chiffré (tap pour déchiffrer)';
-    if (_isDecrypted) return _decrypted ?? widget.message.content;
-    return widget.message.content;
-  }
+  Color get _textColor => _C.textMain;
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isInternalNote && !widget.isAgentView) return const SizedBox.shrink();
-    final isOwn = widget.isOwn;
-    final msg = widget.message;
+    if (_shouldHideNote) return const SizedBox.shrink();
+
+    if (m.isDeleted) {
+      return _DeletedBubble(isOwn: widget.isOwn);
+    }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Column(
-        crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment:
+            widget.isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isOwn && !widget.isInternalNote)
+          // Nom expéditeur (groupe / agent)
+          if (!widget.isOwn && m.senderName.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(left: 20, bottom: 4),
-              child: Row(children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: _C.searchBg,
-                  backgroundImage: msg.senderAvatar != null ? NetworkImage(msg.senderAvatar!) : null,
-                  child: msg.senderAvatar == null ? Text(msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : '?', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textMuted)) : null,
+              padding: const EdgeInsets.only(left: 12, bottom: 2),
+              child: Text(
+                m.senderName,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: _C.primary,
                 ),
-                const SizedBox(width: 8),
-                Text(msg.senderName, style: const TextStyle(fontSize: 11, color: _C.textMuted, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          if (widget.replyToMessage != null && !widget.isInternalNote)
-            Padding(
-              padding: EdgeInsets.only(bottom: 4, left: isOwn ? 60 : 20, right: isOwn ? 20 : 60),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: isOwn ? _C.primaryLight : _C.searchBg, borderRadius: BorderRadius.circular(8), border: Border(left: BorderSide(color: isOwn ? _C.primary : _C.border, width: 3))),
-                child: Text(widget.replyToMessage!.content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: _C.textMuted)),
               ),
             ),
-          Row(
-            mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () { if (_isEncrypted && !_isDecrypted) _decrypt(); },
-                onLongPress: () => setState(() => _showReact = !_showReact),
-                child: MouseRegion(
-                  onEnter: (_) => setState(() => _hover = true),
-                  onExit: (_) => setState(() => _hover = false),
-                  child: Container(
-                    padding: msg.mediaType == 'image' ? const EdgeInsets.all(3) : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
-                    decoration: BoxDecoration(
-                      color: widget.isInternalNote ? const Color(0xFFFFF7ED) : (isOwn ? _C.primary : _C.bg),
-                      borderRadius: BorderRadius.only(topLeft: const Radius.circular(18), topRight: const Radius.circular(18), bottomLeft: Radius.circular(isOwn ? 18 : 4), bottomRight: Radius.circular(isOwn ? 4 : 18)),
-                      border: Border.all(color: widget.isInternalNote ? const Color(0xFFFDBA74) : (_isEncrypted && !_isDecrypted ? _C.gold : (isOwn ? _C.primary : _C.border)), width: _isEncrypted && !_isDecrypted ? 1.5 : 1),
-                      boxShadow: [if (!isOwn) BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                      children: [
-                        if (_isEncrypted || widget.isEphemeralActive || widget.isInternalNote) _badges(),
-                        if (msg.sentiment != null) Padding(padding: const EdgeInsets.only(bottom: 5), child: SentimentIndicator(result: msg.sentiment!, size: 12, showLabel: false)),
-                        if (msg.isCodeSnippet && msg.codeContent != null) ChatCodeSnippet(code: msg.codeContent!, language: msg.codeLanguage ?? 'text')
-                        else if (msg.mediaType == 'audio' && msg.mediaUrl != null) AudioPlayerWidget(audioUrl: msg.mediaUrl!, totalDuration: msg.ephemeralDuration, primaryColor: isOwn ? Colors.white : _C.primary, accentColor: isOwn ? Colors.white70 : _C.textMuted)
-                        else if (msg.mediaUrl != null) _media()
-                        else if (_display.isNotEmpty) Text(_display, style: TextStyle(color: widget.isInternalNote ? Colors.black87 : (isOwn ? Colors.white : _C.textMain), fontSize: 14, height: 1.35, fontWeight: isOwn ? FontWeight.w500 : FontWeight.w400)),
-                        if (msg.reactions.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Wrap(
-                              spacing: 4, runSpacing: 4,
-                              children: msg.reactions.map((r) => Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: _C.searchBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.border)),
-                                child: Text(r.reaction, style: const TextStyle(fontSize: 12)),
-                              )).toList(),
-                            ),
-                          ),
-                      ],
+
+          // Badge note interne
+          if (_isNote && widget.isAgentView)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4, left: 4, right: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_outline, size: 12, color: _C.orange),
+                  SizedBox(width: 4),
+                  Text(
+                    'Note interne',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: _C.orange,
                     ),
                   ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: EdgeInsets.only(top: 4, left: isOwn ? 0 : 20, right: isOwn ? 20 : 0),
-            child: Row(
-              mainAxisAlignment: isOwn ? MainAxisAlignment.end : MainAxisAlignment.start,
-              children: [
-                if (widget.isEphemeralActive) ChatEphemeralTimer(duration: widget.message.ephemeralDuration ?? 60, onExpired: () => widget.onDelete?.call()),
-                if (widget.isEphemeralActive) const SizedBox(width: 6),
-                Text(DateFormat('HH:mm').format(msg.createdAt), style: const TextStyle(fontSize: 10, color: _C.textMuted, fontWeight: FontWeight.w500)),
-                if (isOwn) ...[
-                  const SizedBox(width: 4),
-                  MessageStatusTicks(isRead: widget.message.isRead),
                 ],
-              ],
+              ),
             ),
-          ),
-          if (_hover || _showReact)
-            Padding(
-              padding: const EdgeInsets.only(top: 6, left: 20, right: 20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(24), border: Border.all(color: _C.border), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))]),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+
+          GestureDetector(
+            onLongPress: _openActions,
+            onDoubleTap: () {
+              if (widget.onReaction != null) {
+                widget.onReaction!('❤️');
+              }
+            },
+            child: Align(
+              alignment:
+                  widget.isOwn ? Alignment.centerRight : Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.78,
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                   ..._quick.map((e) => InkWell(onTap: () { widget.onReaction?.call(e); setState(() => _showReact = false); }, borderRadius: BorderRadius.circular(12), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(e, style: const TextStyle(fontSize: 18))))),
-                    Container(width: 1, height: 18, color: _C.border, margin: const EdgeInsets.symmetric(horizontal: 6)),
-                    _iconBtn(Icons.emoji_emotions_outlined, 'Stickers', _showStickerPicker),
-                    _iconBtn(Icons.flag_outlined, 'Drapeaux', _showFlagPicker),
-                    _iconBtn(Icons.reply_rounded, 'Répondre', () => widget.onReply?.call()),
-                    if (isOwn) _iconBtn(Icons.delete_outline_rounded, 'Supprimer', () => widget.onDelete?.call()),
+                    Container(
+                      margin: EdgeInsets.only(
+                        left: widget.isOwn ? 40 : 4,
+                        right: widget.isOwn ? 4 : 40,
+                      ),
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                      decoration: BoxDecoration(
+                        color: _bubbleColor,
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(14),
+                          topRight: const Radius.circular(14),
+                          bottomLeft: Radius.circular(widget.isOwn ? 14 : 4),
+                          bottomRight: Radius.circular(widget.isOwn ? 4 : 14),
+                        ),
+                        border: _isNote
+                            ? Border.all(color: _C.orange.withValues(alpha: 0.35))
+                            : Border.all(color: _C.border.withValues(alpha: 0.6)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Reply quote
+                          if (widget.replyToMessage != null)
+                            _ReplyQuote(
+                              message: widget.replyToMessage!,
+                              isOwn: widget.isOwn,
+                            ),
+
+                          // Contenu principal
+                          _buildBody(),
+
+                          const SizedBox(height: 4),
+
+                          // Meta : éphémère + heure + ticks
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (m.isEphemeral || widget.isEphemeralActive) ...[
+                                ChatEphemeralTimer(
+                                  deleteAt: m.deleteAt,
+                                  durationSec: m.ephemeralDuration,
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              if (m.sentiment != null && widget.isAgentView) ...[
+                                SentimentIndicator(result: m.sentiment!),
+                                const SizedBox(width: 6),
+                              ],
+                              Text(
+                                DateFormat('HH:mm').format(m.createdAt.toLocal()),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: _C.textMuted,
+                                ),
+                              ),
+                              if (widget.isOwn) ...[
+                                const SizedBox(width: 4),
+                                MessageStatusTicks(
+                                  isDelivered: m.isDelivered,
+                                  isRead: m.isRead,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Réactions affichées
+                    if (m.reactions.isNotEmpty)
+                      Positioned(
+                        bottom: -10,
+                        right: widget.isOwn ? 16 : null,
+                        left: widget.isOwn ? null : 16,
+                        child: _ReactionsChip(reactions: m.reactions),
+                      ),
                   ],
                 ),
               ),
             ),
+          ),
+
+          // Barre réactions rapide
+          if (_showReact)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: _QuickReactions(
+                onPick: (r) {
+                  setState(() => _showReact = false);
+                  widget.onReaction?.call(r);
+                },
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _iconBtn(IconData icon, String tooltip, VoidCallback onTap) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 5), child: Icon(icon, size: 18, color: _C.textMuted)),
+  Widget _buildBody() {
+    // Code snippet
+    if (m.isCodeSnippet && (m.codeContent?.isNotEmpty ?? false)) {
+      return ChatCodeSnippet(
+        code: m.codeContent!,
+        language: m.codeLanguage ?? 'text',
+      );
+    }
+
+    // Audio
+    if (m.mediaType == 'audio' && m.mediaUrl != null) {
+      return AudioPlayerWidget(url: m.mediaUrl!);
+    }
+
+    // Image
+    if (m.mediaType == 'image' && m.mediaUrl != null) {
+      return _ImageBody(url: m.mediaUrl!, messageId: m.id);
+    }
+
+    // Vidéo / fichier
+    if (m.mediaUrl != null &&
+        (m.mediaType == 'video' || m.mediaType == 'file')) {
+      return _FileBody(
+        type: m.mediaType ?? 'file',
+        name: m.mediaName ?? m.content,
+        isOwn: widget.isOwn,
+      );
+    }
+
+    // Contenu chiffré ?
+    final raw = m.content;
+    final looksEncrypted = EncryptionService.looksEncrypted(raw);
+
+    if (looksEncrypted && !_isDecrypted) {
+      return _EncryptedBody(onUnlock: _unlock);
+    }
+
+    final text = _isDecrypted ? (_decrypted ?? raw) : raw;
+    if (text.trim().isEmpty && m.mediaUrl == null) {
+      return const SizedBox.shrink();
+    }
+
+    return SelectableText(
+      text,
+      style: TextStyle(
+        color: _textColor,
+        fontSize: 15,
+        height: 1.35,
+        fontWeight: FontWeight.w400,
       ),
     );
   }
 
-  Widget _badges() => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Wrap(spacing: 4, children: [
-      if (widget.isInternalNote) _badge(Icons.note_alt_outlined, 'Interne', const Color(0xFFEA580C)),
-      if (_isEncrypted) _badge(_isDecrypted ? Icons.lock_open_rounded : Icons.lock_rounded, _isDecrypted ? 'Déchiffré' : 'Chiffré', _C.gold),
-      if (widget.isEphemeralActive) _badge(Icons.timer_outlined, 'Éphémère', const Color(0xFFD97706)),
-    ]),
-  );
-
-  Widget _badge(IconData ic, String t, Color c) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(6), border: Border.all(color: c.withOpacity(0.2))),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(ic, size: 11, color: c), const SizedBox(width: 3), Text(t, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: c))]),
-  );
-
-  void _showStickerPicker() {
-    int visible = 60;
-    showModalBottomSheet(
+  Future<void> _unlock() async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setSt) {
-        return Container(
-          decoration: const BoxDecoration(color: _C.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-          child: DraggableScrollableSheet(
-            initialChildSize: 0.65,
-            maxChildSize: 0.9,
-            minChildSize: 0.4,
-            expand: false,
-            builder: (_, sc) {
-              sc.addListener(() {
-                if (sc.position.pixels > sc.position.maxScrollExtent - 200 && visible < stickers.length) {
-                  setSt(() => visible = (visible + 60).clamp(0, stickers.length));
-                }
-              });
-              return Column(children: [
-                const SizedBox(height: 12),
-                Container(width: 40, height: 5, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(3))),
-                const Padding(padding: EdgeInsets.fromLTRB(20, 16, 20, 8), child: Row(children: [Icon(Icons.emoji_emotions_rounded, color: _C.textMain, size: 20), SizedBox(width: 8), Text('Stickers • 280', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: _C.textMain))])),
-                Expanded(
-                  child: GridView.builder(
-                    controller: sc,
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, crossAxisSpacing: 6, mainAxisSpacing: 6),
-                    itemCount: visible,
-                    itemBuilder: (_, i) => InkWell(
-                      onTap: () { Navigator.pop(ctx); widget.onReaction?.call(stickers[i]); },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(decoration: BoxDecoration(color: _C.searchBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.border)), child: Center(child: Text(stickers[i], style: const TextStyle(fontSize: 22)))),
-                    ),
-                  ),
-                ),
-              ]);
-            },
+      builder: (ctx) => AlertDialog(
+        title: const Text('Message protégé'),
+        content: TextField(
+          controller: ctrl,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'Mot de passe'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Déverrouiller'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final plain =
+          EncryptionService.decryptMessage(m.content, ctrl.text.trim());
+      if (mounted) {
+        setState(() {
+          _isDecrypted = true;
+          _decrypted = plain;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mot de passe incorrect'),
+            backgroundColor: _C.red,
           ),
         );
-      }),
-    );
+      }
+    }
   }
 
-  void _showFlagPicker() {
-    int visible = 60;
+  void _openActions() {
+    HapticFeedback.mediumImpact();
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setSt) {
-        return Container(
-          decoration: const BoxDecoration(color: _C.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-          child: DraggableScrollableSheet(
-            initialChildSize: 0.65,
-            maxChildSize: 0.9,
-            minChildSize: 0.4,
-            expand: false,
-            builder: (_, sc) {
-              sc.addListener(() {
-                if (sc.position.pixels > sc.position.maxScrollExtent - 200 && visible < flags.length) {
-                  setSt(() => visible = (visible + 60).clamp(0, flags.length));
-                }
-              });
-              return Column(children: [
-                const SizedBox(height: 12),
-                Container(width: 40, height: 5, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(3))),
-                const Padding(padding: EdgeInsets.fromLTRB(20, 16, 20, 8), child: Row(children: [Icon(Icons.flag_rounded, color: _C.textMain, size: 20), SizedBox(width: 8), Text('Drapeaux • 240 pays', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: _C.textMain))])),
-                Expanded(
-                  child: GridView.builder(
-                    controller: sc,
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 6, crossAxisSpacing: 8, mainAxisSpacing: 8),
-                    itemCount: visible,
-                    itemBuilder: (_, i) => InkWell(
-                      onTap: () { Navigator.pop(ctx); widget.onReaction?.call(flags[i]); },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(decoration: BoxDecoration(color: _C.searchBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.border)), child: Center(child: Text(flags[i], style: const TextStyle(fontSize: 26)))),
-                    ),
-                  ),
-                ),
-              ]);
-            },
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _media() {
-    final url = widget.message.mediaUrl;
-    if (url == null || url.isEmpty) return Text(widget.message.content, style: TextStyle(color: widget.isOwn ? Colors.white : _C.textMain, fontSize: 13));
-    final type = widget.message.mediaType ?? 'file';
-    if (type == 'image') {
-      return GestureDetector(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FullScreenImagePage(imageUrl: url, tag: widget.message.id))),
-        child: Hero(
-          tag: widget.message.id,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxHeight: 250,
-                maxWidth: 250,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _C.border,
+                borderRadius: BorderRadius.circular(4),
               ),
-              child: Image.network(
-                url,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return Container(
-                    height: 150, 
-                    width: 200, 
-                    color: _C.searchBg, 
-                    child: const Center(child: CircularProgressIndicator(color: _C.primary, strokeWidth: 2))
-                  );
+            ),
+            // Réactions rapides
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _quickReactions
+                    .map(
+                      (r) => InkWell(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          widget.onReaction?.call(r);
+                        },
+                        child: Text(r, style: const TextStyle(fontSize: 28)),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.reply_rounded, color: _C.primary),
+              title: const Text('Répondre'),
+              onTap: () {
+                Navigator.pop(ctx);
+                widget.onReply?.call();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy_rounded, color: _C.textMuted),
+              title: const Text('Copier'),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: m.content));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Copié'),
+                    duration: Duration(milliseconds: 800),
+                  ),
+                );
+              },
+            ),
+            if (widget.isOwn)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: _C.red),
+                title: const Text('Supprimer', style: TextStyle(color: _C.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onDelete?.call();
                 },
-                errorBuilder: (_, __, ___) => Container(
-                  height: 120, 
-                  width: 180, 
-                  color: _C.searchBg, 
-                  child: const Icon(Icons.broken_image_outlined, color: _C.textMuted, size: 30)
-                ),
               ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SOUS-WIDGETS
+// ─────────────────────────────────────────────────────────────
+
+class _DeletedBubble extends StatelessWidget {
+  final bool isOwn;
+  const _DeletedBubble({required this.isOwn});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white70,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _C.border),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.block, size: 14, color: _C.textMuted),
+            SizedBox(width: 6),
+            Text(
+              'Message supprimé',
+              style: TextStyle(
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+                color: _C.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReplyQuote extends StatelessWidget {
+  final ChatMessage message;
+  final bool isOwn;
+  const _ReplyQuote({required this.message, required this.isOwn});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: const Border(
+          left: BorderSide(color: _C.primary, width: 3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message.senderName.isNotEmpty ? message.senderName : 'Message',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: _C.primary,
+            ),
+          ),
+          Text(
+            message.content,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: _C.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EncryptedBody extends StatelessWidget {
+  final VoidCallback onUnlock;
+  const _EncryptedBody({required this.onUnlock});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onUnlock,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.lock_rounded, size: 16, color: _C.primary),
+          SizedBox(width: 8),
+          Text(
+            'Message protégé — appuyer pour ouvrir',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: _C.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageBody extends StatelessWidget {
+  final String url;
+  final String messageId;
+  const _ImageBody({required this.url, required this.messageId});
+
+  @override
+  Widget build(BuildContext context) {
+    final tag = 'img_$messageId';
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FullScreenImagePage(imageUrl: url, tag: tag),
+          ),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Hero(
+          tag: tag,
+          child: Image.network(
+            url,
+            width: 220,
+            height: 180,
+            fit: BoxFit.cover,
+            loadingBuilder: (_, child, progress) {
+              if (progress == null) return child;
+              return Container(
+                width: 220,
+                height: 180,
+                color: _C.searchBg,
+                child: const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _C.primary,
+                    ),
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (_, __, ___) => Container(
+              width: 180,
+              height: 120,
+              color: _C.searchBg,
+              child: const Icon(Icons.broken_image_outlined, color: _C.textMuted),
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
+}
+
+class _FileBody extends StatelessWidget {
+  final String type;
+  final String name;
+  final bool isOwn;
+  const _FileBody({
+    required this.type,
+    required this.name,
+    required this.isOwn,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: widget.isOwn ? Colors.white.withOpacity(0.15) : _C.searchBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: widget.isOwn ? Colors.white24 : _C.border)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(type == 'video' ? Icons.videocam_rounded : Icons.insert_drive_file_rounded, size: 16, color: widget.isOwn ? Colors.white : _C.primary),
-        const SizedBox(width: 6),
-        Flexible(child: Text(widget.message.content.isNotEmpty ? widget.message.content : type, style: TextStyle(color: widget.isOwn ? Colors.white : _C.textMain, fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
-      ]),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _C.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            type == 'video'
+                ? Icons.videocam_rounded
+                : Icons.insert_drive_file_rounded,
+            size: 18,
+            color: _C.primary,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              name.isNotEmpty ? name : type,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _C.textMain,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+}
+
+class _ReactionsChip extends StatelessWidget {
+  final List<MessageReaction> reactions;
+  const _ReactionsChip({required this.reactions});
+
+  @override
+  Widget build(BuildContext context) {
+    // Grouper par emoji
+    final map = <String, int>{};
+    for (final r in reactions) {
+      map[r.reaction] = (map[r.reaction] ?? 0) + 1;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _C.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: map.entries
+            .map(
+              (e) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Text(
+                  e.value > 1 ? '\( {e.key} \){e.value}' : e.key,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _QuickReactions extends StatelessWidget {
+  final void Function(String) onPick;
+  const _QuickReactions({required this.onPick});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: ['❤️', '😂', '🔥', '👍', '😮', '😢']
+            .map(
+              (r) => InkWell(
+                onTap: () => onPick(r),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(r, style: const TextStyle(fontSize: 22)),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class MessageStatusTicks extends StatelessWidget {
+  final bool isDelivered;
+  final bool isRead;
+
+  const MessageStatusTicks({
+    super.key,
+    this.isDelivered = true,
+    required this.isRead,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isRead) {
+      return const Icon(Icons.done_all_rounded, size: 14, color: _C.primary);
+    }
+    if (isDelivered) {
+      return const Icon(Icons.done_all_rounded, size: 14, color: _C.textMuted);
+    }
+    return const Icon(Icons.check_rounded, size: 14, color: _C.textMuted);
   }
 }
 
 class FullScreenImagePage extends StatelessWidget {
   final String imageUrl;
   final String tag;
-  const FullScreenImagePage({super.key, required this.imageUrl, required this.tag});
-  
+  const FullScreenImagePage({
+    super.key,
+    required this.imageUrl,
+    required this.tag,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, 
-      appBar: AppBar(backgroundColor: Colors.black, iconTheme: const IconThemeData(color: Colors.white)), 
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
       body: Center(
         child: InteractiveViewer(
-          minScale: 0.5, 
-          maxScale: 4, 
+          minScale: 0.5,
+          maxScale: 4,
           child: Hero(
-            tag: tag, 
-            child: Image.network(imageUrl, fit: BoxFit.contain)
-          )
-        )
-      )
-    );
-  }
-}
-
-// Assurez-vous que ce widget existe (déclarez-le ici ou importez-le depuis son fichier d'origine s'il manque)
-class MessageStatusTicks extends StatelessWidget {
-  final bool isRead;
-  const MessageStatusTicks({super.key, required this.isRead});
-
-  @override
-  Widget build(BuildContext context) {
-    return Icon(
-      isRead ? Icons.done_all_rounded : Icons.check_rounded,
-      size: 12,
-      color: isRead ? _C.primary : _C.textMuted,
+            tag: tag,
+            child: Image.network(imageUrl, fit: BoxFit.contain),
+          ),
+        ),
+      ),
     );
   }
 }
