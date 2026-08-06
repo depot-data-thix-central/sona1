@@ -23,7 +23,8 @@ class GlobalCallListener extends ConsumerStatefulWidget {
       _GlobalCallListenerState();
 }
 
-class _GlobalCallListenerState extends ConsumerState<GlobalCallListener> {
+class _GlobalCallListenerState extends ConsumerState<GlobalCallListener>
+    with WidgetsBindingObserver {
   final _signal = CallSignalingService();
   StreamSubscription<CallInvite>? _sub;
   String? _shownInviteId;
@@ -32,14 +33,28 @@ class _GlobalCallListenerState extends ConsumerState<GlobalCallListener> {
   @override
   void initState() {
     super.initState();
-    Supabase.instance.client.auth.onAuthStateChange.listen((_) {
-      _syncListen();
+    WidgetsBinding.instance.addObserver(this);
+
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      debugPrint('📞 auth → ${data.event}');
+      _syncListen(force: true);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncListen());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncListen(force: true);
+    });
   }
 
-  void _syncListen() {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncListen(force: true);
+    }
+  }
+
+  void _syncListen({bool force = false}) {
     final uid = Supabase.instance.client.auth.currentUser?.id;
+    debugPrint('📞 syncListen uid=$uid force=$force');
 
     if (uid == null) {
       _sub?.cancel();
@@ -48,38 +63,63 @@ class _GlobalCallListenerState extends ConsumerState<GlobalCallListener> {
       return;
     }
 
-    if (uid == _lastUid && _sub != null) return;
+    if (!force && uid == _lastUid && _sub != null) return;
 
     _lastUid = uid;
     _sub?.cancel();
 
-    _sub = _signal.watchIncoming().listen((invite) {
-      if (!mounted) return;
-      if (_shownInviteId == invite.id) return;
-      _shownInviteId = invite.id;
-      _openIncoming(invite);
-    });
+    // ⚠️ POLL + Realtime (obligatoire)
+    _sub = _signal.watchIncomingWithPoll().listen(
+      (invite) {
+        debugPrint('📞 INCOMING ${invite.id} from ${invite.callerId}');
+        if (!mounted) return;
+        if (_shownInviteId == invite.id) return;
+        _shownInviteId = invite.id;
+        _openIncoming(invite);
+      },
+      onError: (e, st) {
+        debugPrint('📞 incoming error: $e\n$st');
+      },
+    );
   }
 
   void _openIncoming(CallInvite invite) {
+    debugPrint('📞 open IncomingCallPage ${invite.id}');
+
     final route = MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => IncomingCallPage(invite: invite),
     );
 
+    // 1) rootNavigatorKey
     final nav = widget.navigatorKey?.currentState;
     if (nav != null) {
       nav.push(route);
       return;
     }
 
+    // 2) context
     if (mounted) {
-      Navigator.of(context, rootNavigator: true).push(route);
+      try {
+        Navigator.of(context, rootNavigator: true).push(route);
+        return;
+      } catch (e) {
+        debugPrint('📞 navigator push failed: $e');
+      }
     }
+
+    // 3) retry court (router pas prêt)
+    Future.delayed(const Duration(milliseconds: 300), () {
+      final n = widget.navigatorKey?.currentState;
+      if (n != null) {
+        n.push(route);
+      }
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
     _signal.dispose();
     super.dispose();
