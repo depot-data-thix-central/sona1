@@ -105,6 +105,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
 
   Future<void> _init() async {
     final now = DateTime.now();
+    // Le refresh se fait seulement si inactif pendant > 1 min
     final needsRefresh = _lastRefreshTime == null ||
         now.difference(_lastRefreshTime!) > _refreshCooldown;
 
@@ -170,6 +171,11 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     }
   }
 
+  Future<void> _openComments(String postId) async {
+    // Navigation douce seule, sans recharger le feed au retour
+    _safePush('/network/comments/$postId');
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -208,13 +214,10 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               ),
               slivers: [
                 _buildSliverAppBar(),
-                // Stories type Facebook (cartes)
-                // SliverToBoxAdapter(child: _buildStoriesFacebook(currentUser.id)),
                 SliverToBoxAdapter(
                   child: _buildStoriesFacebook(currentUser.id),
                 ),
                 SliverToBoxAdapter(child: _buildFilters()),
-                // SliverToBoxAdapter(child: _buildCreatePostBar()),
                 SliverToBoxAdapter(child: _buildCreatePostBar()),
                 if (_suggestions.isNotEmpty)
                   SliverToBoxAdapter(child: _buildSuggestions()),
@@ -246,17 +249,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                           key: ValueKey(post.id),
                           post: post,
                           currentProfileId: currentUser.id,
-                          // Like déjà géré dans PostCard (évite double toggle)
                           onLike: null,
-                          onComment: () =>
-                              _safePush('/network/comments/${post.id}'),
+                          onComment: () => _openComments(post.id), // CORRECTION
                           onShare: () => _showShareSheet(post),
                           onDelete: () => ref
                               .read(feedProvider.notifier)
-                              .deletePost(post.id),
-                          onRefresh: () => ref
-                              .read(feedProvider.notifier)
-                              .loadFeed(force: true),
+                              .deletePost(post.id), // CORRECTION : Suppression locale
+                          onRefresh: null, // CORRECTION : Pas de reload agressif
                         );
                       },
                     );
@@ -399,9 +398,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     );
   }
 
-  // ─────────────────────────── STORIES (Facebook-like) ───────────
-  // Forme Facebook = carte verticale arrondie + média de fond
-  // Différence THIX = anneau dégradé bleu→or + pastille or
+  // ─────────────────────────── STORIES ───────────────────────────
 
   Widget _buildStoriesFacebook(String currentUserId) {
     if (_loadingStories) {
@@ -443,8 +440,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                 name: myStories.isNotEmpty ? 'Votre story' : 'Créer',
                 coverUrl: myStories.isNotEmpty
                     ? (myStories.first.imageUrl.isNotEmpty
-    ? myStories.first.imageUrl
-    : myStories.first.userAvatar)
+                        ? myStories.first.imageUrl
+                        : myStories.first.userAvatar)
                     : null,
                 avatarUrl: myStories.isNotEmpty
                     ? myStories.first.userAvatar
@@ -492,7 +489,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   // ─────────────────────────── FILTRES ───────────────────────────
 
   Widget _buildFilters() {
-    // Labels type Facebook, clés inchangées pour le ranking
     final filters = {
       'all': ('Pour vous', Icons.auto_awesome_rounded),
       'network': ('Abonnements', Icons.people_alt_rounded),
@@ -607,13 +603,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   onTap: () => showDialog(
                     context: context,
                     builder: (_) => const CreatePostDialog(),
-                  ).then((v) {
-                    if (v == true) {
-                      ref
-                          .read(feedProvider.notifier)
-                          .loadFeed(force: true);
-                    }
-                  }),
+                  ),
+                  // CORRECTION : Plus de reload global ici. La boite de dialogue gère déjà "addPostOnTop" pour afficher en direct.
                   child: Container(
                     height: 42,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -659,11 +650,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       onTap: () => showDialog(
         context: context,
         builder: (_) => const CreatePostDialog(),
-      ).then((v) {
-        if (v == true) {
-          ref.read(feedProvider.notifier).loadFeed(force: true);
-        }
-      }),
+      ),
+      // CORRECTION : Pas de reload, addPostOnTop le fait en direct.
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         child: Row(
@@ -928,11 +916,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         onPressed: () => showDialog(
           context: context,
           builder: (_) => const CreatePostDialog(),
-        ).then((v) {
-          if (v == true) {
-            ref.read(feedProvider.notifier).loadFeed(force: true);
-          }
-        }),
+        ), // CORRECTION : Plus besoin de .then() puisque addPostOnTop le fait en arrière-plan.
         child: const Icon(Icons.add_rounded, size: 26, color: Colors.white),
       ),
     );
