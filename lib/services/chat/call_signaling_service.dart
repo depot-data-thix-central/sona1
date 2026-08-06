@@ -18,7 +18,6 @@ class CallSignalingService {
   // START CALL
   // ============================================================
 
-  /// Démarre un appel. Retourne l'invite (status ringing | busy).
   Future<CallInvite> startCall({
     required String calleeId,
     required CallType type,
@@ -100,31 +99,25 @@ class CallSignalingService {
   }
 
   // ============================================================
-  // REALTIME — appels entrants
+  // REALTIME — appels entrants (sans filtre serveur)
   // ============================================================
 
-  /// Stream des invites entrants (status = ringing, pour moi = callee).
   Stream<CallInvite> watchIncoming() {
-    final controller = StreamController<CallInvite>.broadcast(
-      onCancel: () {
-        // Ne ferme pas forcément le channel global ici si d'autres écoutent
-      },
-    );
-
+    final controller = StreamController<CallInvite>.broadcast();
     final myId = _uid;
+
     if (myId.isEmpty) {
       scheduleMicrotask(() {
-        if (!controller.isClosed) {
-          controller.addError(Exception('Non authentifié'));
-          controller.close();
-        }
+        if (!controller.isClosed) controller.close();
       });
       return controller.stream;
     }
 
     _incomingChannel?.unsubscribe();
     try {
-      _db.removeChannel(_incomingChannel!);
+      if (_incomingChannel != null) {
+        _db.removeChannel(_incomingChannel!);
+      }
     } catch (_) {}
 
     final chName =
@@ -136,24 +129,21 @@ class CallSignalingService {
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'call_invites',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'callee_id',
-            value: myId,
-          ),
           callback: (payload) {
             try {
-              final row = payload.newRecord;
-              if (row.isEmpty) return;
+              final row = Map<String, dynamic>.from(payload.newRecord);
+              debugPrint('📞 INSERT call_invites: $row');
 
+              final callee = row['callee_id']?.toString();
               final status = row['status']?.toString();
-              if (status != 'ringing') return;
-              if (row['caller_id']?.toString() == myId) return;
+              final caller = row['caller_id']?.toString();
 
-              final invite = CallInvite.fromJson(
-                Map<String, dynamic>.from(row),
-              );
-              debugPrint('📞 Incoming call ${invite.id}');
+              if (callee != myId) return;
+              if (status != 'ringing') return;
+              if (caller == myId) return;
+
+              final invite = CallInvite.fromJson(row);
+              debugPrint('📞 → push incoming ${invite.id}');
               if (!controller.isClosed) {
                 controller.add(invite);
               }
@@ -163,24 +153,84 @@ class CallSignalingService {
           },
         )
         .subscribe((status, [err]) {
-          debugPrint('🔔 incoming channel: $status err=$err');
+          debugPrint('🔔 calls channel status=$status err=$err');
         });
 
+    return controller.stream;
+  }
+
+  // ============================================================
+  // REALTIME + POLL (recommandé pour GlobalCallListener)
+  // ============================================================
+
+  Stream<CallInvite> watchIncomingWithPoll() {
+    final controller = StreamController<CallInvite>.broadcast();
+    final myId = _uid;
+
+    if (myId.isEmpty) {
+      scheduleMicrotask(() {
+        if (!controller.isClosed) controller.close();
+      });
+      return controller.stream;
+    }
+
+    final seen = <String>{};
+
+    final realtimeSub = watchIncoming().listen(
+      (invite) {
+        if (seen.add(invite.id)) {
+          if (!controller.isClosed) controller.add(invite);
+        }
+      },
+      onError: (e) {
+        if (!controller.isClosed) controller.addError(e);
+      },
+    );
+
+    final timer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      try {
+        final since = DateTime.now()
+            .toUtc()
+            .subtract(const Duration(minutes: 2))
+            .toIso8601String();
+
+        final rows = await _db
+            .from('call_invites')
+            .select()
+            .eq('callee_id', myId)
+            .eq('status', 'ringing')
+            .gte('created_at', since);
+
+        for (final row in (rows as List)) {
+          final map = Map<String, dynamic>.from(row as Map);
+          final id = map['id']?.toString() ?? '';
+          if (id.isEmpty || !seen.add(id)) continue;
+
+          debugPrint('📞 poll hit $id');
+          if (!controller.isClosed) {
+            controller.add(CallInvite.fromJson(map));
+          }
+        }
+      } catch (e) {
+        debugPrint('📞 poll error: $e');
+      }
+    });
+
     controller.onCancel = () {
-      // Optionnel : ne pas kill si GlobalCallListener reste actif
+      realtimeSub.cancel();
+      timer.cancel();
     };
 
     return controller.stream;
   }
 
   // ============================================================
-  // REALTIME — status d’un invite (côté caller)
+  // REALTIME — status d’un invite (caller)
   // ============================================================
 
   Stream<CallStatus> watchInviteStatus(String inviteId) {
     final controller = StreamController<CallStatus>.broadcast();
 
-    // Nettoie un éventuel channel précédent pour cet id
     final old = _statusChannels.remove(inviteId);
     if (old != null) {
       try {
@@ -218,7 +268,23 @@ class CallSignalingService {
         )
         .subscribe();
 
+    // Poll status aussi (filet)
+    final timer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      try {
+        final row = await _db
+            .from('call_invites')
+            .select('status')
+            .eq('id', inviteId)
+            .maybeSingle();
+        if (row == null) return;
+        final status =
+            CallStatus.fromString(row['status']?.toString() ?? 'ended');
+        if (!controller.isClosed) controller.add(status);
+      } catch (_) {}
+    });
+
     controller.onCancel = () {
+      timer.cancel();
       final c = _statusChannels.remove(inviteId);
       if (c != null) {
         try {
@@ -241,9 +307,7 @@ class CallSignalingService {
     if (res is List) {
       if (res.isEmpty) return {};
       final first = res.first;
-      if (first is Map) {
-        return Map<String, dynamic>.from(first);
-      }
+      if (first is Map) return Map<String, dynamic>.from(first);
       return {};
     }
 
@@ -254,7 +318,6 @@ class CallSignalingService {
     return {};
   }
 
-  /// Libère tous les channels
   void dispose() {
     try {
       _incomingChannel?.unsubscribe();
