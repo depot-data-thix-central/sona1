@@ -7,8 +7,8 @@ class _C {
   static const gold = Color(0xFFE3B23C);
   static const orange = Color(0xFFF59E0B);
   static const border = Color(0xFFE2E8F0);
-  static const muted = Color(0xFF64748B);
-  static const surface = Colors.white;
+  static const textMuted = Color(0xFF64748B);
+  static const surface = Color(0xFFF1F5F9);
 }
 
 class ChatInputBar extends StatefulWidget {
@@ -58,6 +58,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   @override
+  void didUpdateWidget(covariant ChatInputBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
+      _hasText = widget.controller.text.trim().isNotEmpty;
+    }
+  }
+
+  @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
     super.dispose();
@@ -65,20 +75,25 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   void _onTextChanged() {
     final has = widget.controller.text.trim().isNotEmpty;
-    if (has != _hasText) {
+    if (_hasText != has) {
       setState(() => _hasText = has);
     }
-    widget.onTyping?.call(widget.controller.text);
   }
 
-  bool get _canSend => _hasText && !widget.isSending;
+  void _handleSend() {
+    if (widget.isSending || !_hasText) return;
+    widget.onSend();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isNote = widget.isInternalNote;
-    final bg = isNote ? const Color(0xFFFFF7ED) : _C.surface;
+    final bg = isNote ? const Color(0xFFFFF7ED) : Colors.white;
     final topBorder =
         isNote ? const Color(0xFFFED7AA) : _C.border;
+    final hint = isNote
+        ? 'Écrire une note interne…'
+        : 'Écrire un message…';
     final sendColor = isNote ? _C.orange : _C.navy;
 
     return Container(
@@ -98,173 +113,194 @@ class _ChatInputBarState extends State<ChatInputBar> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Toolbar actions ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _ActionChip(
-                      icon: Icons.attach_file_rounded,
-                      label: 'Fichier',
-                      onTap: widget.onAttach,
+            // ── Bande d’outils ──
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+              child: Row(
+                children: [
+                  _ToolChip(
+                    icon: Icons.attach_file_rounded,
+                    label: 'Fichier',
+                    onTap: widget.onAttach,
+                  ),
+                  _ToolChip(
+                    icon: Icons.emoji_emotions_outlined,
+                    label: 'Sticker',
+                    onTap: widget.onStickerTap,
+                  ),
+                  _ToolChip(
+                    icon: widget.isEphemeral
+                        ? Icons.timer_rounded
+                        : Icons.timer_outlined,
+                    label: 'Éphémère',
+                    onTap: widget.onEphemeralToggle,
+                    active: widget.isEphemeral,
+                    activeColor: _C.gold,
+                  ),
+                  _ToolChip(
+                    icon: Icons.lock_outline_rounded,
+                    label: 'Protégé',
+                    onTap: widget.onSecureMessage,
+                  ),
+                  if (widget.onInternalNoteToggle != null)
+                    _ToolChip(
+                      icon: Icons.speaker_notes_outlined,
+                      label: 'Note',
+                      onTap: widget.onInternalNoteToggle,
+                      active: isNote,
+                      activeColor: _C.orange,
                     ),
-                    _ActionChip(
-                      icon: Icons.emoji_emotions_outlined,
-                      label: 'Sticker',
-                      onTap: widget.onStickerTap ?? () {},
-                    ),
-                    _ActionChip(
-                      icon: Icons.timer_outlined,
-                      label: 'Éphémère',
-                      isActive: widget.isEphemeral,
-                      activeColor: _C.gold,
-                      onTap: widget.onEphemeralToggle,
-                    ),
-                    _ActionChip(
-                      icon: Icons.lock_outline_rounded,
-                      label: 'Protégé',
-                      onTap: widget.onSecureMessage,
-                    ),
-                    if (widget.onInternalNoteToggle != null)
-                      _ActionChip(
-                        icon: Icons.sticky_note_2_outlined,
-                        label: 'Note',
-                        isActive: isNote,
-                        activeColor: _C.orange,
-                        onTap: widget.onInternalNoteToggle!,
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
 
-            // ── Banner modes ──
-            if (widget.isEphemeral || isNote)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                child: Row(
+            // ── Banner mode note ──
+            if (isNote)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEDD5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFED7AA)),
+                ),
+                child: const Row(
                   children: [
-                    if (widget.isEphemeral)
-                      _ModeBanner(
-                        icon: Icons.timer_outlined,
-                        label: 'Message éphémère actif',
-                        color: _C.gold,
+                    Icon(Icons.lock_outline, size: 14, color: _C.orange),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Mode note interne — visible uniquement par les agents',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _C.orange,
+                        ),
                       ),
-                    if (widget.isEphemeral && isNote) const SizedBox(width: 8),
-                    if (isNote)
-                      _ModeBanner(
-                        icon: Icons.lock_outline,
-                        label: 'Note interne (agents)',
-                        color: _C.orange,
-                      ),
+                    ),
                   ],
                 ),
               ),
 
-            // ── Input row ──
+            // ── Banner éphémère ──
+            if (widget.isEphemeral && !isNote)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.timer_rounded, size: 14, color: _C.gold),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Message éphémère activé',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // ── Zone de saisie ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  // Micro (si pas de texte)
+                  if (!_hasText) ...[
+                    _IconRound(
+                      icon: Icons.mic_none_rounded,
+                      onTap: widget.onAudio,
+                      tooltip: 'Message audio',
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+
                   // Champ texte
                   Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 120),
-                      decoration: BoxDecoration(
-                        color: isNote
-                            ? Colors.white.withValues(alpha: 0.9)
-                            : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: isNote
-                              ? const Color(0xFFFED7AA)
-                              : _C.border,
-                        ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minHeight: 42,
+                        maxHeight: 130,
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: widget.controller,
-                              focusNode: widget.focusNode,
-                              minLines: 1,
-                              maxLines: 5,
-                              textInputAction: TextInputAction.newline,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                color: Color(0xFF0F172A),
-                                height: 1.35,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: isNote
-                                    ? 'Écrire une note interne…'
-                                    : 'Écrire un message…',
-                                hintStyle: const TextStyle(
-                                  color: _C.muted,
-                                  fontSize: 14,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  10,
-                                  8,
-                                  10,
-                                ),
-                              ),
-                              onSubmitted: (_) {
-                                if (_canSend) widget.onSend();
-                              },
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: widget.focusNode,
+                        onChanged: (v) {
+                          widget.onTyping?.call(v);
+                          _onTextChanged();
+                        },
+                        maxLines: null,
+                        minLines: 1,
+                        textCapitalization: TextCapitalization.sentences,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: Color(0xFF0F172A),
+                          height: 1.35,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: hint,
+                          hintStyle: const TextStyle(
+                            color: _C.textMuted,
+                            fontSize: 14,
+                          ),
+                          filled: true,
+                          fillColor: isNote
+                              ? const Color(0xFFFFEDD5)
+                              : _C.surface,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            borderSide: BorderSide(
+                              color: isNote
+                                  ? const Color(0xFFFED7AA)
+                                  : Colors.transparent,
                             ),
                           ),
-                          // Micro (si pas de texte)
-                          if (!_hasText)
-                            IconButton(
-                              onPressed: widget.onAudio,
-                              icon: const Icon(
-                                Icons.mic_none_rounded,
-                                color: _C.muted,
-                              ),
-                              tooltip: 'Message audio',
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            borderSide: BorderSide(
+                              color: isNote ? _C.orange : _C.primary,
+                              width: 1.2,
                             ),
-                        ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
 
                   const SizedBox(width: 8),
 
-                  // Bouton envoi
-                  Material(
-                    color: _canSend ? sendColor : const Color(0xFFCBD5E1),
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: _canSend ? widget.onSend : null,
-                      child: SizedBox(
-                        width: 46,
-                        height: 46,
-                        child: Center(
-                          child: widget.isSending
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.send_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                        ),
-                      ),
-                    ),
+                  // Envoi
+                  _SendButton(
+                    enabled: _hasText && !widget.isSending,
+                    loading: widget.isSending,
+                    color: sendColor,
+                    onTap: _handleSend,
                   ),
                 ],
               ),
@@ -277,52 +313,51 @@ class _ChatInputBarState extends State<ChatInputBar> {
 }
 
 // ─────────────────────────────────────────────────────────────
+// WIDGETS INTERNES
+// ─────────────────────────────────────────────────────────────
 
-class _ActionChip extends StatelessWidget {
+class _ToolChip extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
-  final bool isActive;
-  final Color? activeColor;
+  final VoidCallback? onTap;
+  final bool active;
+  final Color activeColor;
 
-  const _ActionChip({
+  const _ToolChip({
     required this.icon,
     required this.label,
-    required this.onTap,
-    this.isActive = false,
-    this.activeColor,
+    this.onTap,
+    this.active = false,
+    this.activeColor = _C.gold,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? (activeColor ?? _C.gold) : _C.muted;
+    final color = active ? activeColor : _C.textMuted;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.only(right: 6),
       child: Material(
-        color: Colors.transparent,
+        color: active
+            ? activeColor.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: isActive
-                ? BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  )
-                : null,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 17, color: color),
+                Icon(icon, size: 16, color: color),
                 const SizedBox(width: 4),
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                     color: color,
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ],
@@ -334,39 +369,80 @@ class _ActionChip extends StatelessWidget {
   }
 }
 
-class _ModeBanner extends StatelessWidget {
+class _IconRound extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final Color color;
+  final VoidCallback onTap;
+  final String? tooltip;
 
-  const _ModeBanner({
+  const _IconRound({
     required this.icon,
-    required this.label,
-    required this.color,
+    required this.onTap,
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
+    final btn = Material(
+      color: _C.surface,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 42,
+          height: 42,
+          child: Icon(icon, size: 22, color: _C.textMuted),
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
+    );
+
+    if (tooltip == null) return btn;
+    return Tooltip(message: tooltip!, child: btn);
+  }
+}
+
+class _SendButton extends StatelessWidget {
+  final bool enabled;
+  final bool loading;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SendButton({
+    required this.enabled,
+    required this.loading,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: enabled ? color : const Color(0xFFCBD5E1),
+      shape: const CircleBorder(),
+      elevation: enabled ? 1 : 0,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: enabled ? onTap : null,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(
+                    Icons.send_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
           ),
-        ],
+        ),
       ),
     );
   }
