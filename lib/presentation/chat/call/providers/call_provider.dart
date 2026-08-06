@@ -2,7 +2,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../../models/chat/call_invite.dart';
 import '../../../../models/chat/call_status.dart';
 import '../../../../services/chat/call_service.dart';
 import '../../../../services/chat/call_signaling_service.dart';
@@ -10,81 +11,93 @@ import '../../../../services/chat/call_signaling_service.dart';
 class CallState {
   final CallStatus status;
   final CallType type;
-  final int? remoteUid;
   final String? inviteId;
   final String? channelName;
+  final String? remoteUserId;
+  final String? remoteName;
+  final String? remoteAvatar;
+  final int? remoteUid;
   final bool muted;
   final bool videoOff;
   final bool speakerOn;
   final bool isFrontCam;
-  final bool isConnecting;
+  final bool isCaller;
   final Duration duration;
-  final String? errorMessage;
+  final String? error;
 
   const CallState({
-    this.status = CallStatus.ringing,
+    this.status = CallStatus.idle,
     this.type = CallType.audio,
-    this.remoteUid,
     this.inviteId,
     this.channelName,
+    this.remoteUserId,
+    this.remoteName,
+    this.remoteAvatar,
+    this.remoteUid,
     this.muted = false,
     this.videoOff = false,
     this.speakerOn = true,
     this.isFrontCam = true,
-    this.isConnecting = true,
+    this.isCaller = true,
     this.duration = Duration.zero,
-    this.errorMessage,
+    this.error,
   });
 
   CallState copyWith({
     CallStatus? status,
     CallType? type,
-    int? remoteUid,
     String? inviteId,
     String? channelName,
+    String? remoteUserId,
+    String? remoteName,
+    String? remoteAvatar,
+    int? remoteUid,
     bool? muted,
     bool? videoOff,
     bool? speakerOn,
     bool? isFrontCam,
-    bool? isConnecting,
+    bool? isCaller,
     Duration? duration,
-    String? errorMessage,
+    String? error,
     bool clearError = false,
   }) {
     return CallState(
       status: status ?? this.status,
       type: type ?? this.type,
-      remoteUid: remoteUid ?? this.remoteUid,
       inviteId: inviteId ?? this.inviteId,
       channelName: channelName ?? this.channelName,
+      remoteUserId: remoteUserId ?? this.remoteUserId,
+      remoteName: remoteName ?? this.remoteName,
+      remoteAvatar: remoteAvatar ?? this.remoteAvatar,
+      remoteUid: remoteUid ?? this.remoteUid,
       muted: muted ?? this.muted,
       videoOff: videoOff ?? this.videoOff,
       speakerOn: speakerOn ?? this.speakerOn,
       isFrontCam: isFrontCam ?? this.isFrontCam,
-      isConnecting: isConnecting ?? this.isConnecting,
+      isCaller: isCaller ?? this.isCaller,
       duration: duration ?? this.duration,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      error: clearError ? null : (error ?? this.error),
     );
   }
 
   bool get isVideo => type == CallType.video;
-  bool get isOngoing => status == CallStatus.ongoing;
-  bool get hasError => errorMessage != null && errorMessage!.isNotEmpty;
+  bool get isActive =>
+      status == CallStatus.ringing ||
+      status == CallStatus.accepted ||
+      status == CallStatus.ongoing;
 }
 
-class CallNotifier extends AutoDisposeNotifier<CallState> {
-  final CallService _call = CallService();
-  final CallSignalingService _signal = CallSignalingService();
+class CallNotifier extends StateNotifier<CallState> {
+  final _media = CallMediaService();
+  final _signal = CallSignalingService();
 
-  Timer? _callTimer;
-  Timer? _ringTimeout; // ← timeout appelant
+  Timer? _timer;
+  Timer? _ringTimeout;
   StreamSubscription? _statusSub;
 
-  CallService get callService => _call;
+  CallNotifier() : super(const CallState());
 
-  static const _ringTimeoutDuration = Duration(seconds: 45);
-
-  int _uidFromUserId(String userId) {
+  int _uidFrom(String userId) {
     var hash = 0x811c9dc5;
     for (final c in userId.codeUnits) {
       hash ^= c;
@@ -94,267 +107,198 @@ class CallNotifier extends AutoDisposeNotifier<CallState> {
     return uid == 0 ? 1 : uid;
   }
 
-  @override
-  CallState build() {
-    ref.onDispose(() {
-      _callTimer?.cancel();
-      _ringTimeout?.cancel();
-      _statusSub?.cancel();
-      _call.dispose();
-      _signal.dispose();
-    });
-    return const CallState();
-  }
-
-  void _cancelRingTimeout() {
-    _ringTimeout?.cancel();
-    _ringTimeout = null;
-  }
-
-  void _startRingTimeout() {
-    _cancelRingTimeout();
-    _ringTimeout = Timer(_ringTimeoutDuration, () async {
-      // Si toujours en sonnerie / en attente d'accept → missed
-      if (state.status == CallStatus.ringing ||
-          state.status == CallStatus.accepted) {
-        debugPrint('⏰ Ring timeout → missed');
-        try {
-          if (state.inviteId != null) {
-            await _signal.update(state.inviteId!, 'missed');
-          }
-        } catch (_) {}
-        await end(silent: true);
-      }
-    });
-  }
-
+  /// Caller démarre
   Future<void> start({
-    required String channel,
+    required String myUserId,
     required String calleeId,
-    required CallType callType,
+    required String calleeName,
+    String? calleeAvatar,
+    required CallType type,
   }) async {
     try {
-      final myId = Supabase.instance.client.auth.currentUser?.id;
-      if (myId == null) throw Exception('Not authenticated');
-
-      final uid = _uidFromUserId(myId);
-
-      debugPrint('📞 CallNotifier.start type=$callType channel=$channel callee=$calleeId');
-
       state = state.copyWith(
-        channelName: channel,
-        type: callType,
         status: CallStatus.ringing,
-        isConnecting: true,
-        remoteUid: null,
-        videoOff: callType == CallType.audio,
-        speakerOn: true,
-        duration: Duration.zero,
+        type: type,
+        isCaller: true,
+        remoteUserId: calleeId,
+        remoteName: calleeName,
+        remoteAvatar: calleeAvatar,
         clearError: true,
       );
 
-      final inviteId = await _signal.create(
-        channel: channel,
-        calleeId: calleeId,
-        type: callType.name, // "audio" | "video"
-      );
-      state = state.copyWith(inviteId: inviteId);
-      _listenStatusChange(inviteId);
-      _startRingTimeout(); // ← timeout côté appelant
+      final invite = await _signal.startCall(calleeId: calleeId, type: type);
 
-      await _call.join(
-        channel: channel,
-        type: callType,
-        uid: uid,
-        onUserJoined: (remoteUid) {
-          _cancelRingTimeout();
-          state = state.copyWith(
-            remoteUid: remoteUid,
-            status: CallStatus.ongoing,
-            isConnecting: false,
-            clearError: true,
-          );
-          _startTimer();
-        },
-        onUserLeft: () => end(silent: false),
-        onError: (msg) {
-          _cancelRingTimeout();
-          state = state.copyWith(
-            status: CallStatus.failed,
-            isConnecting: false,
-            errorMessage: msg,
-          );
-        },
-      );
-    } catch (e) {
-      debugPrint('❌ CallNotifier.start error: $e');
-      _cancelRingTimeout();
+      if (invite.status == CallStatus.busy) {
+        state = state.copyWith(status: CallStatus.busy, error: 'Occupé');
+        return;
+      }
+
       state = state.copyWith(
-        status: CallStatus.failed,
-        isConnecting: false,
-        errorMessage: e.toString(),
+        inviteId: invite.id,
+        channelName: invite.channelName,
       );
+
+      // Timeout 45s
+      _ringTimeout?.cancel();
+      _ringTimeout = Timer(const Duration(seconds: 45), () async {
+        if (state.status == CallStatus.ringing && state.inviteId != null) {
+          await _signal.markMissed(state.inviteId!);
+          await hangUp();
+        }
+      });
+
+      // Écoute accept / reject
+      _statusSub?.cancel();
+      _statusSub = _signal.watchInviteStatus(invite.id).listen((s) async {
+        if (s == CallStatus.accepted || s == CallStatus.ongoing) {
+          _ringTimeout?.cancel();
+          await _joinAgora(myUserId);
+        } else if (s.isFinished) {
+          await hangUp(skipSignal: true);
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ start call: $e');
+      state = state.copyWith(status: CallStatus.failed, error: '$e');
     }
   }
 
-  Future<void> accept({
-    required String channel,
-    required String inviteId,
-    required CallType callType,
+  /// Callee accepte
+  Future<void> acceptIncoming({
+    required CallInvite invite,
+    required String myUserId,
+    String? callerName,
+    String? callerAvatar,
   }) async {
     try {
-      final myId = Supabase.instance.client.auth.currentUser?.id;
-      if (myId == null) throw Exception('Not authenticated');
-
-      final uid = _uidFromUserId(myId);
-
-      debugPrint('📞 CallNotifier.accept type=$callType invite=$inviteId');
-
       state = state.copyWith(
-        inviteId: inviteId,
-        channelName: channel,
-        type: callType,
         status: CallStatus.accepted,
-        isConnecting: true,
-        videoOff: callType == CallType.audio,
+        type: invite.callType,
+        isCaller: false,
+        inviteId: invite.id,
+        channelName: invite.channelName,
+        remoteUserId: invite.callerId,
+        remoteName: callerName ?? invite.callerName,
+        remoteAvatar: callerAvatar ?? invite.callerAvatar,
         clearError: true,
       );
 
-      await _signal.update(inviteId, 'accepted');
-      _listenStatusChange(inviteId);
-      // Pas de ring timeout côté callee qui a déjà accepté
-
-      await _call.join(
-        channel: channel,
-        type: callType,
-        uid: uid,
-        onUserJoined: (remoteUid) {
-          state = state.copyWith(
-            remoteUid: remoteUid,
-            status: CallStatus.ongoing,
-            isConnecting: false,
-            clearError: true,
-          );
-          _startTimer();
-        },
-        onUserLeft: () => end(silent: false),
-        onError: (msg) {
-          state = state.copyWith(
-            status: CallStatus.failed,
-            isConnecting: false,
-            errorMessage: msg,
-          );
-        },
-      );
+      await _signal.accept(invite.id);
+      await _joinAgora(myUserId);
     } catch (e) {
-      debugPrint('❌ CallNotifier.accept error: $e');
-      state = state.copyWith(
-        status: CallStatus.failed,
-        isConnecting: false,
-        errorMessage: e.toString(),
-      );
+      state = state.copyWith(status: CallStatus.failed, error: '$e');
     }
   }
 
-  Future<void> reject() async {
-    _cancelRingTimeout();
-    try {
-      if (state.inviteId != null) {
-        await _signal.update(state.inviteId!, 'rejected');
-      }
-    } finally {
-      await _cleanup();
-      state = state.copyWith(status: CallStatus.rejected);
-    }
+  Future<void> rejectIncoming(String inviteId) async {
+    await _signal.reject(inviteId);
+    state = const CallState();
   }
 
-  Future<void> end({bool silent = false}) async {
-    _cancelRingTimeout();
-    try {
-      _callTimer?.cancel();
-      if (!silent && state.inviteId != null) {
-        await _signal.update(state.inviteId!, 'ended');
-      }
-      await _call.leave();
-    } catch (e) {
-      debugPrint('end err $e');
-    } finally {
-      await _cleanup();
-      state = state.copyWith(status: CallStatus.ended, duration: Duration.zero);
-    }
-  }
+  Future<void> _joinAgora(String myUserId) async {
+    final channel = state.channelName;
+    final inviteId = state.inviteId;
+    if (channel == null) return;
 
-  Future<void> toggleMute() async {
-    final newMuted = !state.muted;
-    state = state.copyWith(muted: newMuted);
-    try {
-      await _call.mute(newMuted);
-    } catch (_) {
-      state = state.copyWith(muted: !newMuted);
-    }
-  }
+    final uid = _uidFrom(myUserId);
 
-  Future<void> toggleVideo() async {
-    if (state.type == CallType.audio) return;
-    final newOff = !state.videoOff;
-    state = state.copyWith(videoOff: newOff);
-    try {
-      await _call.videoOff(newOff);
-    } catch (_) {
-      state = state.copyWith(videoOff: !newOff);
-    }
-  }
+    await _media.join(
+      channel: channel,
+      type: state.type,
+      uid: uid,
+      onUserJoined: (remoteUid) async {
+        state = state.copyWith(
+          remoteUid: remoteUid,
+          status: CallStatus.ongoing,
+        );
+        if (inviteId != null) {
+          await _signal.markOngoing(inviteId);
+        }
+        _startTimer();
+      },
+      onUserLeft: (_) async {
+        await hangUp();
+      },
+      onError: (err) {
+        state = state.copyWith(error: err);
+      },
+    );
 
-  Future<void> toggleSpeaker() async {
-    final newVal = !state.speakerOn;
-    state = state.copyWith(speakerOn: newVal);
-    try {
-      await _call.speaker(newVal);
-    } catch (_) {
-      state = state.copyWith(speakerOn: !newVal);
+    // Si on est déjà accepted, passer ongoing côté UI
+    if (state.status == CallStatus.accepted) {
+      state = state.copyWith(status: CallStatus.ongoing);
+      _startTimer();
     }
-  }
-
-  Future<void> switchCam() async {
-    try {
-      await _call.switchCam();
-      state = state.copyWith(isFrontCam: !state.isFrontCam);
-    } catch (_) {}
   }
 
   void _startTimer() {
-    _callTimer?.cancel();
-    _callTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      state = state.copyWith(
-        duration: state.duration + const Duration(seconds: 1),
-      );
+    _timer?.cancel();
+    final start = DateTime.now();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      state = state.copyWith(duration: DateTime.now().difference(start));
     });
   }
 
-  void _listenStatusChange(String id) {
-    _statusSub?.cancel();
-    _statusSub = Supabase.instance.client
-        .from('call_invites')
-        .stream(primaryKey: ['id'])
-        .eq('id', id)
-        .listen((list) {
-      if (list.isEmpty) return;
-      final s = list.first['status'] as String?;
-      if (s == 'ended' || s == 'rejected' || s == 'missed' || s == 'busy') {
-        _cancelRingTimeout();
-        end(silent: true);
-      }
-    });
+  Future<void> toggleMute() async {
+    final next = !state.muted;
+    await _media.setMuted(next);
+    state = state.copyWith(muted: next);
   }
 
-  Future<void> _cleanup() async {
-    _callTimer?.cancel();
-    _cancelRingTimeout();
+  Future<void> toggleVideo() async {
+    final next = !state.videoOff;
+    await _media.setVideoOff(next);
+    state = state.copyWith(videoOff: next);
+  }
+
+  Future<void> switchCamera() async {
+    await _media.switchCamera();
+    state = state.copyWith(isFrontCam: !state.isFrontCam);
+  }
+
+  Future<void> toggleSpeaker() async {
+    final next = !state.speakerOn;
+    await _media.setSpeaker(next);
+    state = state.copyWith(speakerOn: next);
+  }
+
+  Future<void> hangUp({bool skipSignal = false}) async {
+    _timer?.cancel();
+    _ringTimeout?.cancel();
     _statusSub?.cancel();
-    _statusSub = null;
+
+    final inviteId = state.inviteId;
+    final secs = state.duration.inSeconds;
+    final wasCaller = state.isCaller;
+    final wasRinging = state.status == CallStatus.ringing;
+
+    await _media.leave();
+
+    if (!skipSignal && inviteId != null) {
+      try {
+        if (wasRinging && wasCaller) {
+          await _signal.cancel(inviteId);
+        } else {
+          await _signal.end(inviteId, durationSec: secs);
+        }
+      } catch (_) {}
+    }
+
+    state = const CallState();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _ringTimeout?.cancel();
+    _statusSub?.cancel();
+    _media.disposeEngine();
+    _signal.dispose();
+    super.dispose();
   }
 }
 
-final callProvider = AutoDisposeNotifierProvider<CallNotifier, CallState>(
-  CallNotifier.new,
-);
+final callProvider =
+    StateNotifierProvider<CallNotifier, CallState>((ref) {
+  return CallNotifier();
+});
