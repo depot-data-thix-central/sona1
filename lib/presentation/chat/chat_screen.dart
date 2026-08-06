@@ -409,28 +409,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _startCall(CallType type) {
-    final svc = ref.read(chatServiceProvider);
-    final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id != svc.currentUserId,
-      orElse: () => '',
-    );
-    ref.read(callProvider.notifier).start(
-          channel: widget.conversationId,
-          calleeId: otherId,
-          callType: type,
-        );
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CallPage(
-          channel: widget.conversationId,
-          name: widget.conversation.displayName,
-          type: type,
-          isCaller: true,
-        ),
-      ),
-    );
-  }
+  final svc = ref.read(chatServiceProvider);
+  final myId = svc.currentUserId;
+  final otherId = widget.conversation.participantIds.firstWhere(
+    (id) => id != myId,
+    orElse: () => '',
+  );
+  if (otherId.isEmpty) return;
+
+  ref.read(callProvider.notifier).start(
+        myUserId: myId,
+        calleeId: otherId,
+        calleeName: widget.conversation.displayName,
+        calleeAvatar: widget.conversation.displayAvatar,
+        type: type,
+      );
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const CallPage()),
+  );
+}
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
