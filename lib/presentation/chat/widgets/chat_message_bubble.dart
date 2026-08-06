@@ -181,37 +181,38 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
 
                           const SizedBox(height: 4),
 
-                                                        Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (m.isEphemeral || widget.isEphemeralActive) ...[
-                                    ChatEphemeralTimer(
-                                      duration: m.ephemeralDuration,
-                                    ),
-                                    const SizedBox(width: 6),
-                                  ],
-                                  if (m.sentiment != null && widget.isAgentView) ...[
-                                    SentimentIndicator(result: m.sentiment!),
-                                    const SizedBox(width: 6),
-                                  ],
-                                  Text(
-                                    DateFormat('HH:mm').format(m.createdAt.toLocal()),
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: _C.textMuted,
-                                    ),
-                                  ),
-                                  if (widget.isOwn) ...[
-                                    const SizedBox(width: 4),
-                                    MessageStatusTicks(
-                                      isDelivered: m.isDelivered,
-                                      isRead: m.isRead,
-                                    ),
-                                  ],
-                                ],
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (m.isEphemeral || widget.isEphemeralActive) ...[
+                                ChatEphemeralTimer(
+                                  duration: m.ephemeralDuration,
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              if (m.sentiment != null && widget.isAgentView) ...[
+                                SentimentIndicator(result: m.sentiment!),
+                                const SizedBox(width: 6),
+                              ],
+                              Text(
+                                DateFormat('HH:mm').format(m.createdAt.toLocal()),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: _C.textMuted,
+                                ),
                               ),
-                          ]
-
+                              if (widget.isOwn) ...[
+                                const SizedBox(width: 4),
+                                MessageStatusTicks(
+                                  isDelivered: m.isDelivered,
+                                  isRead: m.isRead,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
 
                     if (m.reactions.isNotEmpty)
                       Positioned(
@@ -658,7 +659,7 @@ class _ReactionsChip extends StatelessWidget {
               (e) => Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Text(
-                  e.value > 1 ? '\( {e.key} \){e.value}' : e.key,
+                  e.value > 1 ? '${e.key} ${e.value}' : e.key,
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
