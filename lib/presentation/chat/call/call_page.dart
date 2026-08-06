@@ -2,226 +2,184 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import '../../../../models/chat/call_status.dart';
+
+import '../../../models/chat/call_status.dart';
+import '../../../services/chat/call_service.dart';
 import 'providers/call_provider.dart';
-import 'widgets/call_avatar.dart';
 
-class CallPage extends ConsumerStatefulWidget {
-  final String channel;
-  final String name;
-  final String? avatarUrl;
-  final CallType type;
-  final String? inviteId;
-  final bool isCaller;
+class CallPage extends ConsumerWidget {
+  const CallPage({super.key});
 
-  const CallPage({
-    super.key,
-    required this.channel,
-    required this.name,
-    this.avatarUrl,
-    required this.type,
-    this.inviteId,
-    this.isCaller = true,
-  });
-
-  @override
-  ConsumerState<CallPage> createState() => _CallPageState();
-}
-
-class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!widget.isCaller && widget.inviteId != null) {
-        ref.read(callProvider.notifier).accept(
-              channel: widget.channel,
-              inviteId: widget.inviteId!,
-              callType: widget.type,
-            );
-      }
-    });
-  }
-
-  String _formatDuration(Duration duration) {
-    final s = duration.inSeconds;
-    final h = s ~/ 3600;
-    final m = (s % 3600) ~/ 60;
-    final sec = s % 60;
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
-  }
-
-  Future<void> _handleEnd() async {
-    await ref.read(callProvider.notifier).end();
-    if (mounted) Navigator.pop(context);
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final h = d.inHours;
+    if (h > 0) return '$h:$m:$s';
+    return '$m:$s';
   }
 
   @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(callProvider);
+    final notifier = ref.read(callProvider.notifier);
+    final media = CallMediaService();
 
-  @override
-  Widget build(BuildContext context) {
-    final provState = ref.watch(callProvider);
-    final provNotifier = ref.read(callProvider.notifier);
-    final isVideo = provState.isVideo;
-    final statusText = _getStatusText(provState);
+    final statusLabel = switch (state.status) {
+      CallStatus.ringing => state.isCaller ? 'Appel…' : 'Connexion…',
+      CallStatus.accepted => 'Connexion…',
+      CallStatus.ongoing => _fmt(state.duration),
+      CallStatus.busy => 'Occupé',
+      CallStatus.failed => 'Échec',
+      _ => state.status.label,
+    };
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (!didPop) await _handleEnd();
-      },
-      child: Scaffold(
-        backgroundColor: const Color(0xFF0A1F44),
-        body: Stack(
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A1F44),
+      body: SafeArea(
+        child: Stack(
           children: [
-            if (isVideo) _buildVideoLayout(provState, provNotifier),
-            if (!isVideo) _buildAudioLayout(statusText, provState),
-
-            // TOP BAR
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                child: Container(
-                  height: 70,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.55),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white70, size: 20),
-                        onPressed: _handleEnd,
-                      ),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              widget.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              statusText,
-                              style: TextStyle(
-                                color: provState.status == CallStatus.ongoing
-                                    ? const Color(0xFF1FA971)
-                                    : Colors.white60,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isVideo)
-                        IconButton(
-                          icon: const Icon(Icons.flip_camera_ios_rounded,
-                              color: Colors.white70),
-                          onPressed: provNotifier.switchCam,
-                        ),
-                    ],
+            // Vidéo remote
+            if (state.isVideo &&
+                state.remoteUid != null &&
+                media.engine != null)
+              Positioned.fill(
+                child: AgoraVideoView(
+                  controller: VideoViewController.remote(
+                    rtcEngine: media.engine!,
+                    canvas: VideoCanvas(uid: state.remoteUid),
+                    connection: RtcConnection(channelId: state.channelName),
                   ),
                 ),
-              ),
-            ),
-
-            // ERROR BANNER
-            if (provState.hasError)
-              Positioned(
-                top: 90,
-                left: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.18),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.redAccent.withOpacity(0.6)),
-                  ),
-                  child: Text(
-                    provState.errorMessage ?? 'Erreur inconnue',
-                    style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-
-            // CONTROLS
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.only(
-                    top: 18, bottom: 34, left: 16, right: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.85),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
+              )
+            else
+              // Audio / waiting UI
+              Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (provState.status == CallStatus.ongoing)
-                      Text(
-                        _formatDuration(provState.duration),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.1,
-                        ),
+                    CircleAvatar(
+                      radius: 56,
+                      backgroundColor: Colors.white24,
+                      backgroundImage: state.remoteAvatar != null
+                          ? NetworkImage(state.remoteAvatar!)
+                          : null,
+                      child: state.remoteAvatar == null
+                          ? const Icon(Icons.person,
+                              size: 56, color: Colors.white)
+                          : null,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      state.remoteName ?? 'Contact',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
                       ),
-                    const SizedBox(height: 14),
-                    CallControls(
-                      isVideo: isVideo,
-                      muted: provState.muted,
-                      videoOff: provState.videoOff,
-                      speakerOn: provState.speakerOn,
-                      onMute: provNotifier.toggleMute,
-                      onVideo: provNotifier.toggleVideo,
-                      onSwitch: provNotifier.switchCam,
-                      onSpeaker: provNotifier.toggleSpeaker,
-                      onEnd: _handleEnd,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      statusLabel,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                      ),
                     ),
                   ],
                 ),
+              ),
+
+            // Preview locale (vidéo)
+            if (state.isVideo &&
+                !state.videoOff &&
+                media.engine != null)
+              Positioned(
+                right: 16,
+                top: 16,
+                width: 110,
+                height: 160,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: AgoraVideoView(
+                    controller: VideoViewController(
+                      rtcEngine: media.engine!,
+                      canvas: const VideoCanvas(uid: 0),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Header name en vidéo
+            if (state.isVideo)
+              Positioned(
+                top: 12,
+                left: 0,
+                right: 0,
+                child: Column(
+                  children: [
+                    Text(
+                      state.remoteName ?? '',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    ),
+                    Text(
+                      statusLabel,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Controls
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 36,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _Btn(
+                    icon: state.muted ? Icons.mic_off : Icons.mic,
+                    label: state.muted ? 'Muet' : 'Micro',
+                    onTap: notifier.toggleMute,
+                    active: state.muted,
+                  ),
+                  if (state.isVideo)
+                    _Btn(
+                      icon: state.videoOff
+                          ? Icons.videocam_off
+                          : Icons.videocam,
+                      label: 'Caméra',
+                      onTap: notifier.toggleVideo,
+                      active: state.videoOff,
+                    ),
+                  if (state.isVideo)
+                    _Btn(
+                      icon: Icons.cameraswitch,
+                      label: 'Retourner',
+                      onTap: notifier.switchCamera,
+                    ),
+                  _Btn(
+                    icon: state.speakerOn
+                        ? Icons.volume_up
+                        : Icons.volume_off,
+                    label: 'Haut-parleur',
+                    onTap: notifier.toggleSpeaker,
+                    active: !state.speakerOn,
+                  ),
+                  _Btn(
+                    icon: Icons.call_end,
+                    label: 'Raccrocher',
+                    onTap: () async {
+                      await notifier.hangUp();
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    bg: const Color(0xFFEF4444),
+                  ),
+                ],
               ),
             ),
           ],
@@ -229,227 +187,53 @@ class _CallPageState extends ConsumerState<CallPage> with WidgetsBindingObserver
       ),
     );
   }
-
-  String _getStatusText(CallState p) {
-    if (p.hasError) return 'Erreur';
-    switch (p.status) {
-      case CallStatus.ringing:
-        return widget.isCaller ? 'Appel en cours...' : 'Connexion...';
-      case CallStatus.accepted:
-        return 'Connexion...';
-      case CallStatus.ongoing:
-        return p.remoteUid == null ? 'Sonnerie...' : 'En cours';
-      case CallStatus.ended:
-        return 'Terminé';
-      case CallStatus.failed:
-        return 'Échec';
-      default:
-        return p.status.name;
-    }
-  }
-
-  Widget _buildAudioLayout(String status, CallState prov) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 90),
-          CallAvatar(
-            name: widget.name,
-            imageUrl: widget.avatarUrl,
-            size: 130,
-            isVideo: false,
-            isRinging: prov.status == CallStatus.ringing ||
-                prov.status == CallStatus.accepted,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            widget.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              status,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          if (prov.status == CallStatus.ongoing && prov.remoteUid != null)
-            Text(
-              _formatDuration(prov.duration),
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideoLayout(CallState prov, CallNotifier notifier) {
-    Widget remoteView;
-
-    if (prov.remoteUid != null && notifier.callService.engine != null) {
-      remoteView = AgoraVideoView(
-        controller: VideoViewController.remote(
-          rtcEngine: notifier.callService.engine!,
-          connection: RtcConnection(channelId: widget.channel),
-          canvas: VideoCanvas(
-            uid: prov.remoteUid,
-            renderMode: RenderModeType.renderModeHidden,
-          ),
-        ),
-      );
-    } else {
-      remoteView = Container(
-        color: const Color(0xFF0A1F44),
-        child: Center(
-          child: CallAvatar(
-            name: widget.name,
-            imageUrl: widget.avatarUrl,
-            size: 110,
-            isVideo: true,
-            isRinging: true,
-          ),
-        ),
-      );
-    }
-
-    return Stack(
-      children: [
-        SizedBox.expand(child: remoteView),
-        if (!prov.videoOff && notifier.callService.engine != null)
-          Positioned(
-            top: 90,
-            right: 16,
-            width: 112,
-            height: 168,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white24, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.45),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: AgoraVideoView(
-                  controller: VideoViewController(
-                    rtcEngine: notifier.callService.engine!,
-                    canvas: const VideoCanvas(
-                      uid: 0,
-                      renderMode: RenderModeType.renderModeHidden,
-                      mirrorMode: VideoMirrorModeType.videoMirrorModeEnabled,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
 }
 
-class CallControls extends StatelessWidget {
-  final bool isVideo;
-  final bool muted;
-  final bool videoOff;
-  final bool speakerOn;
-  final VoidCallback onMute;
-  final VoidCallback onVideo;
-  final VoidCallback onSwitch;
-  final VoidCallback onSpeaker;
-  final VoidCallback onEnd;
+class _Btn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool active;
+  final Color? bg;
 
-  const CallControls({
-    super.key,
-    required this.isVideo,
-    required this.muted,
-    required this.videoOff,
-    required this.speakerOn,
-    required this.onMute,
-    required this.onVideo,
-    required this.onSwitch,
-    required this.onSpeaker,
-    required this.onEnd,
+  const _Btn({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+    this.bg,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _buildButton(
-          icon: muted ? Icons.mic_off : Icons.mic,
-          color: muted ? Colors.white : Colors.white24,
-          iconColor: muted ? Colors.black : Colors.white,
-          onTap: onMute,
-        ),
-        if (isVideo)
-          _buildButton(
-            icon: videoOff ? Icons.videocam_off : Icons.videocam,
-            color: videoOff ? Colors.white : Colors.white24,
-            iconColor: videoOff ? Colors.black : Colors.white,
-            onTap: onVideo,
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(32),
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: bg ??
+                  (active ? Colors.white : Colors.white24),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: bg != null
+                  ? Colors.white
+                  : (active ? const Color(0xFF0A1F44) : Colors.white),
+            ),
           ),
-        _buildButton(
-          icon: speakerOn ? Icons.volume_up : Icons.volume_down,
-          color: speakerOn ? Colors.white : Colors.white24,
-          iconColor: speakerOn ? Colors.black : Colors.white,
-          onTap: onSpeaker,
         ),
-        _buildButton(
-          icon: Icons.call_end,
-          color: Colors.redAccent,
-          iconColor: Colors.white,
-          onTap: onEnd,
-          isEndButton: true,
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
         ),
       ],
-    );
-  }
-
-  Widget _buildButton({
-    required IconData icon,
-    required Color color,
-    required Color iconColor,
-    required VoidCallback onTap,
-    bool isEndButton = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(isEndButton ? 18 : 14),
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: iconColor, size: isEndButton ? 32 : 28),
-      ),
     );
   }
 }
