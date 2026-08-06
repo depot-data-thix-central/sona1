@@ -666,22 +666,23 @@ class _PostCardState extends ConsumerState<PostCard>
               ),
             );
           }),
-          if (totalVotes > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '\( totalVotes vote \){totalVotes > 1 ? 's' : ''}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: _PostColors.textSecondary,
-                  fontWeight: FontWeight.w600,
+                      if (totalVotes > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '$totalVotes vote${totalVotes > 1 ? 's' : ''}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: _PostColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
+    }
+
 
   // ── CHALLENGE (design entreprise) ──
   Widget _buildChallengeWidget(NetworkPost post) {
