@@ -1,44 +1,69 @@
-// Route: lib/services/chat/call_signaling_service.dart
+// lib/services/chat/call_signaling_service.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../models/chat/call_invite.dart';
 import '../../models/chat/call_status.dart';
 
 class CallSignalingService {
-  final SupabaseClient _db = Supabase.instance.client;
+  final _db = Supabase.instance.client;
   RealtimeChannel? _channel;
-  StreamSubscription? _pollSub;
-  bool _isListening = false;
 
-  StreamController<CallInvite>? _inviteController;
+  String get _uid => _db.auth.currentUser?.id ?? '';
 
-  // ============================================================
-  // LISTEN - Ecoute mes appels entrants (expose un Stream)
-  // ============================================================
-  Stream<CallInvite> listenMyInvites(String myId) {
-    _inviteController?.close();
-    _inviteController = StreamController<CallInvite>.broadcast(
-      onCancel: () {
-        _stopListening();
-      },
-    );
+  /// Démarre un appel → {inviteId, channelName, status}
+  Future<CallInvite> startCall({
+    required String calleeId,
+    required CallType type,
+  }) async {
+    final res = await _db.rpc('rpc_start_call', params: {
+      'p_callee_id': calleeId,
+      'p_call_type': type == CallType.video ? 'video' : 'audio',
+    });
 
-    _startListening(myId);
-    return _inviteController!.stream;
+    final row = (res as List).first as Map;
+    return CallInvite.fromJson({
+      ...Map<String, dynamic>.from(row),
+      'caller_id': _uid,
+      'callee_id': calleeId,
+      'call_type': type == CallType.video ? 'video' : 'audio',
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 
-  void _startListening(String myId) {
-    if (_isListening) return;
-    _isListening = true;
+  Future<void> accept(String inviteId) =>
+      _db.rpc('rpc_accept_call', params: {'p_invite_id': inviteId});
 
-    _channel?.unsubscribe();
-    if (_channel != null) {
-      _db.removeChannel(_channel!);
+  Future<void> reject(String inviteId) =>
+      _db.rpc('rpc_reject_call', params: {'p_invite_id': inviteId});
+
+  Future<void> cancel(String inviteId) =>
+      _db.rpc('rpc_cancel_call', params: {'p_invite_id': inviteId});
+
+  Future<void> end(String inviteId, {int durationSec = 0}) =>
+      _db.rpc('rpc_end_call', params: {
+        'p_invite_id': inviteId,
+        'p_duration_sec': durationSec,
+      });
+
+  Future<void> markOngoing(String inviteId) =>
+      _db.rpc('rpc_mark_call_ongoing', params: {'p_invite_id': inviteId});
+
+  Future<void> markMissed(String inviteId) =>
+      _db.rpc('rpc_mark_call_missed', params: {'p_invite_id': inviteId});
+
+  /// Écoute les appels entrants (Realtime)
+  Stream<CallInvite> watchIncoming() {
+    final controller = StreamController<CallInvite>.broadcast();
+    final myId = _uid;
+    if (myId.isEmpty) {
+      controller.close();
+      return controller.stream;
     }
 
-    final chName = 'calls:$myId:${DateTime.now().millisecondsSinceEpoch}';
-    _channel = _db.channel(chName);
+    _channel?.unsubscribe();
+    _channel = _db.channel('calls_in_$myId');
 
     _channel!
         .onPostgresChanges(
@@ -50,172 +75,56 @@ class CallSignalingService {
             column: 'callee_id',
             value: myId,
           ),
-          callback: (payload) async {
+          callback: (payload) {
             try {
               final row = payload.newRecord;
-              if (row.isEmpty) return;
-
-              final status = row['status'] as String?;
-              if (status != 'ringing') return;
-
-              final invite = CallInvite.fromJson(row);
-              if (invite.callerId == myId) return;
-
-              final busy = await _isBusy(myId);
-              if (busy) {
-                await update(invite.id, 'busy');
-                return;
-              }
-
-              debugPrint('📞 Incoming call ${invite.id} from ${invite.callerId}');
-              _inviteController?.add(invite);
+              if (row['status'] != 'ringing') return;
+              if (row['caller_id'] == myId) return;
+              controller.add(CallInvite.fromJson(row));
             } catch (e) {
-              debugPrint('❌ listenMyInvites parse error: $e');
+              debugPrint('❌ incoming parse: $e');
             }
           },
         )
+        .subscribe();
+
+    controller.onCancel = () {
+      _channel?.unsubscribe();
+    };
+
+    return controller.stream;
+  }
+
+  /// Écoute le status d’un invite (caller côté)
+  Stream<CallStatus> watchInviteStatus(String inviteId) {
+    final controller = StreamController<CallStatus>.broadcast();
+
+    final ch = _db.channel('call_status_$inviteId');
+    ch
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'call_invites',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'callee_id',
-            value: myId,
+            column: 'id',
+            value: inviteId,
           ),
           callback: (payload) {
-            final newStatus = payload.newRecord['status'];
-            if (newStatus == 'ended' || newStatus == 'canceled') {
-              debugPrint('📴 Caller canceled');
-            }
+            final s = payload.newRecord['status']?.toString() ?? 'ended';
+            controller.add(CallStatus.fromString(s));
           },
         )
-        .subscribe((status, err) {
-          debugPrint('🔔 Realtime status $status err $err');
-        });
+        .subscribe();
 
-    _pollSub?.cancel();
-    _pollSub = Stream.periodic(const Duration(seconds: 8)).listen((_) async {
-      try {
-        final rows = await _db
-            .from('call_invites')
-            .select()
-            .eq('callee_id', myId)
-            .eq('status', 'ringing')
-            .order('created_at', ascending: false)
-            .limit(1);
+    controller.onCancel = () {
+      _db.removeChannel(ch);
+    };
 
-        if (rows.isNotEmpty) {
-          final invite = CallInvite.fromJson(rows.first as Map<String, dynamic>);
-          final age = DateTime.now().difference(invite.createdAt).inSeconds;
-          if (age < 30) {
-            final busy = await _isBusy(myId);
-            if (!busy) _inviteController?.add(invite);
-          }
-        }
-      } catch (_) {}
-    });
-  }
-
-  void _stopListening() {
-    _isListening = false;
-    _pollSub?.cancel();
-    _pollSub = null;
-    if (_channel != null) {
-      try {
-        _channel!.unsubscribe();
-        _db.removeChannel(_channel!);
-      } catch (_) {}
-      _channel = null;
-    }
-  }
-
-  // ============================================================
-  // CREATE - Création d'un appel sortant
-  // ============================================================
-  Future<String> create({
-    required String channel,
-    required String calleeId,
-    required String type,
-  }) async {
-    final uid = _db.auth.currentUser?.id;
-    if (uid == null) throw Exception('Not authenticated');
-    if (uid == calleeId) throw Exception('Cannot call yourself');
-
-    final busy = await _isBusy(calleeId);
-    if (busy) throw Exception('User is busy');
-
-    final caller = _db.auth.currentUser;
-    final meta = caller?.userMetadata;
-    final callerName = meta?['full_name'] ?? meta?['name'] ?? 'Inconnu';
-    final callerAvatar = meta?['avatar_url'] ?? meta?['picture'];
-
-    final res = await _db
-        .from('call_invites')
-        .insert({
-          'channel': channel,
-          'caller_id': uid,
-          'callee_id': calleeId,
-          'call_type': type,
-          'status': 'ringing',
-          'caller_name': callerName,
-          'caller_avatar': callerAvatar,
-        })
-        .select()
-        .single();
-
-    debugPrint('📤 Invite created ${res['id']} -> $calleeId');
-    return res['id'] as String;
-  }
-
-  Future<void> update(String id, String status) async {
-    try {
-      await _db
-          .from('call_invites')
-          .update({
-            'status': status,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', id);
-      debugPrint('📝 Invite $id -> $status');
-    } catch (e) {
-      debugPrint('❌ update error $e');
-      rethrow;
-    }
-  }
-
-  Future<void> cancel(String id) => update(id, 'canceled');
-  Future<void> accept(String id) => update(id, 'accepted');
-  Future<void> reject(String id) => update(id, 'rejected');
-  Future<void> end(String id) => update(id, 'ended');
-  Future<void> miss(String id) => update(id, 'missed');
-
-  Future<bool> _isBusy(String userId) async {
-    try {
-      final rows = await _db
-          .from('call_invites')
-          .select('id')
-          .or('caller_id.eq.$userId,callee_id.eq.$userId')
-          .inFilter('status', ['ringing', 'accepted', 'ongoing'])
-          .limit(1);
-      return rows.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<CallInvite?> getInvite(String id) async {
-    try {
-      final row = await _db.from('call_invites').select().eq('id', id).single();
-      return CallInvite.fromJson(row);
-    } catch (_) {
-      return null;
-    }
+    return controller.stream;
   }
 
   void dispose() {
-    _stopListening();
-    _inviteController?.close();
-    _inviteController = null;
+    _channel?.unsubscribe();
   }
 }
