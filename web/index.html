@@ -1,133 +1,145 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="THIX ID CENTRAL - Identité numérique sécurisée">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-
-  <!-- iOS meta tags & icons -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="THIX ID">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
   <title>THIX ID CENTRAL</title>
-  <link rel="manifest" href="manifest.json">
 
   <style>
-    /* Empêche le flash blanc/noir au chargement */
     html, body {
       height: 100%;
-      width: 100%;
       margin: 0;
       padding: 0;
-      background-color: #000000;
+      background: #0A1F44;
       overflow: hidden;
     }
-    /* Loading indicator pendant le bootstrap Flutter */
-    .loading {
-      display: flex;
-      justify-content: center;
+    /* Overlay de recovery (caché par défaut) */
+    #webgl-recover {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      background: #0A1F44;
+      color: #fff;
+      font-family: system-ui, sans-serif;
       align-items: center;
-      height: 100%;
-      color: #ffffff;
-      font-family: system-ui, -apple-system, sans-serif;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      padding: 24px;
+    }
+    #webgl-recover.show { display: flex; }
+    #webgl-recover button {
+      background: #1D4ED8;
+      color: #fff;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 20px;
       font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <!-- Indicateur de chargement (optionnel) -->
-  <div id="loading" class="loading">Chargement THIX ID...</div>
+  <div id="webgl-recover">
+    <div style="font-size:18px;font-weight:700;">Affichage interrompu</div>
+    <div style="opacity:.8;font-size:14px;">L’écran s’est figé après une inactivité.<br>Touchez pour recharger.</div>
+    <button id="webgl-reload" type="button">Recharger</button>
+  </div>
 
-  <!-- Bootstrap Flutter -->
-  <script src="flutter_bootstrap.js" async></script>
-
-  <!-- ============================================================
-       Gestion robuste de la perte de contexte WebGL
-       (cause principale de l'écran noir après inactivité)
-       ============================================================ -->
   <script>
     (function () {
-      let contextLost = false;
-      let lastVisibility = document.visibilityState;
+      var recovering = false;
+      var lastVisible = Date.now();
+
+      function showRecover() {
+        var el = document.getElementById('webgl-recover');
+        if (el) el.classList.add('show');
+      }
+
+      function hardReload() {
+        try {
+          var url = new URL(window.location.href);
+          url.searchParams.set('_r', String(Date.now()));
+          window.location.replace(url.toString());
+        } catch (e) {
+          window.location.reload();
+        }
+      }
+
+      document.getElementById('webgl-reload')?.addEventListener('click', hardReload);
+
+      // WebGL context lost sur n'importe quel canvas
+      function onContextLost(e) {
+        try { e.preventDefault(); } catch (_) {}
+        console.warn('[THIX] WebGL context lost');
+        if (recovering) return;
+        recovering = true;
+        showRecover();
+        // Auto-reload après 1.2s si l'utilisateur ne clique pas
+        setTimeout(hardReload, 1200);
+      }
 
       function attachToCanvas(canvas) {
-        if (!canvas || canvas.__thixRecoveryAttached) return;
-        canvas.__thixRecoveryAttached = true;
-
-        canvas.addEventListener('webglcontextlost', function (e) {
-          e.preventDefault();
-          contextLost = true;
-          console.warn('[THIX] WebGL context lost');
-        }, false);
-
+        if (!canvas || canvas.__thixGlBound) return;
+        canvas.__thixGlBound = true;
+        canvas.addEventListener('webglcontextlost', onContextLost, false);
         canvas.addEventListener('webglcontextrestored', function () {
-          contextLost = false;
-          console.log('[THIX] WebGL context restored');
+          console.log('[THIX] WebGL restored');
         }, false);
       }
 
-      function attachToAllCanvases() {
-        // Sélecteurs compatibles avec les anciennes et nouvelles versions de Flutter
-        const selectors = [
-          'flt-glass-pane canvas',
-          'flutter-view canvas',
-          'flt-scene-host canvas',
-          'canvas'
-        ];
-
-        selectors.forEach(function (sel) {
-          document.querySelectorAll(sel).forEach(attachToCanvas);
+      // Observer les canvas ajoutés par Flutter / CanvasKit
+      var obs = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          m.addedNodes.forEach(function (n) {
+            if (n.nodeName === 'CANVAS') attachToCanvas(n);
+            if (n.querySelectorAll) {
+              n.querySelectorAll('canvas').forEach(attachToCanvas);
+            }
+          });
         });
-      }
-
-      // Observer le DOM car Flutter crée le canvas dynamiquement
-      const observer = new MutationObserver(function () {
-        attachToAllCanvases();
       });
-      observer.observe(document.body, { childList: true, subtree: true });
+      obs.observe(document.documentElement, { childList: true, subtree: true });
+      document.querySelectorAll('canvas').forEach(attachToCanvas);
 
-      // Au retour de l'onglet / de l'app
+      // Revenir au premier plan après longue inactivité
       document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible' && lastVisibility === 'hidden') {
-          if (contextLost) {
-            console.warn('[THIX] Context lost détecté → reload forcé');
-            window.location.reload();
-          } else {
-            // Filet de sécurité : si le canvas est mort (width 0)
-            setTimeout(function () {
-              const canvas = document.querySelector('canvas');
-              if (canvas && (canvas.width === 0 || canvas.height === 0)) {
-                console.warn('[THIX] Canvas mort détecté → reload');
-                window.location.reload();
-              }
-            }, 400);
-          }
+        if (document.visibilityState === 'hidden') {
+          lastVisible = Date.now();
+          return;
         }
-        lastVisibility = document.visibilityState;
+        var away = Date.now() - lastVisible;
+        // > 45s en arrière-plan → risque élevé d'écran noir sur mobile
+        if (away > 45000) {
+          console.warn('[THIX] long background', away, 'ms → reload');
+          hardReload();
+        }
       });
 
-      // Attachement initial + filet de sécurité périodique
-      window.addEventListener('load', function () {
-        // Cache le loading indicator une fois Flutter prêt
-        setTimeout(function () {
-          const loading = document.getElementById('loading');
-          if (loading) loading.style.display = 'none';
-        }, 2500);
-
-        setTimeout(attachToAllCanvases, 600);
-        setTimeout(attachToAllCanvases, 1500);
-        // Vérification périodique (utile sur mobile)
-        setInterval(attachToAllCanvases, 4000);
+      // Page freeze (Chrome)
+      window.addEventListener('freeze', function () {
+        console.warn('[THIX] page freeze');
+      });
+      window.addEventListener('resume', function () {
+        console.warn('[THIX] page resume → soft check');
+        // Si aucun canvas visible / taille 0 → recover
+        var canvases = document.querySelectorAll('canvas');
+        var broken = canvases.length === 0;
+        canvases.forEach(function (c) {
+          if (c.width === 0 || c.height === 0) broken = true;
+        });
+        if (broken) hardReload();
       });
     })();
   </script>
+
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
