@@ -210,6 +210,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                                   ],
                                 ],
                               ),
+                          ]
 
 
                     if (m.reactions.isNotEmpty)
