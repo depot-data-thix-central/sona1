@@ -1,9 +1,12 @@
+// lib/presentation/network/network_pro_home.dart
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import 'package:thix_id/models/network_story.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
 import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
@@ -49,26 +52,27 @@ class ThixColors {
 
 class NetworkProHome extends ConsumerStatefulWidget {
   const NetworkProHome({super.key});
+
   @override
   ConsumerState<NetworkProHome> createState() => _NetworkProHomeState();
 }
 
-class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticKeepAliveClientMixin {
+class _NetworkProHomeState extends ConsumerState<NetworkProHome>
+    with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<bool> _navVisible = ValueNotifier(true);
-  
-  // --- Chrono pour éviter le mixage permanent du fil ---
+
   static DateTime? _lastRefreshTime;
   static const _refreshCooldown = Duration(seconds: 60);
 
   String _feedType = 'all';
-
   List<NetworkStory> _stories = [];
   bool _loadingStories = true;
   List<dynamic> _suggestions = [];
   bool _isLoadingMore = false;
 
-  @override bool get wantKeepAlive => true;
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -78,14 +82,19 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   }
 
   void _onScroll() {
+    if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
+
     if (pos.pixels >= pos.maxScrollExtent - 700 && !_isLoadingMore) {
       final notifier = ref.read(feedProvider.notifier);
       if (!ref.read(feedProvider).isLoading && notifier.hasMore) {
         _isLoadingMore = true;
-        notifier.loadMore().whenComplete(() => _isLoadingMore = false);
+        notifier.loadMore().whenComplete(() {
+          if (mounted) _isLoadingMore = false;
+        });
       }
     }
+
     final dir = pos.userScrollDirection;
     if (dir == ScrollDirection.reverse && _navVisible.value) {
       _navVisible.value = false;
@@ -96,25 +105,28 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
 
   Future<void> _init() async {
     final now = DateTime.now();
-    
-    // On vérifie si 60 secondes se sont écoulées depuis le dernier refresh
     final needsRefresh = _lastRefreshTime == null ||
         now.difference(_lastRefreshTime!) > _refreshCooldown;
 
-    if (needsRefresh) {
-      await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: true);
-      _lastRefreshTime = now;
-    } else {
-      await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: false);
-    }
-    
+    await ref.read(feedProvider.notifier).loadFeed(
+          feedType: _feedType,
+          force: needsRefresh,
+        );
+    if (needsRefresh) _lastRefreshTime = now;
+
     await Future.wait([_loadStories(), _loadSuggestions()]);
   }
 
   Future<void> _loadStories() async {
     try {
-      final data = await ref.read(networkServiceProvider).getActiveStories();
-      if (mounted) setState(() { _stories = data; _loadingStories = false; });
+      final data =
+          await ref.read(networkServiceProvider).getActiveStories();
+      if (mounted) {
+        setState(() {
+          _stories = data;
+          _loadingStories = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingStories = false);
     }
@@ -122,28 +134,39 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
 
   Future<void> _loadSuggestions() async {
     try {
-      final data = await ref.read(networkServiceProvider).getSuggestedConnections(limit: 8);
+      final data = await ref
+          .read(networkServiceProvider)
+          .getSuggestedConnections(limit: 8);
       if (mounted) setState(() => _suggestions = data);
     } catch (_) {}
   }
 
   Future<void> _onRefresh() async {
     HapticFeedback.mediumImpact();
-    
-    // Le pull-to-refresh force TOUJOURS la mise à jour
-    await ref.read(feedProvider.notifier).loadFeed(feedType: _feedType, force: true);
-    
-    // On réinitialise le chrono
+    await ref
+        .read(feedProvider.notifier)
+        .loadFeed(feedType: _feedType, force: true);
     _lastRefreshTime = DateTime.now();
-    
     await Future.wait([_loadStories(), _loadSuggestions()]);
   }
 
   Future<void> _openCreateStory() async {
-    final ok = await showDialog<bool>(context: context, builder: (_) => const CreateStoryDialog());
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => const CreateStoryDialog(),
+    );
     if (ok == true && mounted) {
       HapticFeedback.mediumImpact();
       await _loadStories();
+    }
+  }
+
+  void _safePush(String path) {
+    if (!mounted) return;
+    try {
+      context.push(path);
+    } catch (e) {
+      debugPrint('nav: $e');
     }
   }
 
@@ -164,7 +187,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     if (currentUser == null) {
       return const Scaffold(
         backgroundColor: ThixColors.background,
-        body: Center(child: CircularProgressIndicator(color: ThixColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(color: ThixColors.primary),
+        ),
       );
     }
 
@@ -178,27 +203,41 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
             onRefresh: _onRefresh,
             child: CustomScrollView(
               controller: _scrollController,
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
               slivers: [
                 _buildSliverAppBar(),
-                // "Mes status" (Votre story) est toujours la première case du carrousel
-                SliverToBoxAdapter(child: _buildStories(currentUser.id)),
+                // Stories type Facebook (cartes)
+                // SliverToBoxAdapter(child: _buildStoriesFacebook(currentUser.id)),
+                SliverToBoxAdapter(
+                  child: _buildStoriesFacebook(currentUser.id),
+                ),
                 SliverToBoxAdapter(child: _buildFilters()),
+                // SliverToBoxAdapter(child: _buildCreatePostBar()),
                 SliverToBoxAdapter(child: _buildCreatePostBar()),
                 if (_suggestions.isNotEmpty)
                   SliverToBoxAdapter(child: _buildSuggestions()),
                 feedAsync.when(
-                  loading: () => SliverToBoxAdapter(child: _buildShimmerFeed()),
+                  loading: () =>
+                      SliverToBoxAdapter(child: _buildShimmerFeed()),
                   error: (e, _) => SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(40),
                       child: Center(
-                        child: Text('Erreur: $e', style: const TextStyle(color: ThixColors.textSecondary)),
+                        child: Text(
+                          'Erreur: $e',
+                          style: const TextStyle(
+                            color: ThixColors.textSecondary,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                   data: (posts) {
-                    if (posts.isEmpty) return SliverToBoxAdapter(child: _buildEmpty());
+                    if (posts.isEmpty) {
+                      return SliverToBoxAdapter(child: _buildEmpty());
+                    }
                     return SliverList.builder(
                       itemCount: posts.length,
                       itemBuilder: (c, i) {
@@ -207,11 +246,17 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                           key: ValueKey(post.id),
                           post: post,
                           currentProfileId: currentUser.id,
-                          onLike: () => ref.read(feedProvider.notifier).toggleLike(post.id),
-                          onComment: () => context.push('/network/comments/${post.id}'),
+                          // Like déjà géré dans PostCard (évite double toggle)
+                          onLike: null,
+                          onComment: () =>
+                              _safePush('/network/comments/${post.id}'),
                           onShare: () => _showShareSheet(post),
-                          onDelete: () => ref.read(feedProvider.notifier).loadFeed(force: true),
-                          onRefresh: () => ref.read(feedProvider.notifier).loadFeed(force: true),
+                          onDelete: () => ref
+                              .read(feedProvider.notifier)
+                              .deletePost(post.id),
+                          onRefresh: () => ref
+                              .read(feedProvider.notifier)
+                              .loadFeed(force: true),
                         );
                       },
                     );
@@ -224,7 +269,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
           ValueListenableBuilder<bool>(
             valueListenable: _navVisible,
             builder: (context, visible, _) => Positioned(
-              left: 0, right: 0, bottom: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               child: _buildBottomNav(visible),
             ),
           ),
@@ -249,33 +296,56 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
         mainAxisSize: MainAxisSize.min,
         children: [
           ShaderMask(
-            shaderCallback: (b) => ThixColors.gradientPrimary.createShader(b),
+            shaderCallback: (b) =>
+                ThixColors.gradientPrimary.createShader(b),
             child: const Text(
               'THIX PRO',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -0.4),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
+                letterSpacing: -0.4,
+              ),
             ),
           ),
           const SizedBox(width: 6),
-          Container(width: 5, height: 5, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientGold)),
+          Container(
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: ThixColors.gradientGold,
+            ),
+          ),
         ],
       ),
       actions: [
-        _appBarIcon(icon: Icons.search_rounded, onTap: () => context.push('/network/search')),
+        _appBarIcon(
+          icon: Icons.search_rounded,
+          onTap: () => _safePush('/network/search'),
+        ),
         const SizedBox(width: 8),
         _appBarIcon(
           icon: Icons.notifications_none_rounded,
-          badge: '3',
-          onTap: () => context.push('/network/notifications'),
+          onTap: () => _safePush('/network/notifications'),
         ),
         const SizedBox(width: 10),
         Padding(
           padding: const EdgeInsets.only(right: 14),
           child: GestureDetector(
-            onTap: () => context.push('/profile'),
+            onTap: () => _safePush('/profile'),
             child: Container(
               padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
-              child: const CircleAvatar(radius: 15, backgroundColor: ThixColors.softBlue, child: Icon(Icons.person, size: 16, color: ThixColors.primaryDeep)),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: ThixColors.gradientStoryRing,
+              ),
+              child: const CircleAvatar(
+                radius: 15,
+                backgroundColor: ThixColors.softBlue,
+                child: Icon(Icons.person,
+                    size: 16, color: ThixColors.primaryDeep),
+              ),
             ),
           ),
         ),
@@ -283,23 +353,44 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     );
   }
 
-  Widget _appBarIcon({required IconData icon, required VoidCallback onTap, String? badge}) {
+  Widget _appBarIcon({
+    required IconData icon,
+    required VoidCallback onTap,
+    String? badge,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 38, height: 38,
-        decoration: const BoxDecoration(color: ThixColors.softBlue, shape: BoxShape.circle),
+        width: 38,
+        height: 38,
+        decoration: const BoxDecoration(
+          color: ThixColors.softBlue,
+          shape: BoxShape.circle,
+        ),
         child: Stack(
           alignment: Alignment.center,
           children: [
             Icon(icon, size: 19, color: ThixColors.primaryDeep),
             if (badge != null)
               Positioned(
-                top: 5, right: 6,
+                top: 5,
+                right: 6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(gradient: ThixColors.gradientGold, borderRadius: BorderRadius.circular(20), border: Border.all(color: ThixColors.white, width: 1.5)),
-                  child: Text(badge, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: ThixColors.navyDeep)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    gradient: ThixColors.gradientGold,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: ThixColors.white, width: 1.5),
+                  ),
+                  child: Text(
+                    badge,
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w800,
+                      color: ThixColors.navyDeep,
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -308,43 +399,90 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     );
   }
 
-  // ─────────────────────────── STORIES ───────────────────────────
+  // ─────────────────────────── STORIES (Facebook-like) ───────────
+  // Forme Facebook = carte verticale arrondie + média de fond
+  // Différence THIX = anneau dégradé bleu→or + pastille or
 
-  Widget _buildStories(String currentUserId) {
+  Widget _buildStoriesFacebook(String currentUserId) {
     if (_loadingStories) {
-      return const SizedBox(
-        height: 124,
-        child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.2, color: ThixColors.primary))),
+      return Container(
+        color: ThixColors.white,
+        height: 200,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.2,
+            color: ThixColors.primary,
+          ),
+        ),
       );
     }
-    final myStories = _stories.where((s) => s.userId == currentUserId).toList();
-    final otherStories = _stories.where((s) => s.userId != currentUserId).toList();
+
+    final myStories =
+        _stories.where((s) => s.userId == currentUserId).toList();
+    final otherStories =
+        _stories.where((s) => s.userId != currentUserId).toList();
+
     return Container(
       color: ThixColors.white,
-      height: 124,
-      padding: const EdgeInsets.only(top: 14, bottom: 10),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: otherStories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (c, i) {
-          if (i == 0) {
-            return _MyStoryItem(
-              hasStory: myStories.isNotEmpty,
-              avatarUrl: myStories.isNotEmpty ? myStories.first.userAvatar : null,
-              onView: myStories.isNotEmpty
-                  ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewer(stories: myStories, initialIndex: 0)))
-                  : _openCreateStory,
-              onAdd: _openCreateStory,
+      padding: const EdgeInsets.only(top: 12, bottom: 14),
+      child: SizedBox(
+        height: 178,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          itemCount: otherStories.length + 1,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (c, i) {
+            if (i == 0) {
+              return _FbStoryCard(
+                isMe: true,
+                hasStory: myStories.isNotEmpty,
+                name: myStories.isNotEmpty ? 'Votre story' : 'Créer',
+                coverUrl: myStories.isNotEmpty
+                    ? (myStories.first.mediaUrl ?? myStories.first.userAvatar)
+                    : null,
+                avatarUrl: myStories.isNotEmpty
+                    ? myStories.first.userAvatar
+                    : null,
+                onTap: myStories.isNotEmpty
+                    ? () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => StoryViewer(
+                              stories: myStories,
+                              initialIndex: 0,
+                            ),
+                          ),
+                        );
+                      }
+                    : _openCreateStory,
+                onAdd: _openCreateStory,
+              );
+            }
+
+            final s = otherStories[i - 1];
+            return _FbStoryCard(
+              isMe: false,
+              hasStory: true,
+              name: s.userName.split(' ').first,
+              coverUrl: s.mediaUrl ?? s.userAvatar,
+              avatarUrl: s.userAvatar,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => StoryViewer(
+                      stories: otherStories,
+                      initialIndex: i - 1,
+                    ),
+                  ),
+                );
+              },
             );
-          }
-          final s = otherStories[i - 1];
-          return _StoryItem(
-            story: s,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewer(stories: otherStories, initialIndex: i - 1))),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -352,12 +490,14 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   // ─────────────────────────── FILTRES ───────────────────────────
 
   Widget _buildFilters() {
+    // Labels type Facebook, clés inchangées pour le ranking
     final filters = {
-      'all': ('Tous', Icons.public_rounded),
-      'network': ('Pour vous', Icons.auto_awesome_rounded),
-      'popular': ('Tendance', Icons.local_fire_department_rounded),
-      'recent': ('Réseau', Icons.people_alt_rounded),
+      'all': ('Pour vous', Icons.auto_awesome_rounded),
+      'network': ('Abonnements', Icons.people_alt_rounded),
+      'popular': ('Tendances', Icons.local_fire_department_rounded),
+      'recent': ('Récents', Icons.schedule_rounded),
     };
+
     return Container(
       color: ThixColors.white,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -373,25 +513,48 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                 onTap: () {
                   if (sel) return;
                   setState(() => _feedType = e.key);
-                  // Changement de filtre = on force le refresh et on relance le chrono
-                  ref.read(feedProvider.notifier).loadFeed(feedType: e.key, force: true);
+                  ref
+                      .read(feedProvider.notifier)
+                      .loadFeed(feedType: e.key, force: true);
                   _lastRefreshTime = DateTime.now();
                   HapticFeedback.selectionClick();
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
                   decoration: BoxDecoration(
-                    color: sel ? ThixColors.softBlue : ThixColors.background,
+                    color:
+                        sel ? ThixColors.softBlue : ThixColors.background,
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: sel ? ThixColors.primary : ThixColors.border, width: sel ? 1.4 : 1),
+                    border: Border.all(
+                      color: sel ? ThixColors.primary : ThixColors.border,
+                      width: sel ? 1.4 : 1,
+                    ),
                   ),
-                  child: Row(children: [
-                    Icon(e.value.$2, size: 16, color: sel ? ThixColors.primaryDeep : ThixColors.textSecondary),
-                    const SizedBox(width: 7),
-                    Text(e.value.$1, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: sel ? ThixColors.primaryDeep : ThixColors.textDark)),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(
+                        e.value.$2,
+                        size: 16,
+                        color: sel
+                            ? ThixColors.primaryDeep
+                            : ThixColors.textSecondary,
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        e.value.$1,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: sel
+                              ? ThixColors.primaryDeep
+                              : ThixColors.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -411,53 +574,111 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
         color: ThixColors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: ThixColors.border),
-        boxShadow: const [BoxShadow(color: ThixColors.shadow, blurRadius: 16, offset: Offset(0, 6))],
+        boxShadow: const [
+          BoxShadow(
+            color: ThixColors.shadow,
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
-      child: Column(children: [
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
-            child: const CircleAvatar(radius: 19, backgroundColor: ThixColors.softBlue, child: Icon(Icons.person, size: 19, color: ThixColors.primaryDeep)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => showDialog(context: context, builder: (_) => const CreatePostDialog())
-                  .then((v) { if (v == true) ref.read(feedProvider.notifier).loadFeed(force: true); }),
-              child: Container(
-                height: 42,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(color: ThixColors.background, borderRadius: BorderRadius.circular(30)),
-                alignment: Alignment.centerLeft,
-                child: const Text('Quoi de neuf, pro ?', style: TextStyle(color: ThixColors.textSecondary, fontSize: 13.5)),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: ThixColors.gradientStoryRing,
+                ),
+                child: const CircleAvatar(
+                  radius: 19,
+                  backgroundColor: ThixColors.softBlue,
+                  child: Icon(Icons.person,
+                      size: 19, color: ThixColors.primaryDeep),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => showDialog(
+                    context: context,
+                    builder: (_) => const CreatePostDialog(),
+                  ).then((v) {
+                    if (v == true) {
+                      ref
+                          .read(feedProvider.notifier)
+                          .loadFeed(force: true);
+                    }
+                  }),
+                  child: Container(
+                    height: 42,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: ThixColors.background,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    alignment: Alignment.centerLeft,
+                    child: const Text(
+                      'Quoi de neuf, pro ?',
+                      style: TextStyle(
+                        color: ThixColors.textSecondary,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ]),
-        const SizedBox(height: 10),
-        const Divider(height: 1, color: ThixColors.border),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-          _quickAction(Icons.image_rounded, 'Photo', ThixColors.primary),
-          _quickAction(Icons.videocam_rounded, 'Vidéo', ThixColors.gold),
-          _quickAction(Icons.sensors_rounded, 'Live', const Color(0xFFE0453C)),
-        ]),
-      ]),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: ThixColors.border),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _quickAction(Icons.image_rounded, 'Photo', ThixColors.primary),
+              _quickAction(Icons.videocam_rounded, 'Vidéo', ThixColors.gold),
+              _quickAction(
+                Icons.sensors_rounded,
+                'Live',
+                const Color(0xFFE0453C),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _quickAction(IconData icon, String label, Color color) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => showDialog(context: context, builder: (_) => const CreatePostDialog())
-          .then((v) { if (v == true) ref.read(feedProvider.notifier).loadFeed(force: true); }),
+      onTap: () => showDialog(
+        context: context,
+        builder: (_) => const CreatePostDialog(),
+      ).then((v) {
+        if (v == true) {
+          ref.read(feedProvider.notifier).loadFeed(force: true);
+        }
+      }),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 17, color: color),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ThixColors.textSecondary)),
-        ]),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: ThixColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -469,69 +690,127 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
       margin: const EdgeInsets.fromLTRB(0, 0, 0, 14),
       padding: const EdgeInsets.symmetric(vertical: 16),
       color: ThixColors.white,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Personnes à découvrir', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: ThixColors.textDark)),
-            Icon(Icons.groups_2_rounded, size: 18, color: ThixColors.gold),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 172,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _suggestions.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (c, i) {
-              final u = _suggestions[i];
-              return Container(
-                width: 132,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: ThixColors.background,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: ThixColors.border),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Personnes à découvrir',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14.5,
+                    color: ThixColors.textDark,
+                  ),
                 ),
-                child: Column(children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
-                    child: CircleAvatar(
-                      radius: 26,
-                      backgroundColor: ThixColors.softBlue,
-                      backgroundImage: u.avatar != null ? NetworkImage(u.avatar!) : null,
-                      child: u.avatar == null ? const Icon(Icons.person, color: ThixColors.primaryDeep) : null,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(u.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ThixColors.textDark)),
-                  const SizedBox(height: 2),
-                  Text(u.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: ThixColors.textSecondary)),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 30,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(gradient: ThixColors.gradientPrimary, borderRadius: BorderRadius.circular(20)),
-                      child: TextButton(
-                        style: TextButton.styleFrom(padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-                        onPressed: () async {
-                          await ref.read(networkServiceProvider).sendConnectionRequest(u.id);
-                          setState(() => _suggestions.remove(u));
-                        },
-                        child: const Text('Suivre', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white)),
-                      ),
-                    ),
-                  ),
-                ]),
-              );
-            },
+                Icon(Icons.groups_2_rounded,
+                    size: 18, color: ThixColors.gold),
+              ],
+            ),
           ),
-        ),
-      ]),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 172,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _suggestions.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (c, i) {
+                final u = _suggestions[i];
+                return Container(
+                  width: 132,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ThixColors.background,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: ThixColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: ThixColors.gradientStoryRing,
+                        ),
+                        child: CircleAvatar(
+                          radius: 26,
+                          backgroundColor: ThixColors.softBlue,
+                          backgroundImage: u.avatar != null
+                              ? NetworkImage(u.avatar!)
+                              : null,
+                          child: u.avatar == null
+                              ? const Icon(Icons.person,
+                                  color: ThixColors.primaryDeep)
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        u.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: ThixColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        u.title ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: ThixColors.textSecondary,
+                        ),
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 30,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: ThixColors.gradientPrimary,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                            onPressed: () async {
+                              await ref
+                                  .read(networkServiceProvider)
+                                  .sendConnectionRequest(u.id);
+                              setState(() => _suggestions.remove(u));
+                            },
+                            child: const Text(
+                              'Se connecter',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -567,15 +846,48 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                             color: ThixColors.white.withValues(alpha: 0.86),
                             borderRadius: BorderRadius.circular(28),
                             border: Border.all(color: ThixColors.border),
-                            boxShadow: const [BoxShadow(color: ThixColors.shadowDeep, blurRadius: 20, offset: Offset(0, 8))],
+                            boxShadow: const [
+                              BoxShadow(
+                                color: ThixColors.shadowDeep,
+                                blurRadius: 20,
+                                offset: Offset(0, 8),
+                              ),
+                            ],
                           ),
-                          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                            _navBtn(Icons.home_rounded, 'Accueil', true, () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)),
-                            _navBtn(Icons.explore_outlined, 'Découvrir', false, () => context.push('/network/discover')),
-                            const SizedBox(width: 46),
-                            _navBtn(Icons.groups_outlined, 'Réseau', false, () => context.push('/network/connections')),
-                            _navBtn(Icons.person_outline, 'Profil', false, () => context.push('/profile')),
-                          ]),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _navBtn(
+                                Icons.home_rounded,
+                                'Accueil',
+                                true,
+                                () => _scrollController.animateTo(
+                                  0,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOut,
+                                ),
+                              ),
+                              _navBtn(
+                                Icons.explore_outlined,
+                                'Découvrir',
+                                false,
+                                () => _safePush('/network/discover'),
+                              ),
+                              const SizedBox(width: 46),
+                              _navBtn(
+                                Icons.groups_outlined,
+                                'Réseau',
+                                false,
+                                () => _safePush('/network/connections'),
+                              ),
+                              _navBtn(
+                                Icons.person_outline,
+                                'Profil',
+                                false,
+                                () => _safePush('/profile'),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -592,181 +904,360 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
 
   Widget _buildFab() {
     return Container(
-      width: 54, height: 54,
+      width: 54,
+      height: 54,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: ThixColors.gradientPrimary,
         boxShadow: [
-          BoxShadow(color: ThixColors.primary.withValues(alpha: 0.45), blurRadius: 18, spreadRadius: 1, offset: const Offset(0, 6)),
+          BoxShadow(
+            color: ThixColors.primary.withValues(alpha: 0.45),
+            blurRadius: 18,
+            spreadRadius: 1,
+            offset: const Offset(0, 6),
+          ),
         ],
         border: Border.all(color: ThixColors.white, width: 3),
       ),
       child: FloatingActionButton(
         elevation: 0,
+        heroTag: 'network_fab',
         backgroundColor: Colors.transparent,
-        onPressed: () => showDialog(context: context, builder: (_) => const CreatePostDialog())
-            .then((v) { if (v == true) ref.read(feedProvider.notifier).loadFeed(force: true); }),
+        onPressed: () => showDialog(
+          context: context,
+          builder: (_) => const CreatePostDialog(),
+        ).then((v) {
+          if (v == true) {
+            ref.read(feedProvider.notifier).loadFeed(force: true);
+          }
+        }),
         child: const Icon(Icons.add_rounded, size: 26, color: Colors.white),
       ),
     );
   }
 
-  Widget _navBtn(IconData ic, String label, bool active, VoidCallback tap) {
+  Widget _navBtn(
+    IconData ic,
+    String label,
+    bool active,
+    VoidCallback tap,
+  ) {
     return InkWell(
       onTap: tap,
       borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(ic, size: 20, color: active ? ThixColors.primary : ThixColors.textSecondary),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: active ? ThixColors.primary : ThixColors.textSecondary)),
-          if (active)
-            Container(margin: const EdgeInsets.only(top: 2), width: 4, height: 4, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientGold)),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              ic,
+              size: 20,
+              color: active ? ThixColors.primary : ThixColors.textSecondary,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color:
+                    active ? ThixColors.primary : ThixColors.textSecondary,
+              ),
+            ),
+            if (active)
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: ThixColors.gradientGold,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  // ─────────────────────────── ETATS ───────────────────────────
-
   Widget _buildShimmerFeed() {
     return Column(
-      children: List.generate(3, (i) => Container(
-        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        height: 190,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [ThixColors.white, ThixColors.softBlue.withValues(alpha: 0.4), ThixColors.white]),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: ThixColors.border),
+      children: List.generate(
+        3,
+        (i) => Container(
+          margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          height: 190,
+          decoration: BoxDecoration(
+            color: ThixColors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: ThixColors.border),
+          ),
         ),
-      )),
+      ),
     );
   }
 
   Widget _buildEmpty() {
     return Padding(
       padding: const EdgeInsets.all(60),
-      child: Column(children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(color: ThixColors.softBlue, shape: BoxShape.circle),
-          child: const Icon(Icons.feed_outlined, size: 40, color: ThixColors.primaryDeep),
-        ),
-        const SizedBox(height: 16),
-        const Text('Aucune publication pour ce filtre', style: TextStyle(color: ThixColors.textSecondary, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 18),
-        Container(
-          decoration: BoxDecoration(gradient: ThixColors.gradientPrimary, borderRadius: BorderRadius.circular(30)),
-          child: TextButton(
-            onPressed: _onRefresh,
-            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
-            child: const Text('Actualiser', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: ThixColors.softBlue,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.feed_outlined,
+              size: 40,
+              color: ThixColors.primaryDeep,
+            ),
           ),
-        ),
-      ]),
+          const SizedBox(height: 16),
+          const Text(
+            'Aucune publication pour ce filtre',
+            style: TextStyle(
+              color: ThixColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            decoration: BoxDecoration(
+              gradient: ThixColors.gradientPrimary,
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: TextButton(
+              onPressed: _onRefresh,
+              style: TextButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text(
+                'Actualiser',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  void _showShareSheet(post) {
+  void _showShareSheet(dynamic post) {
+    final id = '${post.id}';
+    final link =
+        'https://depot-data-thix-central.github.io/sona1/network/post/$id';
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => SafeArea(
         child: Container(
           margin: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: ThixColors.white, borderRadius: BorderRadius.circular(20)),
-          child: Wrap(children: [
-            const SizedBox(height: 10),
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: ThixColors.border, borderRadius: BorderRadius.circular(4)))),
-            const SizedBox(height: 8),
-            ListTile(leading: const Icon(Icons.link, color: ThixColors.primary), title: const Text('Copier le lien'), onTap: () => Navigator.pop(context)),
-            ListTile(leading: const Icon(Icons.share, color: ThixColors.primary), title: const Text('Partager'), onTap: () => Navigator.pop(context)),
-          ]),
+          decoration: BoxDecoration(
+            color: ThixColors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: ThixColors.border,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              ListTile(
+                leading:
+                    const Icon(Icons.link, color: ThixColors.primary),
+                title: const Text('Copier le lien'),
+                onTap: () async {
+                  await Clipboard.setData(ClipboardData(text: link));
+                  try {
+                    await ref.read(networkServiceProvider).sharePost(id);
+                  } catch (_) {}
+                  if (mounted) Navigator.pop(context);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Lien copié')),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading:
+                    const Icon(Icons.close, color: ThixColors.textSecondary),
+                title: const Text('Fermer'),
+                onTap: () => Navigator.pop(context),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _MyStoryItem extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────
+// STORY CARD style Facebook + touche THIX
+// ─────────────────────────────────────────────────────────────
+
+class _FbStoryCard extends StatelessWidget {
+  final bool isMe;
   final bool hasStory;
+  final String name;
+  final String? coverUrl;
   final String? avatarUrl;
-  final VoidCallback onView;
-  final VoidCallback onAdd;
-  const _MyStoryItem({required this.hasStory, required this.avatarUrl, required this.onView, required this.onAdd});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onView,
-      child: Column(children: [
-        Stack(clipBehavior: Clip.none, children: [
-          hasStory
-              ? Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
-                  child: CircleAvatar(
-                    radius: 30,
-                    backgroundColor: ThixColors.softBlue,
-                    backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty ? NetworkImage(avatarUrl!) : null,
-                  ),
-                )
-              : Container(
-                  width: 66, height: 66,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: ThixColors.softBlue, border: Border.all(color: ThixColors.border, width: 1.5)),
-                  child: const Icon(Icons.person, size: 28, color: ThixColors.primaryDeep),
-                ),
-          Positioned(
-            bottom: -2, right: -2,
-            child: GestureDetector(
-              onTap: onAdd,
-              child: Container(
-                width: 24, height: 24,
-                decoration: BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientGold, border: Border.all(color: ThixColors.white, width: 2.5)),
-                child: const Icon(Icons.add_rounded, size: 15, color: ThixColors.navyDeep),
-              ),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 6),
-        Text(hasStory ? 'Votre story' : 'Ajouter', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: ThixColors.textDark)),
-      ]),
-    );
-  }
-}
-
-class _StoryItem extends StatelessWidget {
-  final NetworkStory story;
   final VoidCallback onTap;
-  const _StoryItem({required this.story, required this.onTap});
+  final VoidCallback? onAdd;
+
+  const _FbStoryCard({
+    required this.isMe,
+    required this.hasStory,
+    required this.name,
+    this.coverUrl,
+    this.avatarUrl,
+    required this.onTap,
+    this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(children: [
-        Container(
-          padding: const EdgeInsets.all(3),
-          decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixColors.gradientStoryRing),
-          child: CircleAvatar(
-            radius: 30,
-            backgroundColor: ThixColors.softBlue,
-            backgroundImage: story.userAvatar != null ? NetworkImage(story.userAvatar!) : null,
-          ),
+      child: Container(
+        width: 112,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ThixColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: ThixColors.shadow,
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
-        const SizedBox(height: 6),
-        SizedBox(
-          width: 68,
-          child: Text(
-            story.userName.split(' ').first,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: ThixColors.textDark),
-          ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Cover
+            if (coverUrl != null && coverUrl!.isNotEmpty)
+              Image.network(
+                coverUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: ThixColors.softBlue,
+                ),
+              )
+            else
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [ThixColors.softBlue, ThixColors.primaryDeep],
+                  ),
+                ),
+              ),
+
+            // Gradient bas (lisible comme Facebook)
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black54,
+                  ],
+                  stops: [0.45, 1],
+                ),
+              ),
+            ),
+
+            // Avatar + anneau THIX (différence vs Facebook pur)
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Container(
+                padding: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: hasStory || isMe
+                      ? ThixColors.gradientStoryRing
+                      : null,
+                  color: hasStory || isMe ? null : Colors.white24,
+                ),
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: ThixColors.softBlue,
+                  backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+                      ? NetworkImage(avatarUrl!)
+                      : null,
+                  child: avatarUrl == null || avatarUrl!.isEmpty
+                      ? const Icon(Icons.person,
+                          size: 16, color: ThixColors.primaryDeep)
+                      : null,
+                ),
+              ),
+            ),
+
+            // Bouton + (créer)
+            if (isMe)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: GestureDetector(
+                  onTap: onAdd,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: ThixColors.gradientGold,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.add_rounded,
+                        size: 16, color: ThixColors.navyDeep),
+                  ),
+                ),
+              ),
+
+            // Nom
+            Positioned(
+              left: 10,
+              right: 10,
+              bottom: 10,
+              child: Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                  shadows: [
+                    Shadow(color: Colors.black54, blurRadius: 6),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-      ]),
+      ),
     );
   }
 }
