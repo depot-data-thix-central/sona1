@@ -42,11 +42,10 @@ jobs:
             echo "No build_runner — skip"
           fi
 
-      - name: Build Web (CanvasKit)
+      - name: Build Web
         run: |
           flutter build web --release \
-            --base-href /sona1/ \
-            --no-wasm-dry-run
+            --base-href /sona1/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
