@@ -1,3 +1,4 @@
+
 // lib/presentation/network/network_pro_home.dart
 import 'dart:ui';
 
@@ -48,87 +49,6 @@ class ThixColors {
     end: Alignment.bottomRight,
     colors: [primary, primaryDeep, gold],
   );
-}
-
-// ─────────────────────────────────────────────────────────────
-// SIGNATURE VISUELLE : avatar hexagonal (remplace les cercles Facebook)
-// ─────────────────────────────────────────────────────────────
-
-class _HexClipper extends CustomClipper<Path> {
-  const _HexClipper();
-
-  @override
-  Path getClip(Size size) {
-    final w = size.width;
-    final h = size.height;
-    return Path()
-      ..moveTo(w * 0.5, 0)
-      ..lineTo(w, h * 0.25)
-      ..lineTo(w, h * 0.75)
-      ..lineTo(w * 0.5, h)
-      ..lineTo(0, h * 0.75)
-      ..lineTo(0, h * 0.25)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class HexAvatar extends StatelessWidget {
-  final double size;
-  final String? imageUrl;
-  final Gradient? ringGradient;
-  final Color? plainRingColor;
-  final IconData fallbackIcon;
-  final double ringWidth;
-
-  const HexAvatar({
-    super.key,
-    required this.size,
-    this.imageUrl,
-    this.ringGradient = ThixColors.gradientStoryRing,
-    this.plainRingColor,
-    this.fallbackIcon = Icons.person,
-    this.ringWidth = 2.5,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipPath(
-      clipper: const _HexClipper(),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          gradient: plainRingColor == null ? ringGradient : null,
-          color: plainRingColor,
-        ),
-        padding: EdgeInsets.all(ringWidth),
-        child: ClipPath(
-          clipper: const _HexClipper(),
-          child: Container(
-            color: ThixColors.softBlue,
-            child: (imageUrl != null && imageUrl!.isNotEmpty)
-                ? Image.network(
-                    imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Icon(
-                      fallbackIcon,
-                      size: size * 0.45,
-                      color: ThixColors.primaryDeep,
-                    ),
-                  )
-                : Icon(
-                    fallbackIcon,
-                    size: size * 0.45,
-                    color: ThixColors.primaryDeep,
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class NetworkProHome extends ConsumerStatefulWidget {
@@ -414,22 +334,22 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
           padding: const EdgeInsets.only(right: 14),
           child: GestureDetector(
             onTap: () => _safePush('/profile'),
-            child: const HexAvatar(size: 34, ringWidth: 2.2),
-          ),
-        ),
-      ],
-      // Liseré or — signature THIX ID, remplace la ligne neutre de Facebook
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(
-          height: 1,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.transparent, ThixColors.gold, Colors.transparent],
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: ThixColors.gradientStoryRing,
+              ),
+              child: const CircleAvatar(
+                radius: 15,
+                backgroundColor: ThixColors.softBlue,
+                child: Icon(Icons.person,
+                    size: 16, color: ThixColors.primaryDeep),
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -480,6 +400,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   }
 
   // ─────────────────────────── STORIES ───────────────────────────
+  // ─────────────────────────── STORIES ───────────────────────────
 
   Widget _buildStoriesFacebook(String currentUserId) {
     if (_loadingStories) {
@@ -519,7 +440,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
           itemCount: otherUsersList.length + 1,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (c, i) {
-
+            
             // CARTE 0 : TA PROPRE STORY
             if (i == 0) {
               return _FbStoryCard(
@@ -546,13 +467,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
             final userStories = groupedOtherStories[userId]!;
             final firstStory = userStories.first; // Sert pour la miniature
 
-            return _FbStoryCard(
+                        return _FbStoryCard(
               isMe: false,
               hasStory: true,
               name: firstStory.userName.split(' ').first,
-              // On ne met PAS l'avatar en fond de story
+              // 🌟 CORRECTION ICI : On ne met PAS l'avatar en fond de story
               coverUrl: firstStory.imageUrl.isNotEmpty ? firstStory.imageUrl : null,
-              avatarUrl: firstStory.userAvatar, // L'avatar reste bien à sa place (la petite bulle hexagonale)
+              avatarUrl: firstStory.userAvatar, // L'avatar reste bien à sa place (la petite bulle ronde)
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => StoryViewer(stories: userStories, initialIndex: 0),
@@ -564,6 +485,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       ),
     );
   }
+
 
   // ─────────────────────────── FILTRES ───────────────────────────
 
@@ -663,7 +585,19 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         children: [
           Row(
             children: [
-              const HexAvatar(size: 40, ringWidth: 2.5),
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: ThixColors.gradientStoryRing,
+                ),
+                child: const CircleAvatar(
+                  radius: 19,
+                  backgroundColor: ThixColors.softBlue,
+                  child: Icon(Icons.person,
+                      size: 19, color: ThixColors.primaryDeep),
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: GestureDetector(
@@ -671,7 +605,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                     context: context,
                     builder: (_) => const CreatePostDialog(),
                   ),
-                  // Plus de reload global ici. La boite de dialogue gère déjà "addPostOnTop" pour afficher en direct.
+                  // CORRECTION : Plus de reload global ici. La boite de dialogue gère déjà "addPostOnTop" pour afficher en direct.
                   child: Container(
                     height: 42,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -700,14 +634,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               _quickAction(Icons.image_rounded, 'Photo', ThixColors.primary),
               _quickAction(Icons.videocam_rounded, 'Vidéo', ThixColors.gold),
               _quickAction(
-                Icons.description_rounded,
-                'Document',
-                ThixColors.primaryDeep,
-              ),
-              _quickAction(
-                Icons.mic_rounded,
-                'Audio',
-                const Color(0xFF1F9D6F),
+                Icons.sensors_rounded,
+                'Live',
+                const Color(0xFFE0453C),
               ),
             ],
           ),
@@ -723,7 +652,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         context: context,
         builder: (_) => const CreatePostDialog(),
       ),
-      // Pas de reload, addPostOnTop le fait en direct.
+      // CORRECTION : Pas de reload, addPostOnTop le fait en direct.
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         child: Row(
@@ -793,7 +722,24 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   ),
                   child: Column(
                     children: [
-                      HexAvatar(size: 54, imageUrl: u.avatar, ringWidth: 2.5),
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: ThixColors.gradientStoryRing,
+                        ),
+                        child: CircleAvatar(
+                          radius: 26,
+                          backgroundColor: ThixColors.softBlue,
+                          backgroundImage: u.avatar != null
+                              ? NetworkImage(u.avatar!)
+                              : null,
+                          child: u.avatar == null
+                              ? const Icon(Icons.person,
+                                  color: ThixColors.primaryDeep)
+                              : null,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         u.name,
@@ -948,28 +894,31 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   }
 
   Widget _buildFab() {
-    // FAB hexagonal — signature de la nouvelle charte, ombre native via PhysicalShape
-    return PhysicalShape(
-      clipper: const _HexClipper(),
-      color: Colors.transparent,
-      elevation: 8,
-      shadowColor: ThixColors.primary.withValues(alpha: 0.45),
-      child: Container(
-        width: 54,
-        height: 54,
-        decoration: const BoxDecoration(gradient: ThixColors.gradientPrimary),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => showDialog(
-              context: context,
-              builder: (_) => const CreatePostDialog(),
-            ), // Plus besoin de .then() puisque addPostOnTop le fait en arrière-plan.
-            child: const Center(
-              child: Icon(Icons.add_rounded, size: 26, color: Colors.white),
-            ),
+    return Container(
+      width: 54,
+      height: 54,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: ThixColors.gradientPrimary,
+        boxShadow: [
+          BoxShadow(
+            color: ThixColors.primary.withValues(alpha: 0.45),
+            blurRadius: 18,
+            spreadRadius: 1,
+            offset: const Offset(0, 6),
           ),
-        ),
+        ],
+        border: Border.all(color: ThixColors.white, width: 3),
+      ),
+      child: FloatingActionButton(
+        elevation: 0,
+        heroTag: 'network_fab',
+        backgroundColor: Colors.transparent,
+        onPressed: () => showDialog(
+          context: context,
+          builder: (_) => const CreatePostDialog(),
+        ), // CORRECTION : Plus besoin de .then() puisque addPostOnTop le fait en arrière-plan.
+        child: const Icon(Icons.add_rounded, size: 26, color: Colors.white),
       ),
     );
   }
@@ -1147,7 +1096,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
 }
 
 // ─────────────────────────────────────────────────────────────
-// STORY CARD style Facebook + touche THIX (bulle avatar hexagonale)
+// STORY CARD style Facebook + touche THIX
 // ─────────────────────────────────────────────────────────────
 
 class _FbStoryCard extends StatelessWidget {
@@ -1225,16 +1174,30 @@ class _FbStoryCard extends StatelessWidget {
               ),
             ),
 
-            // Avatar hexagonal (signature THIX — remplace le rond Facebook)
+            // Avatar + anneau THIX (différence vs Facebook pur)
             Positioned(
               top: 10,
               left: 10,
-              child: HexAvatar(
-                size: 32,
-                imageUrl: avatarUrl,
-                ringGradient: hasStory || isMe ? ThixColors.gradientStoryRing : null,
-                plainRingColor: hasStory || isMe ? null : Colors.white24,
-                ringWidth: 2.5,
+              child: Container(
+                padding: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: hasStory || isMe
+                      ? ThixColors.gradientStoryRing
+                      : null,
+                  color: hasStory || isMe ? null : Colors.white24,
+                ),
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: ThixColors.softBlue,
+                  backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+                      ? NetworkImage(avatarUrl!)
+                      : null,
+                  child: avatarUrl == null || avatarUrl!.isEmpty
+                      ? const Icon(Icons.person,
+                          size: 16, color: ThixColors.primaryDeep)
+                      : null,
+                ),
               ),
             ),
 
