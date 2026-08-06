@@ -96,4 +96,45 @@ class StatusService {
       rethrow;
     }
   }
+
+  // ============================================================
+  // NOUVELLES MÉTHODES (Réactions, Repost, Vues)
+  // ============================================================
+
+  /// Réagir à un statut
+  Future<void> react(String statusId, String reaction) async {
+    try {
+      await _supabase.rpc('rpc_react_to_status', params: {
+        'p_status_id': statusId,
+        'p_reaction': reaction,
+      });
+    } catch (e) {
+      debugPrint('❌ react: $e');
+    }
+  }
+
+  /// Reposter un statut
+  Future<String?> repost(UserStatusStory source) async {
+    return createTextStatus(
+      content: (source.content != null && source.content!.trim().isNotEmpty)
+          ? source.content!
+          : (source.mediaUrl ?? 'Statut'),
+      background: source.background,
+    );
+  }
+
+  /// Récupérer la liste des personnes qui ont vu un statut
+  Future<List<Map<String, dynamic>>> getViewers(String statusId) async {
+    try {
+      final res = await _supabase.rpc(
+        'rpc_get_status_viewers',
+        params: {'p_status_id': statusId},
+      );
+      if (res == null) return [];
+      return List<Map<String, dynamic>>.from(res as List);
+    } catch (e) {
+      debugPrint('❌ getViewers: $e');
+      return [];
+    }
+  }
 }
