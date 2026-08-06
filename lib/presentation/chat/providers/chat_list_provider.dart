@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:thix_id/services/chat/status_service.dart';
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
@@ -245,7 +245,9 @@ class ChatListNotifier extends StateNotifier<ChatListState> {
 
     state = state.copyWith(filtered: base);
   }
-
+final statusServiceProvider = Provider<StatusService>((ref) {
+  return StatusService(Supabase.instance.client);
+});
   Future<void> markAsRead(String convId) async {
     final updated = state.all.map((c) {
       if (c.id == convId) return c.copyWith(unreadCount: 0);
