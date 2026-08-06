@@ -99,7 +99,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
   /// Ouvre une conversation + mark as read optimiste
   Future<void> _openConversation(ChatConversation conv) async {
-    // Optimistic : on enlève le badge immédiatement
     ref.read(chatListProvider.notifier).markAsRead(conv.id);
 
     await Navigator.push(
@@ -112,7 +111,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       ),
     );
 
-    // Au retour on rafraîchit silencieusement
     ref.read(chatListProvider.notifier).refresh(silent: true);
   }
 
@@ -350,14 +348,27 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
     final onlineUserIds = ref.watch(presenceProvider);
 
-    final onlineContacts = state.filtered.where((c) {
-      if (c.isGroup) return false;
+    // ────────────────────────────────────────────────────────────────
+    // CORRECTIF : Dédoublonnage des utilisateurs en ligne par ID
+    // ────────────────────────────────────────────────────────────────
+    final seenUserIds = <String>{};
+    final onlineContacts = <ChatConversation>[];
+
+    for (final c in state.filtered) {
+      if (c.isGroup) continue;
+      
       final otherUserId = c.participantIds.firstWhere(
         (id) => id != currentUserId,
         orElse: () => '',
       );
-      return onlineUserIds.contains(otherUserId);
-    }).toList();
+
+      // Si l'utilisateur est en ligne et n'a pas encore été ajouté à la liste
+      if (otherUserId.isNotEmpty && onlineUserIds.contains(otherUserId)) {
+        if (seenUserIds.add(otherUserId)) {
+          onlineContacts.add(c);
+        }
+      }
+    }
 
     return Scaffold(
       backgroundColor: _C.bg,
@@ -374,10 +385,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   color: _C.primary,
                   backgroundColor: Colors.white,
                   onRefresh: () async {
-                    // Refresh silencieux de la liste des chats (ne bloque pas l'UI)
                     await notifier.refresh(silent: true);
                     try {
-                      // Refresh des statuts en arrière-plan
                       ref.read(statusProvider.notifier).refresh();
                     } catch (_) {}
                   },
@@ -524,7 +533,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             if (online.isNotEmpty) ...[
               const SizedBox(height: 12),
               SizedBox(
-                height: 60, // Hauteur réduite pour la discrétion
+                height: 60,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: online.length,
@@ -601,14 +610,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             clipBehavior: Clip.none,
             children: [
               Container(
-                padding: const EdgeInsets.all(2.0), // Plus fin
+                padding: const EdgeInsets.all(2.0),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: isOnline ? _C.gradientOnlineRing : null,
                   color: isOnline ? null : Colors.white24,
                 ),
                 child: CircleAvatar(
-                  radius: 18, // Taille réduite (était 24)
+                  radius: 18,
                   backgroundColor: Colors.white24,
                   backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                       ? NetworkImage(avatarUrl)
