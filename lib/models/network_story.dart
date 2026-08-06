@@ -60,31 +60,85 @@ class NetworkStory {
 
   // FIX PRINCIPAL ICI
   factory NetworkStory.fromJson(Map<String, dynamic> json) {
-    final profiles = json['profiles'] as Map<String, dynamic>?;
+    final profiles = json['profiles'] is Map
+        ? Map<String, dynamic>.from(json['profiles'] as Map)
+        : null;
 
-    DateTime parseDate(dynamic v, Duration fallbackAdd) {
-      if (v == null) return DateTime.now().add(fallbackAdd);
-      try { return DateTime.parse(v.toString()); } catch (_) { return DateTime.now().add(fallbackAdd); }
+    DateTime parseDate(dynamic v, {Duration? fallbackAdd}) {
+      if (v == null) {
+        return DateTime.now().add(fallbackAdd ?? Duration.zero);
+      }
+      try {
+        return DateTime.parse(v.toString());
+      } catch (_) {
+        return DateTime.now().add(fallbackAdd ?? Duration.zero);
+      }
     }
+
+    // ── URL média : TOUS les alias possibles ──
+    final media = (
+      json['media_url'] ??
+      json['image_url'] ??
+      json['imageUrl'] ??
+      json['mediaUrl'] ??
+      json['url'] ??
+      ''
+    ).toString().trim();
+
+    final name = (
+      profiles?['display_name'] ??
+      profiles?['full_name'] ??
+      json['user_name'] ??
+      json['display_name'] ??
+      json['author_name'] ??
+      'Utilisateur'
+    ).toString();
+
+    final avatar = (
+      profiles?['avatar_url'] ??
+      profiles?['photo_url'] ??
+      json['user_avatar'] ??
+      json['avatar_url'] ??
+      json['author_avatar']
+    )?.toString();
+
+    final title = (
+      profiles?['profession'] ??
+      profiles?['title'] ??
+      json['user_title'] ??
+      json['profession'] ??
+      'Membre THIX'
+    ).toString();
+
+    final text = (
+      json['text_content'] ??
+      json['textContent'] ??
+      json['text'] ??
+      ''
+    ).toString();
+
+    final type = (
+      json['media_type'] ??
+      json['mediaType'] ??
+      (media.isNotEmpty ? 'image' : 'text')
+    ).toString();
 
     return NetworkStory(
       id: (json['id'] ?? '').toString(),
-      userId: (json['user_id'] ?? '').toString(),
-      userName: (profiles?['display_name'] ?? profiles?['full_name'] ?? json['user_name'] ?? json['profiles']?['display_name'] ?? 'Utilisateur').toString(),
-      userAvatar: (profiles?['avatar_url'] ?? profiles?['photo_url'] ?? json['user_avatar'] ?? json['avatar_url'])?.toString(),
-      userTitle: (profiles?['title'] ?? profiles?['profession'] ?? json['user_title'] ?? 'Membre THIX').toString(),
-      
-      // Supporte TOUT : media_url, image_url, imageUrl, mediaUrl
-      imageUrl: (json['media_url'] ?? json['image_url'] ?? json['mediaUrl'] ?? json['imageUrl'] ?? '').toString(),
-      
-      // Supporte TOUT : text, text_content, caption, content
-      textContent: (json['text'] ?? json['text_content'] ?? json['caption'] ?? json['content'])?.toString(),
-      
-      mediaType: (json['media_type'] ?? json['type'] ?? 'image').toString(),
-      duration: (json['duration'] is int) ? json['duration'] as int : int.tryParse('${json['duration'] ?? 24}') ?? 24,
-      createdAt: parseDate(json['created_at'], Duration.zero),
-      expiresAt: parseDate(json['expires_at'], const Duration(hours: 24)),
-      isViewed: (json['is_viewed'] ?? json['viewed'] ?? false) == true,
+      userId: (json['user_id'] ?? json['userId'] ?? '').toString(),
+      userName: name,
+      userAvatar: avatar,
+      userTitle: title,
+      imageUrl: media, // ← media_url SQL → imageUrl Flutter
+      textContent: text.isEmpty ? null : text,
+      mediaType: type,
+      duration: (json['duration'] as num?)?.toInt() ?? 24,
+      createdAt: parseDate(json['created_at'] ?? json['createdAt']),
+      expiresAt: parseDate(
+        json['expires_at'] ?? json['expiresAt'],
+        fallbackAdd: const Duration(hours: 24),
+      ),
+      isViewed: json['is_viewed'] == true || json['isViewed'] == true,
     );
   }
 
