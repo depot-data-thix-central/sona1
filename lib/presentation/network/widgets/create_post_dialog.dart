@@ -176,7 +176,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
     final text = _contentController.text;
     final lastAt = text.lastIndexOf('@');
     final before = text.substring(0, lastAt);
-    final newText = '\( before@ \){user['display_name']} ';
+    final newText = '$before@${user['display_name']} ';
     _contentController.value = TextEditingValue(
       text: newText,
       selection: TextSelection.collapsed(offset: newText.length),
@@ -298,7 +298,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
       if (response != null && response['results'] != null) {
         for (final r in response['results'] as List) {
           webSources.add(
-            '- [\( {r['title'] ?? ''}]( \){r['url'] ?? ''}) : ${r['content'] ?? ''}',
+            '- [${r['title'] ?? ''}](${r['url'] ?? ''}) : ${r['content'] ?? ''}',
           );
         }
       }
@@ -318,7 +318,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
       final ai = AiService(Supabase.instance.client);
       final today = DateTime.now();
       final prompt = '''
-Date actuelle : \( {today.day}/ \){today.month}/${today.year}
+Date actuelle : ${today.day}/${today.month}/${today.year}
 
 SOURCES WEB :
 ${webSources.join('\n')}
@@ -1033,7 +1033,7 @@ Réponds : SAFE ou FAKE: [raison]
                           label: Text(
                             _challengeEndDate == null
                                 ? 'Date de fin'
-                                : '\( {_challengeEndDate!.day}/ \){_challengeEndDate!.month}/${_challengeEndDate!.year}',
+                                : '${_challengeEndDate!.day}/${_challengeEndDate!.month}/${_challengeEndDate!.year}',
                           ),
                         ),
                       ],
