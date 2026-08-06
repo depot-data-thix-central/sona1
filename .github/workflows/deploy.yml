@@ -1,4 +1,4 @@
-name: Deploy Flutter Web to GitHub Pages
+Name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
@@ -6,20 +6,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Flutter
@@ -42,23 +40,16 @@ jobs:
             echo "No build_runner — skip"
           fi
 
-      - name: Build Web
+      - name: Build Web (CanvasKit)
         run: |
           flutter build web --release \
-            --base-href /sona1/
+            --base-href /sona1/ \
+            --no-wasm-dry-run
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to GitHub Pages (Branch gh-pages)
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: build/web
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
+          publish_branch: gh-pages
+          force_orphan: true
