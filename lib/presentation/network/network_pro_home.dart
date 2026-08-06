@@ -399,6 +399,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   }
 
   // ─────────────────────────── STORIES ───────────────────────────
+  // ─────────────────────────── STORIES ───────────────────────────
 
   Widget _buildStoriesFacebook(String currentUserId) {
     if (_loadingStories) {
@@ -407,20 +408,25 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         height: 200,
         alignment: Alignment.center,
         child: const SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.2,
-            color: ThixColors.primary,
-          ),
+          width: 22, height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.2, color: ThixColors.primary),
         ),
       );
     }
 
-    final myStories =
-        _stories.where((s) => s.userId == currentUserId).toList();
-    final otherStories =
-        _stories.where((s) => s.userId != currentUserId).toList();
+    // 1. Isoler tes propres stories
+    final myStories = _stories.where((s) => s.userId == currentUserId).toList();
+
+    // 2. Grouper les stories des autres utilisateurs par leur ID (Finit les doublons !)
+    final Map<String, List<NetworkStory>> groupedOtherStories = {};
+    for (final s in _stories) {
+      if (s.userId != currentUserId) {
+        groupedOtherStories.putIfAbsent(s.userId, () => []).add(s);
+      }
+    }
+
+    // Liste unique des autres utilisateurs ayant posté
+    final otherUsersList = groupedOtherStories.keys.toList();
 
     return Container(
       color: ThixColors.white,
@@ -430,54 +436,47 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          itemCount: otherStories.length + 1,
+          itemCount: otherUsersList.length + 1,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (c, i) {
+            
+            // CARTE 0 : TA PROPRE STORY
             if (i == 0) {
               return _FbStoryCard(
                 isMe: true,
                 hasStory: myStories.isNotEmpty,
                 name: myStories.isNotEmpty ? 'Votre story' : 'Créer',
                 coverUrl: myStories.isNotEmpty
-                    ? (myStories.first.imageUrl.isNotEmpty
-                        ? myStories.first.imageUrl
-                        : myStories.first.userAvatar)
+                    ? (myStories.first.imageUrl.isNotEmpty ? myStories.first.imageUrl : myStories.first.userAvatar)
                     : null,
-                avatarUrl: myStories.isNotEmpty
-                    ? myStories.first.userAvatar
-                    : null,
+                avatarUrl: myStories.isNotEmpty ? myStories.first.userAvatar : null,
                 onTap: myStories.isNotEmpty
                     ? () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => StoryViewer(
-                              stories: myStories,
-                              initialIndex: 0,
-                            ),
-                          ),
-                        );
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => StoryViewer(stories: myStories, initialIndex: 0),
+                        ));
                       }
                     : _openCreateStory,
                 onAdd: _openCreateStory,
               );
             }
 
-            final s = otherStories[i - 1];
+            // CARTES SUIVANTES : LES AUTRES UTILISATEURS (1 seule carte par personne)
+            final userId = otherUsersList[i - 1];
+            final userStories = groupedOtherStories[userId]!;
+            final firstStory = userStories.first; // Sert pour la miniature
+
             return _FbStoryCard(
               isMe: false,
               hasStory: true,
-              name: s.userName.split(' ').first,
-              coverUrl: s.imageUrl.isNotEmpty ? s.imageUrl : s.userAvatar,
-              avatarUrl: s.userAvatar,
+              name: firstStory.userName.split(' ').first,
+              coverUrl: firstStory.imageUrl.isNotEmpty ? firstStory.imageUrl : firstStory.userAvatar,
+              avatarUrl: firstStory.userAvatar,
               onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => StoryViewer(
-                      stories: otherStories,
-                      initialIndex: i - 1,
-                    ),
-                  ),
-                );
+                // On envoie TOUTES les stories de cet utilisateur au StoryViewer
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => StoryViewer(stories: userStories, initialIndex: 0),
+                ));
               },
             );
           },
@@ -485,6 +484,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       ),
     );
   }
+
 
   // ─────────────────────────── FILTRES ───────────────────────────
 
