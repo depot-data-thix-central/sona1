@@ -742,7 +742,7 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
-  Future<void> createStory(
+    Future<void> createStory(
     String? mediaUrl, {
     String? text,
     String mediaType = 'image',
@@ -760,6 +760,7 @@ class NetworkService extends ChangeNotifier {
     });
     notifyListeners();
   }
+
 
   Future<void> deleteStory(String storyId) async {
     await _supabase
