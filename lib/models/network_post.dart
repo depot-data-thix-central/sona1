@@ -13,16 +13,22 @@ class NetworkPost {
 
   // ─── Contenu ───
   final String content;
-  final String? bgColor; // 🌟 AJOUT : Couleur de fond du post
+  final String? bgColor;
 
   // ─── Médias (unifiés) ───
   final List<String> mediaUrls;
 
   // ─── Nouveaux types (Sondages & Challenges) ───
-  final String postType; // 'standard', 'poll', 'challenge'
+  final String postType; // 'standard', 'poll', 'challenge', 'repost'
   final Map<String, dynamic>? pollData;
   final Map<String, dynamic>? challengeData;
 
+  // ─── Visibilité & Relations ───
+  final String status;
+  final bool isPublic;
+  final String? communityId;
+  final String? repostOfId; // ← AJOUT (post original si c'est un repost)
+  
   // ─── Fact-Checking ───
   final bool isFactChecked;
   final bool isMisinformation;
@@ -45,11 +51,6 @@ class NetworkPost {
   final bool isReposted;
   final bool isPinned;
 
-  // ─── Visibilité ───
-  final String status;
-  final bool isPublic;
-  final String? communityId;
-
   // ─── Constructeur ───
   const NetworkPost({
     required this.id,
@@ -58,7 +59,7 @@ class NetworkPost {
     this.authorAvatar,
     this.authorTitle,
     required this.content,
-    this.bgColor, // 🌟 AJOUT
+    this.bgColor,
     required this.mediaUrls,
     this.postType = 'standard',
     this.pollData,
@@ -80,6 +81,7 @@ class NetworkPost {
     this.isPublic = true,
     this.communityId,
     this.views,
+    this.repostOfId, // ← AJOUT
   });
 
   static bool _hasExtension(String url, List<String> extensions) {
@@ -96,6 +98,10 @@ class NetworkPost {
   bool get hasImages => imageUrls.isNotEmpty;
   bool get hasVideos => videoUrls.isNotEmpty;
   bool get hasMedia => mediaUrls.isNotEmpty;
+
+  // ← AJOUT : Getter utile
+  bool get isRepostCard =>
+      postType == 'repost' || (repostOfId != null && repostOfId!.isNotEmpty);
 
   // ─── Factory depuis Supabase ───
   factory NetworkPost.fromJson(Map<String, dynamic> json) {
@@ -123,7 +129,7 @@ class NetworkPost {
       authorTitle: json['author_title'] as String? ??
           json['profiles']?['profession'] as String?,
       content: json['content'] as String? ?? '',
-      bgColor: json['bg_color'] as String?, // 🌟 AJOUT : Extraction depuis le JSON de Supabase
+      bgColor: json['bg_color'] as String?,
       mediaUrls: mediaUrls,
       postType: json['post_type'] as String? ?? 'standard',
       pollData: json['poll_data'] as Map<String, dynamic>?,
@@ -138,17 +144,21 @@ class NetworkPost {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : null,
-      likesCount: json['likes_count'] as int? ?? 0,
-      commentsCount: json['comments_count'] as int? ?? 0,
-      repostsCount: json['reposts_count'] as int? ?? 0,
-      isLiked: json['is_liked'] as bool? ?? false,
-      isSaved: json['is_saved'] as bool? ?? false,
-      isReposted: json['is_reposted'] as bool? ?? false,
-      isPinned: json['is_pinned'] as bool? ?? false,
+      
+      // counts plus sûrs : ← AJOUT
+      likesCount: (json['likes_count'] as num?)?.toInt() ?? 0,
+      commentsCount: (json['comments_count'] as num?)?.toInt() ?? 0,
+      repostsCount: (json['reposts_count'] as num?)?.toInt() ?? 0,
+      
+      isLiked: json['is_liked'] == true,
+      isSaved: json['is_saved'] == true,
+      isReposted: json['is_reposted'] == true,
+      isPinned: json['is_pinned'] == true,
       status: json['status'] as String? ?? 'public',
       isPublic: json['is_public'] as bool? ?? true,
       communityId: json['community_id'] as String?,
-      views: json['views'] as int?,
+      views: (json['views'] as num?)?.toInt(),
+      repostOfId: json['repost_of_id']?.toString(), // ← AJOUT
     );
   }
 
@@ -160,7 +170,7 @@ class NetworkPost {
       'author_avatar': authorAvatar,
       'author_title': authorTitle,
       'content': content,
-      'bg_color': bgColor, // 🌟 AJOUT
+      'bg_color': bgColor,
       'media_urls': mediaUrls,
       'post_type': postType,
       'poll_data': pollData,
@@ -182,6 +192,7 @@ class NetworkPost {
       'is_public': isPublic,
       'community_id': communityId,
       'views': views,
+      'repost_of_id': repostOfId, // ← AJOUT
     };
   }
 
@@ -192,7 +203,7 @@ class NetworkPost {
     String? authorAvatar,
     String? authorTitle,
     String? content,
-    String? bgColor, // 🌟 AJOUT
+    String? bgColor,
     List<String>? mediaUrls,
     String? postType,
     Map<String, dynamic>? pollData,
@@ -214,6 +225,7 @@ class NetworkPost {
     bool? isPublic,
     String? communityId,
     int? views,
+    String? repostOfId, // ← AJOUT
   }) {
     return NetworkPost(
       id: id ?? this.id,
@@ -222,7 +234,7 @@ class NetworkPost {
       authorAvatar: authorAvatar ?? this.authorAvatar,
       authorTitle: authorTitle ?? this.authorTitle,
       content: content ?? this.content,
-      bgColor: bgColor ?? this.bgColor, // 🌟 AJOUT
+      bgColor: bgColor ?? this.bgColor,
       mediaUrls: mediaUrls ?? this.mediaUrls,
       postType: postType ?? this.postType,
       pollData: pollData ?? this.pollData,
@@ -244,6 +256,7 @@ class NetworkPost {
       isPublic: isPublic ?? this.isPublic,
       communityId: communityId ?? this.communityId,
       views: views ?? this.views,
+      repostOfId: repostOfId ?? this.repostOfId, // ← AJOUT
     );
   }
 
