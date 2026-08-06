@@ -3,37 +3,63 @@ name: Deploy Flutter Web to GitHub Pages
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
-          channel: 'stable'
+          channel: stable
+          cache: true
 
       - name: Enable Web
         run: flutter config --enable-web
 
-      - name: Get dependencies
+      - name: Pub get
         run: flutter pub get
 
-      # Génère tous les fichiers .g.dart (Riverpod, JSON, Hive...)
       - name: Generate code (build_runner)
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: |
+          if grep -q "build_runner" pubspec.yaml; then
+            dart run build_runner build --delete-conflicting-outputs
+          else
+            echo "No build_runner — skip"
+          fi
 
-      - name: Build Web
-        # L'option obsolète "--web-renderer html" a été supprimée ici 👇
-        run: flutter build web --release --base-href /sona1/ --pwa-strategy none
+      - name: Build Web (CanvasKit)
+        run: |
+          flutter build web --release \
+            --base-href /sona1/ \
+            --no-wasm-dry-run
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/web
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
