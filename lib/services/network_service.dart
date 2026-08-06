@@ -439,7 +439,14 @@ class NetworkService extends ChangeNotifier {
         .toList();
   }
 
-  Future<String?> repostPost(String originalPostId, {String? quote}) async {
+  /// Repost avec citation → crée une carte dans le fil (via RPC).
+  /// Retourne le NetworkPost à mettre en tête du feed, ou null.
+  Future<NetworkPost?> repostPost(
+    String originalPostId, {
+    String? quote,
+  }) async {
+    if (currentUserId.isEmpty) throw Exception('Non authentifié');
+
     try {
       final res = await _supabase.rpc(
         'rpc_repost',
@@ -448,21 +455,46 @@ class NetworkService extends ChangeNotifier {
           'p_quote': quote,
         },
       );
+
+      Map<String, dynamic> row;
+      if (res is List && res.isNotEmpty) {
+        row = Map<String, dynamic>.from(res.first as Map);
+      } else if (res is Map) {
+        row = Map<String, dynamic>.from(res);
+      } else {
+        throw Exception('Réponse RPC invalide');
+      }
+
       notifyListeners();
-      return res?.toString();
+
+      final feedPostId = row['feed_post_id']?.toString();
+      if (feedPostId == null || feedPostId.isEmpty) {
+        // déjà reposté, ou ancienne version RPC sans feed_post_id
+        return null;
+      }
+
+      // Carte complète (auteur, contenu = quote, repost_of_id)
+      return await getPostById(feedPostId);
     } catch (e) {
       debugPrint('rpc_repost fallback: $e');
-      await _supabase.from('reposts').insert({
-        'original_post_id': originalPostId,
-        'user_id': currentUserId,
-        'quote': quote,
-      });
-      notifyListeners();
+
+      // Fallback minimal (pas de carte fil si RPC absente)
+      try {
+        await _supabase.from('reposts').insert({
+          'original_post_id': originalPostId,
+          'user_id': currentUserId,
+          'quote': quote,
+        });
+        notifyListeners();
+      } catch (e2) {
+        debugPrint('repost insert: $e2');
+        rethrow;
+      }
       return null;
     }
   }
 
-  /// Compat ancien API
+  /// Compat ancien API (PostCard qui appelle encore .repost)
   Future<void> repost(String originalPostId, String? quote) async {
     await repostPost(originalPostId, quote: quote);
   }
