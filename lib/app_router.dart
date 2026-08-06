@@ -443,7 +443,12 @@ class AppRouter {
 
         GoRoute(path: '/connections', name: 'connections', pageBuilder: (context, state) => const NoTransitionPage(child: ConnectionsPage())),
         GoRoute(path: AppRoutes.callIncoming, name: AppRoutes.callIncomingName, builder: (c, s) => IncomingCallPage(invite: s.extra as CallInvite)),
-        GoRoute(path: AppRoutes.callOngoing, name: AppRoutes.callOngoingName, builder: (c, s) { final e = s.extra as Map<String, dynamic>; return CallPage(channel: e['channel'], name: e['name'], type: e['type'] == 'video' ? CallType.video : CallType.audio, inviteId: e['inviteId'], isCaller: e['isCaller'] ?? true, avatarUrl: e['avatarUrl']); }),
+       
+        GoRoute(
+  path: AppRoutes.callOngoing,
+  name: AppRoutes.callOngoingName,
+  builder: (c, s) => const CallPage(),
+),
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => const NoTransitionPage(child: DocumentVaultPage())),
         GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => const NoTransitionPage(child: SettingsPage())),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => const NoTransitionPage(child: ProfilePage())),
