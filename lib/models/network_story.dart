@@ -58,95 +58,82 @@ class NetworkStory {
       expiresAt: now.add(Duration(hours: durationHours)),
     );
   }
-
-  // 🔥 FIX PRINCIPAL : Extraction ultra-robuste
+  // 🔥 FIX ULTIME : Extraction ultra-robuste + Mode Débogage
   factory NetworkStory.fromJson(Map<String, dynamic> json) {
     final profiles = json['profiles'] is Map
         ? Map<String, dynamic>.from(json['profiles'] as Map)
         : null;
 
     DateTime parseDate(dynamic v, {Duration? fallbackAdd}) {
-      if (v == null) {
-        return DateTime.now().add(fallbackAdd ?? Duration.zero);
-      }
-      try {
-        return DateTime.parse(v.toString());
-      } catch (_) {
-        return DateTime.now().add(fallbackAdd ?? Duration.zero);
-      }
+      if (v == null) return DateTime.now().add(fallbackAdd ?? Duration.zero);
+      try { return DateTime.parse(v.toString()); } 
+      catch (_) { return DateTime.now().add(fallbackAdd ?? Duration.zero); }
     }
 
-    // 1. Extraction Image (Capture de tous les formats et noms de colonnes possibles)
+    // 1. Recherche agressive de l'image (Gère les listes, les strings, et les tableaux Postgres)
     String media = '';
-    if (json['media_urls'] is List && (json['media_urls'] as List).isNotEmpty) {
-      media = (json['media_urls'] as List).first.toString();
-    } else if (json['image_urls'] is List && (json['image_urls'] as List).isNotEmpty) {
-      media = (json['image_urls'] as List).first.toString();
-    } else {
-      media = (json['media_url'] ?? 
-               json['image_url'] ?? 
-               json['file_url'] ?? 
-               json['photo_url'] ?? 
-               json['imageUrl'] ?? 
-               json['url'] ?? 
-               '').toString().trim();
+    final possibleMediaKeys = ['media_urls', 'image_urls', 'media_url', 'image_url', 'file_url', 'photo_url', 'url'];
+    
+    for (final key in possibleMediaKeys) {
+      final val = json[key];
+      if (val != null && val.toString() != 'null' && val.toString().trim().isNotEmpty) {
+        if (val is List && val.isNotEmpty) {
+          media = val.first.toString();
+          break;
+        } else if (val is String) {
+          // Si Supabase renvoie un tableau au format String Postgres "{lien1, lien2}"
+          if (val.startsWith('{') && val.endsWith('}')) {
+            final clean = val.substring(1, val.length - 1);
+            if (clean.isNotEmpty) {
+              media = clean.split(',').first.replaceAll('"', '').trim();
+              break;
+            }
+          } else {
+            media = val.trim();
+            break;
+          }
+        }
+      }
     }
-    if (media.toLowerCase() == 'null') media = ''; // Contourne le bug du String "null"
 
-    // 2. Extraction Texte (Capture de tous les noms de colonnes possibles)
-    String text = (json['text_content'] ?? 
-                   json['content'] ?? 
-                   json['text'] ?? 
-                   json['description'] ?? 
-                   json['caption'] ?? 
-                   '').toString().trim();
-    if (text.toLowerCase() == 'null') text = ''; // Contourne le bug du String "null"
+    // 2. Recherche agressive du texte
+    String text = '';
+    final possibleTextKeys = ['text_content', 'content', 'text', 'description', 'caption'];
+    for (final key in possibleTextKeys) {
+      final val = json[key];
+      if (val != null && val.toString() != 'null' && val.toString().trim().isNotEmpty) {
+        text = val.toString().trim();
+        break;
+      }
+    }
+
+    // 🚨 LE MODE DÉTECTIVE 🚨
+    // Si la story est toujours vide, on affiche le JSON brut à l'écran pour comprendre !
+    if (media.isEmpty && text.isEmpty) {
+      text = "🔧 LIGNE VIDE DANS SUPABASE\n\nVoici ce que la base a renvoyé :\n\n$json";
+    }
 
     // 3. Extraction Profil
-    String name = (profiles?['display_name'] ?? 
-                   profiles?['full_name'] ?? 
-                   json['user_name'] ?? 
-                   json['display_name'] ?? 
-                   json['author_name'] ?? 
-                   'Utilisateur').toString().trim();
-    if (name.toLowerCase() == 'null') name = 'Utilisateur';
-
-    String? avatar = (profiles?['avatar_url'] ?? 
-                      profiles?['photo_url'] ?? 
-                      json['user_avatar'] ?? 
-                      json['avatar_url'] ?? 
-                      json['author_avatar'])?.toString().trim();
-    if (avatar?.toLowerCase() == 'null') avatar = null;
-
-    String title = (profiles?['profession'] ?? 
-                    profiles?['title'] ?? 
-                    json['user_title'] ?? 
-                    json['profession'] ?? 
-                    'Membre THIX').toString().trim();
-    if (title.toLowerCase() == 'null') title = 'Membre THIX';
-
-    final type = (json['media_type'] ?? 
-                  json['mediaType'] ?? 
-                  (media.isNotEmpty ? 'image' : 'text')).toString().trim();
+    final name = (profiles?['display_name'] ?? profiles?['full_name'] ?? json['user_name'] ?? json['author_name'] ?? 'Utilisateur').toString();
+    final avatar = (profiles?['avatar_url'] ?? profiles?['photo_url'] ?? json['user_avatar'] ?? json['author_avatar'])?.toString();
+    final title = (profiles?['profession'] ?? json['user_title'] ?? 'Membre THIX').toString();
 
     return NetworkStory(
       id: (json['id'] ?? '').toString(),
       userId: (json['user_id'] ?? json['userId'] ?? '').toString(),
-      userName: name,
-      userAvatar: avatar,
-      userTitle: title,
+      userName: name == 'null' ? 'Utilisateur' : name,
+      userAvatar: avatar == 'null' ? null : avatar,
+      userTitle: title == 'null' ? 'Membre THIX' : title,
       imageUrl: media,
       textContent: text.isEmpty ? null : text,
-      mediaType: type,
+      mediaType: (json['media_type'] ?? 'image').toString(),
       duration: (json['duration'] as num?)?.toInt() ?? 24,
       createdAt: parseDate(json['created_at'] ?? json['createdAt']),
-      expiresAt: parseDate(
-        json['expires_at'] ?? json['expiresAt'],
-        fallbackAdd: const Duration(hours: 24),
-      ),
+      expiresAt: parseDate(json['expires_at'] ?? json['expiresAt'], fallbackAdd: const Duration(hours: 24)),
       isViewed: json['is_viewed'] == true || json['isViewed'] == true,
     );
   }
+
 
   Map<String, dynamic> toJson() => {
     'user_id': userId,
