@@ -5,9 +5,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
 import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
+
+// ─── HELPER POUR FORMATER LES COMPTEURS ───
+String _formatCountHelper(int count) {
+  if (count >= 1000000) {
+    return '${(count / 1000000).toStringAsFixed(1)}M';
+  }
+  if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
+  return '$count';
+}
 
 class _PostColors {
   static const background = Color(0xFFF6F7FB);
@@ -361,18 +371,10 @@ class _PostCardState extends ConsumerState<PostCard>
   String _getTimeAgo(DateTime dt) =>
       timeago.format(dt.toLocal(), locale: 'fr');
 
-  String _formatCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
-    }
-    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
-    return '$count';
-  }
-
   void _openPostDetails(String postId) {
-    context
-        .push('/network/comments/$postId')
-        .then((_) => widget.onRefresh?.call());
+    if (!mounted) return;
+    context.push('/network/comments/$postId');
+    // PAS de widget.onRefresh?.call() ici pour éviter les bugs de compilation de pile !
   }
 
   void _openGallery(int initialIndex, List<String> urls) {
@@ -598,8 +600,7 @@ class _PostCardState extends ConsumerState<PostCard>
                       await ref
                           .read(networkServiceProvider)
                           .votePoll(post.id, index);
-                      if (!mounted) return;
-                      widget.onRefresh?.call();
+                      // On ne fait pas de full refresh global agressif ici non plus
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -1049,10 +1050,11 @@ class _PostCardState extends ConsumerState<PostCard>
                                     ),
                                   );
                                   if (ok == true) {
-                                    await service.deletePost(post.id);
-                                    if (!mounted) return;
-                                    widget.onDelete?.call();
-                                    widget.onRefresh?.call();
+                                    if (widget.onDelete != null) {
+                                      widget.onDelete!();
+                                    } else {
+                                      await service.deletePost(post.id);
+                                    }
                                   }
                                   break;
                                 case 'save':
@@ -1066,8 +1068,6 @@ class _PostCardState extends ConsumerState<PostCard>
                                   break;
                                 case 'hide':
                                   await service.hidePost(post.id);
-                                  if (!mounted) return;
-                                  widget.onRefresh?.call();
                                   break;
                                 case 'share':
                                   widget.onShare?.call();
@@ -1129,7 +1129,7 @@ class _PostCardState extends ConsumerState<PostCard>
 
                       _buildPostContent(post),
 
-                      // 🔥 Post original
+                      // 🔥 Post original ENCAPSULÉ AVEC STATS
                       if (post.isRepostCard &&
                           post.repostOfId != null &&
                           post.repostOfId!.isNotEmpty) ...[
@@ -1156,7 +1156,8 @@ class _PostCardState extends ConsumerState<PostCard>
                         ],
                         const SizedBox(height: 10),
                         _buildChallengeWidget(post),
-                      ] else if (post.imageUrls.isNotEmpty) ...[
+                      ] else if (post.imageUrls.isNotEmpty && !post.isRepostCard) ...[
+                        // Empêcher l'image de s'afficher en double si c'est un repost
                         const SizedBox(height: 10),
                         _buildImageGrid(post.imageUrls, post.id),
                       ],
@@ -1171,7 +1172,7 @@ class _PostCardState extends ConsumerState<PostCard>
                             icon: isLiked
                                 ? Icons.favorite_rounded
                                 : Icons.favorite_border_rounded,
-                            label: _formatCount(likesCount),
+                            label: _formatCountHelper(likesCount),
                             color: isLiked
                                 ? _PostColors.red
                                 : _PostColors.textSecondary,
@@ -1207,13 +1208,13 @@ class _PostCardState extends ConsumerState<PostCard>
                           ),
                           _actionPill(
                             icon: Icons.chat_bubble_outline_rounded,
-                            label: _formatCount(post.commentsCount),
+                            label: _formatCountHelper(post.commentsCount),
                             onTap: widget.onComment ??
                                 () => _openPostDetails(post.id),
                           ),
                           _actionPill(
                             icon: Icons.repeat_rounded,
-                            label: _formatCount(post.repostsCount),
+                            label: _formatCountHelper(post.repostsCount),
                             color: post.isReposted
                                 ? _PostColors.green
                                 : _PostColors.textSecondary,
@@ -1283,10 +1284,8 @@ class _PostCardState extends ConsumerState<PostCard>
 
       if (!mounted) return;
 
-      // Compteur sur le post original
       ref.read(postItemProvider.notifier).incRepost();
 
-      // 🔥 Carte visible en tête du fil (avec ton commentaire)
       if (created != null) {
         ref.read(feedProvider.notifier).addPostOnTop(created);
       }
@@ -1297,7 +1296,6 @@ class _PostCardState extends ConsumerState<PostCard>
           backgroundColor: _PostColors.green,
         ),
       );
-      // ❌ PAS de widget.onRefresh?.call() ici
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1315,6 +1313,8 @@ class _PostCardState extends ConsumerState<PostCard>
 }
 
 // ─────────────────────────────────────────────────────────────
+// NOUVEL EMBED POUR LES REPOSTS (Cliquable avec statistiques)
+// ─────────────────────────────────────────────────────────────
 class _OriginalPostEmbed extends ConsumerWidget {
   final String postId;
   const _OriginalPostEmbed({required this.postId});
@@ -1326,17 +1326,20 @@ class _OriginalPostEmbed extends ConsumerWidget {
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return Container(
-            height: 72,
+            height: 80,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: _PostColors.background,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _PostColors.border),
             ),
             child: const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: _PostColors.primary,
+              ),
             ),
           );
         }
@@ -1347,87 +1350,146 @@ class _OriginalPostEmbed extends ConsumerWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _PostColors.background,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _PostColors.border),
             ),
-            child: const Text(
-              'Publication d’origine indisponible',
-              style: TextStyle(fontSize: 12, color: _PostColors.textSecondary),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, size: 18, color: _PostColors.textSecondary),
+                SizedBox(width: 8),
+                Text(
+                  'Publication d’origine indisponible',
+                  style: TextStyle(fontSize: 12, color: _PostColors.textSecondary),
+                ),
+              ],
             ),
           );
         }
 
         return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: _PostColors.background,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: _PostColors.border),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: _PostColors.softBlue,
-                    backgroundImage: original.authorAvatar != null &&
-                            original.authorAvatar!.isNotEmpty
-                        ? NetworkImage(original.authorAvatar!)
-                        : null,
-                    child: original.authorAvatar == null ||
-                            original.authorAvatar!.isEmpty
-                        ? const Icon(Icons.person,
-                            size: 14, color: _PostColors.primaryDeep)
-                        : null,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      original.authorName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12.5,
-                        color: _PostColors.textDark,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+          clipBehavior: Clip.antiAlias,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                // Navigation propre pour voir le post original
+                context.push('/network/comments/${original.id}');
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Auteur du post original
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: _PostColors.softBlue,
+                          backgroundImage: original.authorAvatar != null &&
+                                  original.authorAvatar!.isNotEmpty
+                              ? NetworkImage(original.authorAvatar!)
+                              : null,
+                          child: original.authorAvatar == null ||
+                                  original.authorAvatar!.isEmpty
+                              ? const Icon(Icons.person,
+                                  size: 16, color: _PostColors.primaryDeep)
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            original.authorName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: _PostColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          timeago.format(original.createdAt.toLocal(), locale: 'fr'),
+                          style: const TextStyle(
+                              fontSize: 10, color: _PostColors.textSecondary),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    
+                    // Contenu du post original
+                    if (original.content.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        original.content,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.35,
+                          color: _PostColors.textDark,
+                        ),
+                      ),
+                    ],
+                    
+                    // Image miniature
+                    if (original.imageUrls.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          original.imageUrls.first,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
+                    
+                    // Statistiques du post original
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, color: _PostColors.border),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _miniStatRow(Icons.favorite_border_rounded, _formatCountHelper(original.likesCount)),
+                        const SizedBox(width: 16),
+                        _miniStatRow(Icons.chat_bubble_outline_rounded, _formatCountHelper(original.commentsCount)),
+                        const SizedBox(width: 16),
+                        _miniStatRow(Icons.repeat_rounded, _formatCountHelper(original.repostsCount)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              if (original.content.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  original.content,
-                  maxLines: 5,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.35,
-                    color: _PostColors.textDark,
-                  ),
-                ),
-              ],
-              if (original.imageUrls.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    original.imageUrls.first,
-                    height: 120,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _miniStatRow(IconData icon, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: _PostColors.textSecondary),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: _PostColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }
