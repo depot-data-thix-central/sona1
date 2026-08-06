@@ -1,6 +1,7 @@
 // lib/presentation/chat/providers/chat_providers.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/services/chat/status_service.dart';
 
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/presence_service.dart';
@@ -30,4 +31,7 @@ final groupServiceProvider = Provider<GroupService>((ref) {
 
 final connectionServiceProvider = Provider<ConnectionService>((ref) {
   return ConnectionService();
+});
+final statusServiceProvider = Provider<StatusService>((ref) {
+  return StatusService(Supabase.instance.client);
 });
