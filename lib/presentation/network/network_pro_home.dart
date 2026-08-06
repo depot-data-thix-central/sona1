@@ -466,14 +466,14 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
             final userStories = groupedOtherStories[userId]!;
             final firstStory = userStories.first; // Sert pour la miniature
 
-            return _FbStoryCard(
+                        return _FbStoryCard(
               isMe: false,
               hasStory: true,
               name: firstStory.userName.split(' ').first,
-              coverUrl: firstStory.imageUrl.isNotEmpty ? firstStory.imageUrl : firstStory.userAvatar,
-              avatarUrl: firstStory.userAvatar,
+              // 🌟 CORRECTION ICI : On ne met PAS l'avatar en fond de story
+              coverUrl: firstStory.imageUrl.isNotEmpty ? firstStory.imageUrl : null,
+              avatarUrl: firstStory.userAvatar, // L'avatar reste bien à sa place (la petite bulle ronde)
               onTap: () {
-                // On envoie TOUTES les stories de cet utilisateur au StoryViewer
                 Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => StoryViewer(stories: userStories, initialIndex: 0),
                 ));
