@@ -135,14 +135,16 @@ class NetworkStory {
   }
 
 
-  Map<String, dynamic> toJson() => {
+    Map<String, dynamic> toJson() => {
     'user_id': userId,
-    'media_url': imageUrl,
+    'media_url': imageUrl,      
+    'image_url': imageUrl,      
     'text': textContent,
     'text_content': textContent,
     'media_type': mediaType,
     'duration': duration,
   };
+
 
   bool get isCurrentUser {
     if (isCurrentUserOverride != null) return isCurrentUserOverride!;
