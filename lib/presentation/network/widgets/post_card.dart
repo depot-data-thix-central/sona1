@@ -666,23 +666,22 @@ class _PostCardState extends ConsumerState<PostCard>
               ),
             );
           }),
-                      if (totalVotes > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '$totalVotes vote${totalVotes > 1 ? 's' : ''}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: _PostColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
+          if (totalVotes > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '$totalVotes vote${totalVotes > 1 ? 's' : ''}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _PostColors.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-          ],
-        ),
-      );
-    }
-
+            ),
+        ],
+      ),
+    );
+  }
 
   // ── CHALLENGE (design entreprise) ──
   Widget _buildChallengeWidget(NetworkPost post) {
@@ -1106,7 +1105,38 @@ class _PostCardState extends ConsumerState<PostCard>
                       ),
 
                       const SizedBox(height: 13),
+
+                      // Bandeau "a reposté"
+                      if (post.isRepostCard)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Icon(Icons.repeat_rounded,
+                                  size: 14, color: _PostColors.textSecondary),
+                              SizedBox(width: 6),
+                              Text(
+                                'a reposté',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _PostColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
                       _buildPostContent(post),
+
+                      // 🔥 Post original
+                      if (post.isRepostCard &&
+                          post.repostOfId != null &&
+                          post.repostOfId!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _OriginalPostEmbed(postId: post.repostOfId!),
+                      ],
+
                       _buildFactCheckBanner(
                         post.isMisinformation,
                         post.factCheckMessage,
@@ -1173,8 +1203,6 @@ class _PostCardState extends ConsumerState<PostCard>
                                   }
                                 },
                               );
-                              // Ne pas re-toggle côté parent
-                              // widget.onLike?.call();
                             },
                           ),
                           _actionPill(
@@ -1285,6 +1313,125 @@ class _PostCardState extends ConsumerState<PostCard>
     }
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+class _OriginalPostEmbed extends ConsumerWidget {
+  final String postId;
+  const _OriginalPostEmbed({required this.postId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<NetworkPost?>(
+      future: ref.read(networkServiceProvider).getPostById(postId),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return Container(
+            height: 72,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _PostColors.background,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _PostColors.border),
+            ),
+            child: const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
+        final original = snap.data;
+        if (original == null) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _PostColors.background,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _PostColors.border),
+            ),
+            child: const Text(
+              'Publication d’origine indisponible',
+              style: TextStyle(fontSize: 12, color: _PostColors.textSecondary),
+            ),
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _PostColors.background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _PostColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: _PostColors.softBlue,
+                    backgroundImage: original.authorAvatar != null &&
+                            original.authorAvatar!.isNotEmpty
+                        ? NetworkImage(original.authorAvatar!)
+                        : null,
+                    child: original.authorAvatar == null ||
+                            original.authorAvatar!.isEmpty
+                        ? const Icon(Icons.person,
+                            size: 14, color: _PostColors.primaryDeep)
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      original.authorName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12.5,
+                        color: _PostColors.textDark,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              if (original.content.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  original.content,
+                  maxLines: 5,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: _PostColors.textDark,
+                  ),
+                ),
+              ],
+              if (original.imageUrls.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    original.imageUrls.first,
+                    height: 120,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 class _FullScreenGallery extends StatefulWidget {
   final List<String> imageUrls;
