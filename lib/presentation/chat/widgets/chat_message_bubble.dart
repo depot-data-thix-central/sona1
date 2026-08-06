@@ -15,9 +15,9 @@ import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
 // CHARTE
 // ─────────────────────────────────────────────────────────────
 class _C {
-  static const ownBubble = Color(0xFFDCF8C6); // vert type WhatsApp
+  static const ownBubble = Color(0xFFDCF8C6);
   static const otherBubble = Colors.white;
-  static const noteBubble = Color(0xFFFFF7ED); // orange soft — note interne
+  static const noteBubble = Color(0xFFFFF7ED);
   static const searchBg = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
   static const primary = Color(0xFF1D4ED8);
@@ -67,7 +67,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
 
   bool get _isNote => widget.isInternalNote || m.isInternalNote;
 
-  // Note interne : visible seulement en vue agent
   bool get _shouldHideNote {
     if (!_isNote) return false;
     return !widget.isAgentView;
@@ -94,7 +93,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
         crossAxisAlignment:
             widget.isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          // Nom expéditeur (groupe / agent)
           if (!widget.isOwn && m.senderName.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 12, bottom: 2),
@@ -108,7 +106,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
               ),
             ),
 
-          // Badge note interne
           if (_isNote && widget.isAgentView)
             const Padding(
               padding: EdgeInsets.only(bottom: 4, left: 4, right: 4),
@@ -174,27 +171,21 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Reply quote
                           if (widget.replyToMessage != null)
                             _ReplyQuote(
                               message: widget.replyToMessage!,
                               isOwn: widget.isOwn,
                             ),
 
-                          // Contenu principal
                           _buildBody(),
 
                           const SizedBox(height: 4),
 
-                          // Meta : éphémère + heure + ticks
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (m.isEphemeral || widget.isEphemeralActive) ...[
-                                ChatEphemeralTimer(
-                                  // CORRECTION 1 : Suppression du paramètre 'deleteAt' inexistant.
-                                  durationSec: m.ephemeralDuration,
-                                ),
+                                const ChatEphemeralTimer(),
                                 const SizedBox(width: 6),
                               ],
                               if (m.sentiment != null && widget.isAgentView) ...[
@@ -221,7 +212,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                       ),
                     ),
 
-                    // Réactions affichées
                     if (m.reactions.isNotEmpty)
                       Positioned(
                         bottom: -10,
@@ -235,7 +225,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
             ),
           ),
 
-          // Barre réactions rapide
           if (_showReact)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -252,7 +241,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
   }
 
   Widget _buildBody() {
-    // Code snippet
     if (m.isCodeSnippet && (m.codeContent?.isNotEmpty ?? false)) {
       return ChatCodeSnippet(
         code: m.codeContent!,
@@ -260,19 +248,14 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
       );
     }
 
-    // Audio
     if (m.mediaType == 'audio' && m.mediaUrl != null) {
-      // CORRECTION 2 : Paramètre 'url' remplacé par 'audioUrl' (standard).
-      // Si votre widget utilise un autre nom, remplacez 'audioUrl' par ce nom.
       return AudioPlayerWidget(audioUrl: m.mediaUrl!);
     }
 
-    // Image
     if (m.mediaType == 'image' && m.mediaUrl != null) {
       return _ImageBody(url: m.mediaUrl!, messageId: m.id);
     }
 
-    // Vidéo / fichier
     if (m.mediaUrl != null &&
         (m.mediaType == 'video' || m.mediaType == 'file')) {
       return _FileBody(
@@ -282,11 +265,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
       );
     }
 
-    // Contenu chiffré ?
     final raw = m.content;
-    
-    // CORRECTION 3 : L'appel à EncryptionService.looksEncrypted() a été remplacé par 
-    // une vérification Regex locale robuste (détecte le format standard Base64 AES).
     final looksEncrypted = raw.length > 16 && 
                            !raw.contains(' ') && 
                            RegExp(r'^[A-Za-z0-9+/]+={0,2}$').hasMatch(raw);
@@ -377,7 +356,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            // Réactions rapides
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               child: Row(
@@ -654,7 +632,6 @@ class _ReactionsChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Grouper par emoji
     final map = <String, int>{};
     for (final r in reactions) {
       map[r.reaction] = (map[r.reaction] ?? 0) + 1;
