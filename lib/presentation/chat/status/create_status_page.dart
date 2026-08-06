@@ -5,11 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:thix_id/presentation/chat/providers/status_provider.dart';
+import 'package:thix_id/presentation/chat/providers/chat_providers.dart'; // <-- NOUVEL IMPORT
 
 class CreateStatusPage extends ConsumerStatefulWidget {
   const CreateStatusPage({super.key});
 
-  @override
+  @override  
   ConsumerState<CreateStatusPage> createState() => _CreateStatusPageState();
 }
 
@@ -57,6 +58,7 @@ class _CreateStatusPageState extends ConsumerState<CreateStatusPage> {
     }
   }
 
+  // 👇 MÉTHODE MISE À JOUR 👇
   Future<void> _pickImage() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
@@ -68,21 +70,19 @@ class _CreateStatusPageState extends ConsumerState<CreateStatusPage> {
     if (bytes == null) return;
 
     setState(() => _sending = true);
-    final id = await ref.read(statusServiceFromRef).createImageStatus(
-          bytes: Uint8List.fromList(bytes),
-          extension: f.extension ?? 'jpg',
-          caption: _textCtrl.text.trim().isEmpty ? null : _textCtrl.text.trim(),
-        );
-    // refresh
-    await ref.read(statusProvider.notifier).refresh();
-    if (!mounted) return;
-    setState(() => _sending = false);
-    if (id != null) Navigator.pop(context);
+    try {
+      final svc = ref.read(statusServiceProvider);
+      final id = await svc.createImageStatus(
+        bytes: Uint8List.fromList(bytes),
+        extension: f.extension ?? 'jpg',
+        caption: _textCtrl.text.trim().isEmpty ? null : _textCtrl.text.trim(),
+      );
+      await ref.read(statusProvider.notifier).refresh();
+      if (mounted && id != null) Navigator.pop(context);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
-
-  // helper via provider
-  dynamic get statusServiceFromRef =>
-      ref.read(statusProvider.notifier); // will fix via service below
 
   @override
   Widget build(BuildContext context) {
