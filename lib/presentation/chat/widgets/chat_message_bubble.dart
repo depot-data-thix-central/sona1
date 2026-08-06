@@ -187,6 +187,9 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                               if (m.isEphemeral || widget.isEphemeralActive) ...[
                                 ChatEphemeralTimer(
                                   duration: m.ephemeralDuration,
+                                  onExpired: () {
+                                    widget.onDelete?.call();
+                                  },
                                 ),
                                 const SizedBox(width: 6),
                               ],
