@@ -14,6 +14,10 @@ import 'package:thix_id/presentation/chat/screens/group_create_page.dart';
 import 'settings/chat_settings_page.dart';
 import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 
+// ── NOUVEAUX IMPORTS POUR LES STATUTS (STORIES) ──
+import 'package:thix_id/presentation/chat/widgets/status_story_row.dart';
+import 'package:thix_id/presentation/chat/providers/status_provider.dart';
+
 // ── PALETTE ENTERPRISE PREMIUM — Charte THIX ID ──
 class _C {
   static const bg = Colors.white;
@@ -109,7 +113,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
 
     // Au retour on rafraîchit silencieusement
-    ref.read(chatListProvider.notifier).refresh();
+    ref.read(chatListProvider.notifier).refresh(silent: true);
   }
 
   void _openNotifications(int pending) {
@@ -369,7 +373,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               : RefreshIndicator(
                   color: _C.primary,
                   backgroundColor: Colors.white,
-                  onRefresh: () async => notifier.refresh(),
+                  onRefresh: () async {
+                    // Refresh silencieux de la liste des chats (ne bloque pas l'UI)
+                    await notifier.refresh(silent: true);
+                    try {
+                      // Refresh des statuts en arrière-plan
+                      ref.read(statusProvider.notifier).refresh();
+                    } catch (_) {}
+                  },
                   child: CustomScrollView(
                     controller: _scroll,
                     physics: const BouncingScrollPhysics(
@@ -383,6 +394,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           currentUserPhoto,
                           onlineContacts,
                           state.pendingEscalations,
+                          currentUserId,
                         ),
                       ),
 
@@ -440,9 +452,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     String? userPhoto,
     List<ChatConversation> online,
     int pending,
+    String currentUserId,
   ) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       decoration: const BoxDecoration(
         gradient: _C.gradientHeader,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
@@ -497,33 +510,38 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 22),
-            SizedBox(
-              height: 78,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: online.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
-                itemBuilder: (c, i) {
-                  if (i == 0) {
-                    return _onlineAvatar(
-                      label: 'Vous',
-                      avatarUrl: userPhoto,
-                      isSelf: true,
-                      isOnline: true,
-                    );
-                  }
-                  final conv = online[i - 1];
-                  return _onlineAvatar(
-                    label: conv.displayName.split(' ').first,
-                    avatarUrl: conv.displayAvatar,
-                    isSelf: false,
-                    isOnline: true,
-                    onTap: () => _openConversation(conv),
-                  );
-                },
-              ),
+            
+            const SizedBox(height: 20),
+
+            // ── RANGÉE DES STATUTS (STORIES WHATSAPP) ──
+            StatusStoryRow(
+              currentUserId: currentUserId,
+              currentUserAvatar: userPhoto,
+              currentUserName: userName,
             ),
+
+            // ── LISTE DES EN LIGNE (TAILLE RÉDUITE) ──
+            if (online.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 60, // Hauteur réduite pour la discrétion
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: online.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  itemBuilder: (c, i) {
+                    final conv = online[i];
+                    return _onlineAvatar(
+                      label: conv.displayName.split(' ').first,
+                      avatarUrl: conv.displayAvatar,
+                      isSelf: false,
+                      isOnline: true,
+                      onTap: () => _openConversation(conv),
+                    );
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -583,14 +601,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             clipBehavior: Clip.none,
             children: [
               Container(
-                padding: const EdgeInsets.all(2.4),
+                padding: const EdgeInsets.all(2.0), // Plus fin
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: isOnline ? _C.gradientOnlineRing : null,
                   color: isOnline ? null : Colors.white24,
                 ),
                 child: CircleAvatar(
-                  radius: 24,
+                  radius: 18, // Taille réduite (était 24)
                   backgroundColor: Colors.white24,
                   backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                       ? NetworkImage(avatarUrl)
@@ -601,7 +619,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                               ? Icons.person_rounded
                               : Icons.person_outline_rounded,
                           color: Colors.white,
-                          size: 22,
+                          size: 18,
                         )
                       : null,
                 ),
@@ -609,30 +627,30 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               if (isOnline)
                 Positioned(
                   right: 0,
-                  bottom: 1,
+                  bottom: 0,
                   child: Container(
-                    width: 12,
-                    height: 12,
+                    width: 10,
+                    height: 10,
                     decoration: BoxDecoration(
                       color: _C.green,
                       shape: BoxShape.circle,
-                      border: Border.all(color: _C.primaryDeep, width: 2),
+                      border: Border.all(color: _C.primaryDeep, width: 1.5),
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           SizedBox(
-            width: 56,
+            width: 48,
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
             ),
