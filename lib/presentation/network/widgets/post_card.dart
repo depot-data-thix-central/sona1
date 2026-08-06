@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
-
+import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
 
@@ -1211,6 +1211,7 @@ class _PostCardState extends ConsumerState<PostCard>
 
   Future<void> _repost(NetworkPost post, WidgetRef ref) async {
     if (_isReposting) return;
+
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1242,26 +1243,33 @@ class _PostCardState extends ConsumerState<PostCard>
       ),
     );
     if (result != true) return;
+
     setState(() => _isReposting = true);
+    final quote = _quoteController.text.trim();
+
     try {
-      try {
-        await ref
-            .read(networkServiceProvider)
-            .repostPost(post.id, quote: _quoteController.text);
-      } catch (_) {
-        await ref
-            .read(networkServiceProvider)
-            .repost(post.id, _quoteController.text);
-      }
+      final created = await ref.read(networkServiceProvider).repostPost(
+            post.id,
+            quote: quote.isEmpty ? null : quote,
+          );
+
       if (!mounted) return;
+
+      // Compteur sur le post original
       ref.read(postItemProvider.notifier).incRepost();
+
+      // 🔥 Carte visible en tête du fil (avec ton commentaire)
+      if (created != null) {
+        ref.read(feedProvider.notifier).addPostOnTop(created);
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Post reposté'),
+          content: Text('Reposté sur votre fil'),
           backgroundColor: _PostColors.green,
         ),
       );
-      widget.onRefresh?.call();
+      // ❌ PAS de widget.onRefresh?.call() ici
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1276,7 +1284,6 @@ class _PostCardState extends ConsumerState<PostCard>
       _quoteController.clear();
     }
   }
-}
 
 // ─────────────────────────────────────────────────────────────
 class _FullScreenGallery extends StatefulWidget {
