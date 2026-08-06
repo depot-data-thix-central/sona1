@@ -442,7 +442,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                 hasStory: myStories.isNotEmpty,
                 name: myStories.isNotEmpty ? 'Votre story' : 'Créer',
                 coverUrl: myStories.isNotEmpty
-                    ? (myStories.first.mediaUrl ?? myStories.first.userAvatar)
+                    ? (myStories.first.imageUrl.isNotEmpty
+    ? myStories.first.imageUrl
+    : myStories.first.userAvatar)
                     : null,
                 avatarUrl: myStories.isNotEmpty
                     ? myStories.first.userAvatar
@@ -468,7 +470,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               isMe: false,
               hasStory: true,
               name: s.userName.split(' ').first,
-              coverUrl: s.mediaUrl ?? s.userAvatar,
+              coverUrl: s.imageUrl.isNotEmpty ? s.imageUrl : s.userAvatar,
               avatarUrl: s.userAvatar,
               onTap: () {
                 Navigator.of(context).push(
