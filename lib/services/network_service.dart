@@ -742,7 +742,7 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
-    Future<void> createStory(
+      Future<void> createStory(
     String? mediaUrl, {
     String? text,
     String mediaType = 'image',
@@ -751,7 +751,9 @@ class NetworkService extends ChangeNotifier {
     await _supabase.from('stories').insert({
       'user_id': currentUserId,
       'media_url': mediaUrl,
+      'image_url': mediaUrl,      // 🌟 Sécurité : remplit aussi l'ancienne colonne
       'text_content': text,
+      'content': text,            // 🌟 Sécurité : remplit aussi l'ancienne colonne texte
       'media_type': mediaType,
       'is_active': true,
       'expires_at': DateTime.now()
@@ -760,6 +762,7 @@ class NetworkService extends ChangeNotifier {
     });
     notifyListeners();
   }
+
 
 
   Future<void> deleteStory(String storyId) async {
