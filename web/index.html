@@ -1,145 +1,37 @@
 <!DOCTYPE html>
-<html>
-<head>
+<html lang="fr">
+<head><!-- PLAYABLE_TOUCH_PATCH_V1 --><script>
+(function() {
+  if (window.__playableTouchPatchInstalled) return;
+  window.__playableTouchPatchInstalled = true;
+  var origAdd = EventTarget.prototype.addEventListener;
+  var blockedTypes = { touchstart: 1, touchmove: 1, wheel: 1 };
+  EventTarget.prototype.addEventListener = function(type, listener, options) {
+    if (blockedTypes[type]) {
+      if (options === undefined || options === null) {
+        options = { passive: true };
+      } else if (typeof options === 'boolean') {
+        options = { capture: options, passive: true };
+      } else {
+        options = Object.assign({}, options, { passive: true });
+      }
+    }
+    return origAdd.call(this, type, listener, options);
+  };
+})();
+</script><script>window.Intl=window.Intl||{};Intl.t=function(s){return(Intl._locale&&Intl._locale[s])||s;};</script>
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#0A1F44">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/Icon-192.png">
   <title>THIX ID CENTRAL</title>
-
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      background: #0A1F44;
-      overflow: hidden;
-    }
-    /* Overlay de recovery (caché par défaut) */
-    #webgl-recover {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 999999;
-      background: #0A1F44;
-      color: #fff;
-      font-family: system-ui, sans-serif;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 16px;
-      text-align: center;
-      padding: 24px;
-    }
-    #webgl-recover.show { display: flex; }
-    #webgl-recover button {
-      background: #1D4ED8;
-      color: #fff;
-      border: 0;
-      border-radius: 12px;
-      padding: 12px 20px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-    }
+    html,body{margin:0;padding:0;height:100%;background:#0A1F44;overflow:hidden}
   </style>
 </head>
 <body>
-  <div id="webgl-recover">
-    <div style="font-size:18px;font-weight:700;">Affichage interrompu</div>
-    <div style="opacity:.8;font-size:14px;">L’écran s’est figé après une inactivité.<br>Touchez pour recharger.</div>
-    <button id="webgl-reload" type="button">Recharger</button>
-  </div>
-
-  <script>
-    (function () {
-      var recovering = false;
-      var lastVisible = Date.now();
-
-      function showRecover() {
-        var el = document.getElementById('webgl-recover');
-        if (el) el.classList.add('show');
-      }
-
-      function hardReload() {
-        try {
-          var url = new URL(window.location.href);
-          url.searchParams.set('_r', String(Date.now()));
-          window.location.replace(url.toString());
-        } catch (e) {
-          window.location.reload();
-        }
-      }
-
-      document.getElementById('webgl-reload')?.addEventListener('click', hardReload);
-
-      // WebGL context lost sur n'importe quel canvas
-      function onContextLost(e) {
-        try { e.preventDefault(); } catch (_) {}
-        console.warn('[THIX] WebGL context lost');
-        if (recovering) return;
-        recovering = true;
-        showRecover();
-        // Auto-reload après 1.2s si l'utilisateur ne clique pas
-        setTimeout(hardReload, 1200);
-      }
-
-      function attachToCanvas(canvas) {
-        if (!canvas || canvas.__thixGlBound) return;
-        canvas.__thixGlBound = true;
-        canvas.addEventListener('webglcontextlost', onContextLost, false);
-        canvas.addEventListener('webglcontextrestored', function () {
-          console.log('[THIX] WebGL restored');
-        }, false);
-      }
-
-      // Observer les canvas ajoutés par Flutter / CanvasKit
-      var obs = new MutationObserver(function (mutations) {
-        mutations.forEach(function (m) {
-          m.addedNodes.forEach(function (n) {
-            if (n.nodeName === 'CANVAS') attachToCanvas(n);
-            if (n.querySelectorAll) {
-              n.querySelectorAll('canvas').forEach(attachToCanvas);
-            }
-          });
-        });
-      });
-      obs.observe(document.documentElement, { childList: true, subtree: true });
-      document.querySelectorAll('canvas').forEach(attachToCanvas);
-
-      // Revenir au premier plan après longue inactivité
-      document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden') {
-          lastVisible = Date.now();
-          return;
-        }
-        var away = Date.now() - lastVisible;
-        // > 45s en arrière-plan → risque élevé d'écran noir sur mobile
-        if (away > 45000) {
-          console.warn('[THIX] long background', away, 'ms → reload');
-          hardReload();
-        }
-      });
-
-      // Page freeze (Chrome)
-      window.addEventListener('freeze', function () {
-        console.warn('[THIX] page freeze');
-      });
-      window.addEventListener('resume', function () {
-        console.warn('[THIX] page resume → soft check');
-        // Si aucun canvas visible / taille 0 → recover
-        var canvases = document.querySelectorAll('canvas');
-        var broken = canvases.length === 0;
-        canvases.forEach(function (c) {
-          if (c.width === 0 || c.height === 0) broken = true;
-        });
-        if (broken) hardReload();
-      });
-    })();
-  </script>
-
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
