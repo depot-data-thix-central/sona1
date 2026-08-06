@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-
+import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 import 'package:thix_id/presentation/chat/providers/status_provider.dart';
-import 'package:thix_id/presentation/chat/providers/chat_providers.dart'; // <-- NOUVEL IMPORT
+import 'package:thix_id/presentation/chat/providers/chat_providers.dart'; 
 
 class CreateStatusPage extends ConsumerStatefulWidget {
   const CreateStatusPage({super.key});
