@@ -1,25 +1,37 @@
+// lib/presentation/network/widgets/create_post_dialog.dart
 import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
 import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
 import 'package:thix_id/services/ai/ai_service.dart';
 
-class _DialogColors {
-  static const Color background = Color(0xFFF6F9FF);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color primary = Color(0xFF2D6CDF);
-  static const Color primaryDeep = Color(0xFF123B7A);
-  static const Color softBlue = Color(0xFFEAF1FF);
-  static const Color gold = Color(0xFFD9A63C);
-  static const Color textDark = Color(0xFF10192E);
-  static const Color textSecondary = Color(0xFF7386A8);
-  static const Color border = Color(0xFFE7EEFC);
-  static const Color shadow = Color(0x142D6CDF);
+class _C {
+  static const bg = Color(0xFFF6F9FF);
+  static const white = Color(0xFFFFFFFF);
+  static const primary = Color(0xFF2D6CDF);
+  static const primaryDeep = Color(0xFF123B7A);
+  static const softBlue = Color(0xFFEAF1FF);
+  static const gold = Color(0xFFD9A63C);
+  static const textDark = Color(0xFF10192E);
+  static const textSecondary = Color(0xFF7386A8);
+  static const border = Color(0xFFE7EEFC);
+  static const shadow = Color(0x142D6CDF);
+  static const red = Color(0xFFE5484D);
+  static const green = Color(0xFF059669);
+
+  static const gradientPrimary = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF0A1F44), primaryDeep, primary],
+  );
 }
 
 Future<Uint8List> compressImageBytes(Uint8List bytes) async {
@@ -28,7 +40,6 @@ Future<Uint8List> compressImageBytes(Uint8List bytes) async {
     minHeight: 1080,
     minWidth: 1080,
     quality: 85,
-    rotate: 0,
   );
 }
 
@@ -48,63 +59,67 @@ class CreatePostDialog extends ConsumerStatefulWidget {
   ConsumerState<CreatePostDialog> createState() => _CreatePostDialogState();
 }
 
-class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with SingleTickerProviderStateMixin {
+class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
+    with SingleTickerProviderStateMixin {
   final _contentController = TextEditingController();
   final _contentFocusNode = FocusNode();
 
-  // Variables pour le Sondage
   final List<TextEditingController> _pollOptionControllers = [
     TextEditingController(),
     TextEditingController(),
   ];
   int _pollDurationDays = 1;
 
-  // Variables pour le Challenge
   final _challengeDescController = TextEditingController();
   final _challengeRewardController = TextEditingController();
   DateTime? _challengeEndDate;
 
-  // 0 = Standard, 1 = Sondage, 2 = Challenge
+  /// 0 standard · 1 sondage · 2 challenge
   int _postTypeMode = 0;
 
-  // Variables pour le fond de couleur (Style Facebook)
   Color _selectedBgColor = Colors.transparent;
   final List<Color> _bgColors = const [
-    Colors.transparent, // Par défaut
-    Color(0xFF00A4FF),  // Bleu clair
-    Color(0xFFE5484D),  // Rouge
-    Color(0xFF059669),  // Vert
-    Color(0xFFD9A63C),  // Or
-    Color(0xFF8B5CF6),  // Violet
-    Color(0xFF10192E),  // Sombre
+    Colors.transparent,
+    Color(0xFF00A4FF),
+    Color(0xFFE5484D),
+    Color(0xFF059669),
+    Color(0xFFD9A63C),
+    Color(0xFF8B5CF6),
+    Color(0xFF10192E),
   ];
 
   final List<_MediaItem> _images = [];
   final List<_MediaItem> _videos = [];
   bool _isUploading = false;
   String? _errorMessage;
-
   String? _factCheckStatusLabel;
 
   List<Map<String, dynamic>> _mentionSuggestions = [];
   bool _showMentions = false;
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
   final List<Color> _textColors = const [
-    _DialogColors.textDark,
-    _DialogColors.primary,
-    _DialogColors.gold,
-    Color(0xFFE5484D),
-    Color(0xFF059669),
+    _C.textDark,
+    _C.primary,
+    _C.gold,
+    _C.red,
+    _C.green,
   ];
 
   @override
   void initState() {
     super.initState();
     _contentController.addListener(_onContentChanged);
-    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    );
     _animationController.forward();
   }
 
@@ -123,16 +138,22 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
   }
 
   bool get _hasBgColor => _selectedBgColor != Colors.transparent;
-  bool get _canHaveBgColor => _postTypeMode == 0 && _images.isEmpty && _videos.isEmpty;
+  bool get _canHaveBgColor =>
+      _postTypeMode == 0 && _images.isEmpty && _videos.isEmpty;
+
+  String _colorToHex(Color c) {
+    final v = c.toARGB32();
+    return '#${v.toRadixString(16).substring(2).toUpperCase()}';
+  }
 
   void _onContentChanged() {
     final text = _contentController.text;
-    final lastAtIndex = text.lastIndexOf('@');
-    if (lastAtIndex == -1) {
+    final lastAt = text.lastIndexOf('@');
+    if (lastAt == -1) {
       if (_showMentions) setState(() => _showMentions = false);
       return;
     }
-    final query = text.substring(lastAtIndex + 1);
+    final query = text.substring(lastAt + 1);
     if (query.contains(' ') || query.contains('\n')) {
       setState(() => _showMentions = false);
     } else {
@@ -143,19 +164,23 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
 
   Future<void> _searchUsers(String query) async {
     try {
-      final users = await ref.read(networkServiceProvider).searchUsers(query);
+      final users =
+          await ref.read(networkServiceProvider).searchUsers(query);
       if (mounted) setState(() => _mentionSuggestions = users);
     } catch (e) {
-      debugPrint('search error $e');
+      debugPrint('search: $e');
     }
   }
 
   void _insertMention(Map<String, dynamic> user) {
     final text = _contentController.text;
-    final lastAtIndex = text.lastIndexOf('@');
-    final before = text.substring(0, lastAtIndex);
-    final newText = '$before@${user['display_name']} ';
-    _contentController.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: newText.length));
+    final lastAt = text.lastIndexOf('@');
+    final before = text.substring(0, lastAt);
+    final newText = '\( before@ \){user['display_name']} ';
+    _contentController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
+    );
     setState(() => _showMentions = false);
   }
 
@@ -164,13 +189,22 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
     final sel = _contentController.selection;
     if (!sel.isValid) {
       final newText = '$text$prefix$suffix';
-      _contentController.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: newText.length - suffix.length));
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+          offset: newText.length - suffix.length,
+        ),
+      );
     } else {
-      final start = sel.start;
-      final end = sel.end;
-      final selected = text.substring(start, end);
-      final newText = text.replaceRange(start, end, '$prefix$selected$suffix');
-      _contentController.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: start + prefix.length + selected.length + suffix.length));
+      final selected = text.substring(sel.start, sel.end);
+      final newText =
+          text.replaceRange(sel.start, sel.end, '$prefix$selected$suffix');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+          offset: sel.start + prefix.length + selected.length + suffix.length,
+        ),
+      );
     }
     _contentFocusNode.requestFocus();
   }
@@ -178,17 +212,19 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
   void _applyBold() => _wrapSelection('**', '**');
   void _applyItalic() => _wrapSelection('*', '*');
   void _applyColor(Color color) {
-    final hex = '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
-    _wrapSelection('{c:$hex}', '{c}');
+    _wrapSelection('{c:${_colorToHex(color)}}', '{c}');
   }
 
-  // Annule la couleur de fond si on ajoute un média
   void _resetBgColorIfMediaAdded() {
     if (_hasBgColor) setState(() => _selectedBgColor = Colors.transparent);
   }
 
   Future<void> _pickImages() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true, withData: true);
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: true,
+      withData: true,
+    );
     if (result != null && mounted) {
       setState(() {
         _resetBgColorIfMediaAdded();
@@ -200,19 +236,29 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
   }
 
   Future<void> _pickVideos() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.video, allowMultiple: true, withData: true);
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.video,
+      allowMultiple: true,
+      withData: true,
+    );
     if (result != null && mounted) {
       setState(() {
         _resetBgColorIfMediaAdded();
         for (final f in result.files) {
-          if (f.bytes != null) _videos.add(_MediaItem(f.bytes!, f.name, isVideo: true));
+          if (f.bytes != null) {
+            _videos.add(_MediaItem(f.bytes!, f.name, isVideo: true));
+          }
         }
       });
     }
   }
 
   Future<void> _pickCamera() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: false, withData: true);
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
+    );
     if (result != null && result.files.isNotEmpty && mounted) {
       final f = result.files.first;
       if (f.bytes != null) {
@@ -226,119 +272,130 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog> with Single
 
   void _removeMedia(int index, bool isVideo) {
     setState(() {
-      if (isVideo) _videos.removeAt(index);
-      else _images.removeAt(index);
+      if (isVideo) {
+        _videos.removeAt(index);
+      } else {
+        _images.removeAt(index);
+      }
     });
   }
 
   Future<Map<String, String?>> _runFactCheck(String textContent) async {
-    bool isMisinformation = false;
-    String? factCheckMessage;
-    String? factCheckSeverity;
-
     if (textContent.isEmpty) {
-      return {'isMisinformation': 'false', 'message': null, 'severity': null};
+      return {
+        'isMisinformation': 'false',
+        'message': null,
+        'severity': null,
+      };
     }
 
-    List<String> webSources = [];
-    bool tavilySucceeded = false;
-
+    final webSources = <String>[];
     try {
       final response = await Supabase.instance.client.rpc(
         'search_tavily',
         params: {'search_query': textContent},
       );
-
       if (response != null && response['results'] != null) {
-        final results = response['results'] as List;
-        for (var r in results) {
-          final title = r['title'] ?? '';
-          final content = r['content'] ?? '';
-          final url = r['url'] ?? '';
-          webSources.add("- [$title]($url) : $content");
+        for (final r in response['results'] as List) {
+          webSources.add(
+            '- [\( {r['title'] ?? ''}]( \){r['url'] ?? ''}) : ${r['content'] ?? ''}',
+          );
         }
-        tavilySucceeded = webSources.isNotEmpty;
       }
-    } catch (searchError) {
-      debugPrint('Erreur recherche Tavily : $searchError');
+    } catch (e) {
+      debugPrint('Tavily: $e');
     }
 
-    if (!tavilySucceeded) {
-      return {'isMisinformation': 'false', 'message': null, 'severity': null};
+    if (webSources.isEmpty) {
+      return {
+        'isMisinformation': 'false',
+        'message': null,
+        'severity': null,
+      };
     }
-
-    final contextSources = "SOURCES WEB VÉRIFIÉES EN TEMPS RÉEL :\n${webSources.join('\n')}";
 
     try {
-      final aiService = AiService(Supabase.instance.client);
+      final ai = AiService(Supabase.instance.client);
       final today = DateTime.now();
-      final currentDateString = "${today.day}/${today.month}/${today.year}";
+      final prompt = '''
+Date actuelle : \( {today.day}/ \){today.month}/${today.year}
 
-      final prompt = """
-Date actuelle : $currentDateString
+SOURCES WEB :
+${webSources.join('\n')}
 
-$contextSources
+RÈGLES :
+1. Vérifie UNIQUEMENT Gouvernements, Visas, Lois, Élections.
+2. Histoires perso / entreprises privées → SAFE.
+3. FAKE seulement si fausse info officielle avérée.
 
-RÈGLES STRICTES DE FACT-CHECKING :
-1. Ton rôle est de vérifier UNIQUEMENT les affirmations liées aux Gouvernements, Visas, Lois, Élections ou Déclarations d'État.
-2. Les histoires personnelles, les présentations d'entrepreneurs ou de sociétés (par ex: élevage, agriculture, commerce), la vie privée, les expériences vécues et les opinions DOIVENT ABSOLUMENT être classées comme SAFE, même si tu ne trouves aucune trace de la personne sur le web.
-3. Ne dis JAMAIS "FAKE" juste parce que tu ne trouves pas une personne ordinaire ou une petite entreprise dans les sources web.
-4. Si la publication ne concerne pas un sujet d'État, gouvernemental ou visa, réponds IMMÉDIATEMENT : SAFE.
-5. Ne classe comme FAKE que si c'est une fausse nouvelle officielle avérée.
+PUBLICATION : "$textContent"
 
-PUBLICATION À ANALYSER : "$textContent"
+Réponds : SAFE ou FAKE: [raison]
+''';
 
-Format de réponse STRICT :
-SAFE ou FAKE: [raison]
-""";
-
-      final aiResponse = await aiService.askAi(
+      final aiResponse = await ai.askAi(
         prompt: prompt,
         provider: AiProvider.mistral,
-        systemPrompt: "Tu es un fact-checker spécialisé UNIQUEMENT dans les informations gouvernementales et visas. Tu valides d'office en SAFE toutes les histoires personnelles et entrepreneuriales du secteur privé. Réponds uniquement par SAFE ou FAKE: raison.",
+        systemPrompt:
+            'Fact-checker gouvernemental. SAFE pour le privé. Réponds SAFE ou FAKE: raison.',
       );
 
-      final responseText = aiResponse.trim().toUpperCase();
-      if (responseText.startsWith("FAKE:")) {
-        isMisinformation = true;
-        factCheckSeverity = "fake";
-        factCheckMessage = aiResponse.substring(aiResponse.toUpperCase().indexOf("FAKE:") + 5).trim();
+      final upper = aiResponse.trim().toUpperCase();
+      if (upper.startsWith('FAKE:')) {
+        final msg = aiResponse
+            .substring(aiResponse.toUpperCase().indexOf('FAKE:') + 5)
+            .trim();
+        return {
+          'isMisinformation': 'true',
+          'message': msg,
+          'severity': 'fake',
+        };
       }
-    } catch (aiError) {
-      debugPrint('Erreur Fact-Check IA : $aiError');
-      isMisinformation = false;
+    } catch (e) {
+      debugPrint('Fact-check AI: $e');
     }
 
     return {
-      'isMisinformation': isMisinformation.toString(),
-      'message': factCheckMessage,
-      'severity': factCheckSeverity,
+      'isMisinformation': 'false',
+      'message': null,
+      'severity': null,
     };
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // PUBLISH — insert + post en tête du feed
+  // ─────────────────────────────────────────────────────────────
+
   Future<void> _publishPost() async {
     final textContent = _contentController.text.trim();
-    
-    setState(() {
-      _errorMessage = null; 
-    });
+    setState(() => _errorMessage = null);
 
-    if (_postTypeMode == 0 && textContent.isEmpty && _images.isEmpty && _videos.isEmpty) {
-      setState(() => _errorMessage = 'Veuillez entrer du contenu ou sélectionner des médias');
+    if (_postTypeMode == 0 &&
+        textContent.isEmpty &&
+        _images.isEmpty &&
+        _videos.isEmpty) {
+      setState(() =>
+          _errorMessage = 'Ajoutez du texte ou un média');
       return;
     }
     if (_postTypeMode == 1 && textContent.isEmpty) {
-      setState(() => _errorMessage = 'Veuillez saisir la question du sondage');
+      setState(() =>
+          _errorMessage = 'Saisissez la question du sondage');
       return;
     }
-    if (_postTypeMode == 2 && (textContent.isEmpty || _challengeEndDate == null || _challengeDescController.text.trim().isEmpty)) {
-      setState(() => _errorMessage = 'Veuillez remplir le titre, la description et la date de fin du challenge');
+    if (_postTypeMode == 2 &&
+        (textContent.isEmpty ||
+            _challengeEndDate == null ||
+            _challengeDescController.text.trim().isEmpty)) {
+      setState(() => _errorMessage =
+          'Titre, description et date de fin obligatoires');
       return;
     }
 
     setState(() {
       _isUploading = true;
-      _factCheckStatusLabel = textContent.isNotEmpty ? 'Recherche des sources en cours...' : null;
+      _factCheckStatusLabel =
+          textContent.isNotEmpty ? 'Vérification en cours…' : null;
     });
 
     try {
@@ -346,64 +403,73 @@ SAFE ou FAKE: [raison]
 
       final factCheckResult = await _runFactCheck(textContent).timeout(
         const Duration(seconds: 10),
-        onTimeout: () => {'isMisinformation': 'false', 'message': null, 'severity': null},
+        onTimeout: () => {
+          'isMisinformation': 'false',
+          'message': null,
+          'severity': null,
+        },
       );
 
-      final bool isMisinformation = factCheckResult['isMisinformation'] == 'true';
-      final String? factCheckMessage = factCheckResult['message'];
-      final String? factCheckSeverity = factCheckResult['severity'];
+      final isMisinfo = factCheckResult['isMisinformation'] == 'true';
+      final fcMessage = factCheckResult['message'];
+      final fcSeverity = factCheckResult['severity'];
 
-      if (mounted) setState(() => _factCheckStatusLabel = 'Envoi de la publication...');
+      if (mounted) {
+        setState(() => _factCheckStatusLabel = 'Envoi…');
+      }
 
-      final List<String> imageUrls = [];
+      final imageUrls = <String>[];
       for (final item in _images) {
-        try {
-          final compressed = await compute(compressImageBytes, item.bytes);
-          final ext = item.name.split('.').last;
-          final url = await ns.uploadImageBytes(compressed, fileExtension: ext, bucket: 'post_images');
-          if (url != null && url.isNotEmpty) imageUrls.add(url);
-        } catch (e) {
-          if (mounted) {
-            setState(() {
-              _errorMessage = 'Échec de l\'upload d\'image: $e';
-              _isUploading = false;
-              _factCheckStatusLabel = null;
-            });
-          }
-          return;
-        }
+        final compressed = await compute(compressImageBytes, item.bytes);
+        final ext = item.name.split('.').last;
+        final url = await ns.uploadImageBytes(
+          compressed,
+          fileExtension: ext,
+          bucket: 'post_images',
+        );
+        if (url != null && url.isNotEmpty) imageUrls.add(url);
       }
 
-      final List<String> videoUrls = [];
+      final videoUrls = <String>[];
       for (final item in _videos) {
-        try {
-          final ext = item.name.split('.').last;
-          final url = await ns.uploadImageBytes(item.bytes, fileExtension: ext, bucket: 'videos');
-          if (url != null && url.isNotEmpty) videoUrls.add(url);
-        } catch (e) {
-          if (mounted) {
-            setState(() {
-              _errorMessage = 'Échec de l\'upload vidéo: $e';
-              _isUploading = false;
-              _factCheckStatusLabel = null;
-            });
-          }
-          return;
-        }
+        final ext = item.name.split('.').last;
+        final url = await ns.uploadImageBytes(
+          item.bytes,
+          fileExtension: ext,
+          bucket: 'videos',
+        );
+        if (url != null && url.isNotEmpty) videoUrls.add(url);
       }
 
-      final List<String> allMedia = [...imageUrls, ...videoUrls];
+      final allMedia = [...imageUrls, ...videoUrls];
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) throw Exception('Utilisateur non authentifié');
+      if (user == null) throw Exception('Non authentifié');
 
-      final Map<String, dynamic> payload = {
+      // Profil pour affichage immédiat
+      String authorName = 'Moi';
+      String? authorAvatar;
+      String? authorTitle;
+      try {
+        final pr = await Supabase.instance.client
+            .from('profiles')
+            .select('display_name, avatar_url, profession')
+            .eq('id', user.id)
+            .maybeSingle();
+        if (pr != null) {
+          authorName = pr['display_name']?.toString() ?? authorName;
+          authorAvatar = pr['avatar_url']?.toString();
+          authorTitle = pr['profession']?.toString();
+        }
+      } catch (_) {}
+
+      final payload = <String, dynamic>{
         'user_id': user.id,
         'content': textContent,
         'is_public': true,
         'is_fact_checked': true,
-        'is_misinformation': isMisinformation,
-        'fact_check_message': factCheckMessage,
-        'fact_check_severity': factCheckSeverity,
+        'is_misinformation': isMisinfo,
+        'fact_check_message': fcMessage,
+        'fact_check_severity': fcSeverity,
         'image_urls': allMedia,
         'media_urls': allMedia,
         'media_url': allMedia.isNotEmpty ? allMedia.first : null,
@@ -411,16 +477,18 @@ SAFE ou FAKE: [raison]
         'post_type': 'standard',
       };
 
-      // Si fond de couleur sélectionné (uniquement pour un post textuel standard)
       if (_canHaveBgColor && _hasBgColor) {
-        payload['bg_color'] = '#${_selectedBgColor.value.toRadixString(16).substring(2).toUpperCase()}';
+        payload['bg_color'] = _colorToHex(_selectedBgColor);
       }
 
-      if (_postTypeMode == 1) { // Sondage
-        final options = _pollOptionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+      if (_postTypeMode == 1) {
+        final options = _pollOptionControllers
+            .map((c) => c.text.trim())
+            .where((t) => t.isNotEmpty)
+            .toList();
         if (options.length < 2) {
           setState(() {
-            _errorMessage = 'Un sondage doit contenir au moins 2 options valides.';
+            _errorMessage = 'Au moins 2 options';
             _isUploading = false;
             _factCheckStatusLabel = null;
           });
@@ -428,10 +496,13 @@ SAFE ou FAKE: [raison]
         }
         payload['post_type'] = 'poll';
         payload['poll_data'] = {
-          'options': options.map((o) => {'text': o, 'votes': []}).toList(),
-          'end_date': DateTime.now().add(Duration(days: _pollDurationDays)).toIso8601String(),
+          'options':
+              options.map((o) => {'text': o, 'votes': []}).toList(),
+          'end_date': DateTime.now()
+              .add(Duration(days: _pollDurationDays))
+              .toIso8601String(),
         };
-      } else if (_postTypeMode == 2) { // Challenge
+      } else if (_postTypeMode == 2) {
         payload['post_type'] = 'challenge';
         payload['challenge_data'] = {
           'description': _challengeDescController.text.trim(),
@@ -442,51 +513,119 @@ SAFE ou FAKE: [raison]
         };
       }
 
-      await Supabase.instance.client.from('posts').insert(payload);
+      // INSERT + récupération ligne
+      final inserted = await Supabase.instance.client
+          .from('posts')
+          .insert(payload)
+          .select()
+          .single();
 
-      ref.invalidate(feedProvider);
+      final postId = inserted['id']?.toString() ?? '';
+      final createdAt = DateTime.tryParse(
+            inserted['created_at']?.toString() ?? '',
+          ) ??
+          DateTime.now();
+
+      final newPost = NetworkPost(
+        id: postId,
+        userId: user.id,
+        authorName: authorName,
+        authorAvatar: authorAvatar,
+        authorTitle: authorTitle,
+        content: textContent,
+        bgColor: payload['bg_color'] as String?,
+        mediaUrls: allMedia,
+        postType: payload['post_type'] as String? ?? 'standard',
+        pollData: payload['poll_data'] as Map<String, dynamic>?,
+        challengeData: payload['challenge_data'] as Map<String, dynamic>?,
+        isFactChecked: true,
+        isMisinformation: isMisinfo,
+        factCheckMessage: fcMessage,
+        factCheckSeverity: fcSeverity,
+        createdAt: createdAt,
+        likesCount: 0,
+        commentsCount: 0,
+        repostsCount: 0,
+        isLiked: false,
+        isSaved: false,
+        isReposted: false,
+        isPublic: true,
+      );
+
+      // 🔥 Visible au premier coup d’œil
+      try {
+        ref.read(feedProvider.notifier).addPostOnTop(newPost);
+      } catch (_) {
+        ref.invalidate(feedProvider);
+      }
+
       widget.onPostCreated?.call();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isMisinformation ? 'Publication publiée avec avertissement Fact-Check.' : 'Publication réussie !'),
-            backgroundColor: isMisinformation ? Colors.orange : _DialogColors.primary,
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isMisinfo
+                ? 'Publié avec avertissement Fact-Check'
+                : 'Publication réussie',
           ),
-        );
-        Navigator.pop(context, true);
-      }
+          backgroundColor: isMisinfo ? Colors.orange : _C.primary,
+        ),
+      );
+      Navigator.pop(context, newPost); // ← NetworkPost pour le home
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = "Erreur système: $e";
+          _errorMessage = 'Erreur: $e';
           _isUploading = false;
           _factCheckStatusLabel = null;
         });
       }
-    } 
+    }
   }
 
-  Widget _buildTypeTab(String label, int modeIndex, IconData icon) {
-    final isSelected = _postTypeMode == modeIndex;
+  // ─────────────────────────── UI helpers ───────────────────────────
+
+  Widget _typeTab(String label, int mode, IconData icon) {
+    final sel = _postTypeMode == mode;
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _postTypeMode = modeIndex),
+        onTap: () => setState(() => _postTypeMode = mode),
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(color: isSelected ? _DialogColors.primary : _DialogColors.softBlue, borderRadius: BorderRadius.circular(12)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : _DialogColors.primaryDeep),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : _DialogColors.textDark)),
-          ]),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            gradient: sel ? _C.gradientPrimary : null,
+            color: sel ? null : _C.softBlue,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 16, color: sel ? Colors.white : _C.primaryDeep),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: sel ? Colors.white : _C.textDark,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _formatBtn({required Widget child, required VoidCallback onTap, required String tooltip}) {
+  Widget _formatBtn({
+    required Widget child,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -496,7 +635,17 @@ SAFE ou FAKE: [raison]
           width: 30,
           height: 30,
           alignment: Alignment.center,
-          decoration: BoxDecoration(color: _DialogColors.white, borderRadius: BorderRadius.circular(10), boxShadow: const [BoxShadow(color: _DialogColors.shadow, blurRadius: 4, offset: Offset(0, 2))]),
+          decoration: BoxDecoration(
+            color: _C.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: const [
+              BoxShadow(
+                color: _C.shadow,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
           child: child,
         ),
       ),
@@ -507,9 +656,17 @@ SAFE ou FAKE: [raison]
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: InkWell(
-        onTap: onTap,
+        onTap: _isUploading ? null : onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Container(width: 38, height: 38, decoration: BoxDecoration(color: _DialogColors.softBlue, borderRadius: BorderRadius.circular(12)), child: Icon(icon, size: 18, color: color)),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: _C.softBlue,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 18, color: color),
+        ),
       ),
     );
   }
@@ -518,261 +675,562 @@ SAFE ou FAKE: [raison]
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      backgroundColor: _DialogColors.white,
+      backgroundColor: _C.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Container(
           width: MediaQuery.of(context).size.width * 0.94,
-          constraints: const BoxConstraints(maxHeight: 750),
+          constraints: const BoxConstraints(maxHeight: 760),
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              ShaderMask(
-                shaderCallback: (b) => const LinearGradient(colors: [_DialogColors.primaryDeep, _DialogColors.primary]).createShader(b),
-                child: const Text('Créer une publication', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
-              ),
-              InkWell(onTap: () => Navigator.pop(context), child: Container(padding: const EdgeInsets.all(6), decoration: const BoxDecoration(color: _DialogColors.softBlue, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 18))),
-            ]),
-            const SizedBox(height: 10),
-            Row(children: [
-              _buildTypeTab('Publication', 0, Icons.article_rounded),
-              const SizedBox(width: 6),
-              _buildTypeTab('Sondage', 1, Icons.poll_rounded),
-              const SizedBox(width: 6),
-              _buildTypeTab('Challenge', 2, Icons.emoji_events_rounded),
-            ]),
-            const SizedBox(height: 12),
-            if (_errorMessage != null)
-              Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFFFEAEA), borderRadius: BorderRadius.circular(14)), child: Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: Color(0xFFE5484D)))),
-            
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-                  // Barre d'outils (Gras, Italique, Couleurs de texte) : Cachée si un fond coloré est actif
-                  if (_postTypeMode != 2 && !_hasBgColor) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: _DialogColors.softBlue, borderRadius: BorderRadius.circular(16)),
-                      child: Row(children: [
-                        _formatBtn(child: const Text('B', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)), onTap: _applyBold, tooltip: 'Gras'),
-                        const SizedBox(width: 6),
-                        _formatBtn(child: const Text('I', style: TextStyle(fontStyle: FontStyle.italic, fontWeight: FontWeight.w800, fontSize: 14)), onTap: _applyItalic, tooltip: 'Italique'),
-                        Container(width: 1, height: 20, color: _DialogColors.border, margin: const EdgeInsets.symmetric(horizontal: 8)),
-                        for (final color in _textColors)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: GestureDetector(
-                              onTap: () => _applyColor(color),
-                              child: Container(width: 20, height: 20, decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))),
-                            ),
-                          ),
-                      ]),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-
-                  // Champ de Texte Principal (Avec gestion du fond de couleur)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: _canHaveBgColor && _hasBgColor ? _selectedBgColor : _DialogColors.background, 
-                      borderRadius: BorderRadius.circular(20), 
-                      border: Border.all(color: _canHaveBgColor && _hasBgColor ? _selectedBgColor : _DialogColors.border)
-                    ),
-                    padding: _canHaveBgColor && _hasBgColor ? const EdgeInsets.symmetric(horizontal: 20, vertical: 40) : const EdgeInsets.all(14),
-                    alignment: _canHaveBgColor && _hasBgColor ? Alignment.center : Alignment.topLeft,
-                    child: TextField(
-                      controller: _contentController,
-                      focusNode: _contentFocusNode,
-                      minLines: _postTypeMode == 2 ? 2 : (_canHaveBgColor && _hasBgColor ? null : 6),
-                      maxLines: _canHaveBgColor && _hasBgColor ? null : 10,
-                      textAlign: _canHaveBgColor && _hasBgColor ? TextAlign.center : TextAlign.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Row(
+                children: [
+                  ShaderMask(
+                    shaderCallback: (b) =>
+                        _C.gradientPrimary.createShader(b),
+                    child: const Text(
+                      'Créer une publication',
                       style: TextStyle(
-                        color: _canHaveBgColor && _hasBgColor ? Colors.white : _DialogColors.textDark,
-                        fontSize: _canHaveBgColor && _hasBgColor ? 22 : 14,
-                        fontWeight: _canHaveBgColor && _hasBgColor ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: _postTypeMode == 1 ? 'Posez votre question de sondage...' : _postTypeMode == 2 ? 'Titre du challenge...' : 'Exprimez-vous...',
-                        hintStyle: TextStyle(
-                          color: _canHaveBgColor && _hasBgColor ? Colors.white70 : Colors.black45,
-                        ),
-                        border: InputBorder.none,
-                        isCollapsed: true,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-
-                  // Sélecteur de couleurs de fond (S'affiche uniquement si c'est un post standard sans image)
-                  if (_canHaveBgColor)
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 10, bottom: 4),
-                        child: Row(
-                          children: _bgColors.map((c) => GestureDetector(
-                            onTap: () => setState(() => _selectedBgColor = c),
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 8),
-                              width: 32, 
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: c,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: _selectedBgColor == c ? _DialogColors.textDark : Colors.grey.shade300, width: 2),
-                              ),
-                              child: c == Colors.transparent ? const Icon(Icons.format_color_reset_rounded, size: 16, color: Colors.black54) : null,
-                            )
-                          )).toList(),
-                        ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: _isUploading
+                        ? null
+                        : () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: _C.softBlue,
+                        shape: BoxShape.circle,
                       ),
+                      child: const Icon(Icons.close_rounded, size: 18),
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _typeTab('Publication', 0, Icons.article_rounded),
+                  const SizedBox(width: 6),
+                  _typeTab('Sondage', 1, Icons.poll_rounded),
+                  const SizedBox(width: 6),
+                  _typeTab('Challenge', 2, Icons.emoji_events_rounded),
+                ],
+              ),
+              const SizedBox(height: 12),
 
-                  // LOGIQUE SONDAGE COMPLÈTE
-                  if (_postTypeMode == 1) ...[
-                    const SizedBox(height: 12),
-                    const Text('Options du sondage :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
-                    const SizedBox(height: 6),
-                    ..._pollOptionControllers.asMap().entries.map((entry) {
-                      int index = entry.key;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: TextField(
-                          controller: entry.value,
-                          decoration: InputDecoration(
-                            hintText: 'Option ${index + 1}',
-                            filled: true,
-                            fillColor: _DialogColors.background,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)
+              if (_errorMessage != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEAEA),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(fontSize: 12, color: _C.red),
+                  ),
+                ),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_postTypeMode != 2 && !_hasBgColor) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _C.softBlue,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              _formatBtn(
+                                child: const Text('B',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w900)),
+                                onTap: _applyBold,
+                                tooltip: 'Gras',
+                              ),
+                              const SizedBox(width: 6),
+                              _formatBtn(
+                                child: const Text('I',
+                                    style: TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                        fontWeight: FontWeight.w800)),
+                                onTap: _applyItalic,
+                                tooltip: 'Italique',
+                              ),
+                              Container(
+                                width: 1,
+                                height: 20,
+                                color: _C.border,
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 8),
+                              ),
+                              for (final color in _textColors)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: GestureDetector(
+                                    onTap: () => _applyColor(color),
+                                    child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        color: color,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      );
-                    }),
-                    if (_pollOptionControllers.length < 4)
-                      TextButton.icon(
-                        onPressed: () => setState(() => _pollOptionControllers.add(TextEditingController())),
-                        icon: const Icon(Icons.add_circle_outline, size: 18),
-                        label: const Text('Ajouter une option (Max 4)'),
-                      ),
-                    const SizedBox(height: 12),
-                    const Text('Durée du sondage :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(color: _DialogColors.background, borderRadius: BorderRadius.circular(12)),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: _pollDurationDays,
-                          isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(value: 1, child: Text('1 jour')),
-                            DropdownMenuItem(value: 3, child: Text('3 jours')),
-                            DropdownMenuItem(value: 7, child: Text('1 semaine')),
-                          ],
-                          onChanged: (v) => setState(() => _pollDurationDays = v ?? 1),
+                        const SizedBox(height: 10),
+                      ],
+
+                      // Zone texte
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _canHaveBgColor && _hasBgColor
+                              ? _selectedBgColor
+                              : _C.bg,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _canHaveBgColor && _hasBgColor
+                                ? _selectedBgColor
+                                : _C.border,
+                          ),
+                        ),
+                        padding: _canHaveBgColor && _hasBgColor
+                            ? const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 40)
+                            : const EdgeInsets.all(14),
+                        alignment: _canHaveBgColor && _hasBgColor
+                            ? Alignment.center
+                            : Alignment.topLeft,
+                        child: TextField(
+                          controller: _contentController,
+                          focusNode: _contentFocusNode,
+                          minLines: _postTypeMode == 2
+                              ? 2
+                              : (_canHaveBgColor && _hasBgColor ? null : 5),
+                          maxLines:
+                              _canHaveBgColor && _hasBgColor ? null : 10,
+                          textAlign: _canHaveBgColor && _hasBgColor
+                              ? TextAlign.center
+                              : TextAlign.start,
+                          style: TextStyle(
+                            color: _canHaveBgColor && _hasBgColor
+                                ? Colors.white
+                                : _C.textDark,
+                            fontSize: _canHaveBgColor && _hasBgColor
+                                ? 22
+                                : 14,
+                            fontWeight: _canHaveBgColor && _hasBgColor
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: _postTypeMode == 1
+                                ? 'Question du sondage…'
+                                : _postTypeMode == 2
+                                    ? 'Titre du challenge…'
+                                    : 'Exprimez-vous…',
+                            hintStyle: TextStyle(
+                              color: _canHaveBgColor && _hasBgColor
+                                  ? Colors.white70
+                                  : Colors.black45,
+                            ),
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
 
-                  // LOGIQUE CHALLENGE COMPLÈTE
-                  if (_postTypeMode == 2) ...[
-                    const SizedBox(height: 12),
-                    const Text('Description et Règles :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _challengeDescController,
-                      minLines: 3,
-                      maxLines: 5,
-                      decoration: InputDecoration(hintText: 'Décrivez les règles, comment participer...', filled: true, fillColor: _DialogColors.background, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))
-                    ),
-                    const SizedBox(height: 12),
-                    const Text('Récompense (Optionnel) :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _DialogColors.textDark)),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _challengeRewardController,
-                      decoration: InputDecoration(
-                        hintText: 'Ex: 50\$ ou Un t-shirt exclusif', 
-                        filled: true, 
-                        fillColor: _DialogColors.background, 
-                        prefixIcon: const Icon(Icons.card_giftcard_rounded, size: 18, color: _DialogColors.gold),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)
-                      )
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Text('Date de fin : ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      if (_canHaveBgColor)
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Row(
+                            children: _bgColors.map((c) {
+                              final sel = _selectedBgColor == c;
+                              return GestureDetector(
+                                onTap: () => setState(
+                                    () => _selectedBgColor = c),
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: c,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: sel
+                                          ? _C.textDark
+                                          : Colors.grey.shade300,
+                                      width: sel ? 2.5 : 1.5,
+                                    ),
+                                  ),
+                                  child: c == Colors.transparent
+                                      ? const Icon(
+                                          Icons.format_color_reset_rounded,
+                                          size: 16,
+                                          color: Colors.black54,
+                                        )
+                                      : null,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+
+                      // Sondage
+                      if (_postTypeMode == 1) ...[
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Options',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ..._pollOptionControllers
+                            .asMap()
+                            .entries
+                            .map((e) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: TextField(
+                              controller: e.value,
+                              decoration: InputDecoration(
+                                hintText: 'Option ${e.key + 1}',
+                                filled: true,
+                                fillColor: _C.bg,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        if (_pollOptionControllers.length < 4)
+                          TextButton.icon(
+                            onPressed: () => setState(
+                              () => _pollOptionControllers
+                                  .add(TextEditingController()),
+                            ),
+                            icon: const Icon(Icons.add_circle_outline,
+                                size: 18),
+                            label: const Text('Ajouter une option'),
+                          ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: _C.bg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<int>(
+                              value: _pollDurationDays,
+                              isExpanded: true,
+                              items: const [
+                                DropdownMenuItem(
+                                    value: 1, child: Text('1 jour')),
+                                DropdownMenuItem(
+                                    value: 3, child: Text('3 jours')),
+                                DropdownMenuItem(
+                                    value: 7, child: Text('1 semaine')),
+                              ],
+                              onChanged: (v) => setState(
+                                  () => _pollDurationDays = v ?? 1),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      // Challenge
+                      if (_postTypeMode == 2) ...[
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Description',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _challengeDescController,
+                          minLines: 3,
+                          maxLines: 5,
+                          decoration: InputDecoration(
+                            hintText: 'Règles, participation…',
+                            filled: true,
+                            fillColor: _C.bg,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _challengeRewardController,
+                          decoration: InputDecoration(
+                            hintText: 'Récompense (optionnel)',
+                            filled: true,
+                            fillColor: _C.bg,
+                            prefixIcon: const Icon(
+                              Icons.card_giftcard_rounded,
+                              size: 18,
+                              color: _C.gold,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                         TextButton.icon(
                           onPressed: () async {
                             final picked = await showDatePicker(
                               context: context,
-                              initialDate: DateTime.now().add(const Duration(days: 7)),
+                              initialDate:
+                                  DateTime.now().add(const Duration(days: 7)),
                               firstDate: DateTime.now(),
-                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                              lastDate: DateTime.now()
+                                  .add(const Duration(days: 365)),
                             );
-                            if (picked != null) setState(() => _challengeEndDate = picked);
+                            if (picked != null) {
+                              setState(() => _challengeEndDate = picked);
+                            }
                           },
-                          icon: const Icon(Icons.calendar_today_rounded, size: 16),
-                          label: Text(_challengeEndDate == null ? 'Choisir une date' : '${_challengeEndDate!.day}/${_challengeEndDate!.month}/${_challengeEndDate!.year}'),
+                          icon: const Icon(Icons.calendar_today_rounded,
+                              size: 16),
+                          label: Text(
+                            _challengeEndDate == null
+                                ? 'Date de fin'
+                                : '\( {_challengeEndDate!.day}/ \){_challengeEndDate!.month}/${_challengeEndDate!.year}',
+                          ),
                         ),
                       ],
-                    ),
-                  ],
 
-                  if (_showMentions && _mentionSuggestions.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(top: 10),
-                      decoration: BoxDecoration(color: _DialogColors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _DialogColors.border)),
-                      child: Column(children: _mentionSuggestions.map((u) => ListTile(dense: true, title: Text(u['display_name'] ?? '', style: const TextStyle(fontSize: 13)), onTap: () => _insertMention(u))).toList()),
-                    ),
+                      if (_showMentions && _mentionSuggestions.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 10),
+                          decoration: BoxDecoration(
+                            color: _C.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _C.border),
+                          ),
+                          child: Column(
+                            children: _mentionSuggestions
+                                .map(
+                                  (u) => ListTile(
+                                    dense: true,
+                                    title: Text(
+                                      u['display_name'] ?? '',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                    onTap: () => _insertMention(u),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
 
-                  if (_images.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Wrap(spacing: 8, runSpacing: 8, children: [
-                        for (int i = 0; i < _images.length; i++)
-                          Stack(children: [
-                            ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(_images[i].bytes, width: 84, height: 84, fit: BoxFit.cover)),
-                            Positioned(top: 4, right: 4, child: GestureDetector(onTap: () => _removeMedia(i, false), child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, size: 13, color: Colors.white)))),
-                          ]),
-                      ]),
-                    ),
+                      if (_images.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (int i = 0; i < _images.length; i++)
+                                Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius:
+                                          BorderRadius.circular(14),
+                                      child: Image.memory(
+                                        _images[i].bytes,
+                                        width: 84,
+                                        height: 84,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: GestureDetector(
+                                        onTap: () =>
+                                            _removeMedia(i, false),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(3),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.black54,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.close,
+                                              size: 13,
+                                              color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
 
-                  if (_videos.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Wrap(spacing: 8, runSpacing: 8, children: [
-                        for (int i = 0; i < _videos.length; i++)
-                          Stack(children: [
-                            Container(width: 84, height: 84, decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(14)), child: const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 30))),
-                            Positioned(top: 4, right: 4, child: GestureDetector(onTap: () => _removeMedia(i, true), child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, size: 13, color: Colors.white)))),
-                          ]),
-                      ]),
-                    ),
-                ]),
+                      if (_videos.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Wrap(
+                            spacing: 8,
+                            children: [
+                              for (int i = 0; i < _videos.length; i++)
+                                Stack(
+                                  children: [
+                                    Container(
+                                      width: 84,
+                                      height: 84,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black87,
+                                        borderRadius:
+                                            BorderRadius.circular(14),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.play_arrow_rounded,
+                                          color: Colors.white,
+                                          size: 30,
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: GestureDetector(
+                                        onTap: () => _removeMedia(i, true),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(3),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.black54,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.close,
+                                              size: 13,
+                                              color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            if (_factCheckStatusLabel != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(children: [
-                  const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-                  const SizedBox(width: 8),
-                  Text(_factCheckStatusLabel!, style: const TextStyle(fontSize: 12, color: _DialogColors.textSecondary)),
-                ]),
+
+              if (_factCheckStatusLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, top: 4),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _factCheckStatusLabel!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _C.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              Row(
+                children: [
+                  _mediaBtn(
+                      Icons.photo_rounded, _pickImages, _C.green),
+                  _mediaBtn(
+                      Icons.videocam_rounded, _pickVideos, _C.red),
+                  _mediaBtn(
+                      Icons.photo_camera_rounded, _pickCamera, _C.primary),
+                ],
               ),
-            const SizedBox(height: 4),
-            Row(children: [
-              _mediaBtn(Icons.photo_rounded, _pickImages, const Color(0xFF059669)),
-              _mediaBtn(Icons.videocam_rounded, _pickVideos, const Color(0xFFE5484D)),
-              _mediaBtn(Icons.photo_camera_rounded, _pickCamera, _DialogColors.primary)
-            ]),
-            const SizedBox(height: 12),
-            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _isUploading ? null : _publishPost, style: ElevatedButton.styleFrom(backgroundColor: _DialogColors.gold, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), child: _isUploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('PUBLIER', style: TextStyle(fontWeight: FontWeight.w800)))),
-          ]),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: _isUploading ? null : _C.gradientPrimary,
+                    color: _isUploading ? _C.border : null,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isUploading ? null : _publishPost,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: _isUploading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'PUBLIER',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
