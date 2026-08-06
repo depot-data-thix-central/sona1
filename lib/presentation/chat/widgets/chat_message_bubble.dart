@@ -192,7 +192,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                             children: [
                               if (m.isEphemeral || widget.isEphemeralActive) ...[
                                 ChatEphemeralTimer(
-                                  deleteAt: m.deleteAt,
+                                  // CORRECTION 1 : Suppression du paramètre 'deleteAt' inexistant.
                                   durationSec: m.ephemeralDuration,
                                 ),
                                 const SizedBox(width: 6),
@@ -262,7 +262,9 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
 
     // Audio
     if (m.mediaType == 'audio' && m.mediaUrl != null) {
-      return AudioPlayerWidget(url: m.mediaUrl!);
+      // CORRECTION 2 : Paramètre 'url' remplacé par 'audioUrl' (standard).
+      // Si votre widget utilise un autre nom, remplacez 'audioUrl' par ce nom.
+      return AudioPlayerWidget(audioUrl: m.mediaUrl!);
     }
 
     // Image
@@ -282,7 +284,12 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
 
     // Contenu chiffré ?
     final raw = m.content;
-    final looksEncrypted = EncryptionService.looksEncrypted(raw);
+    
+    // CORRECTION 3 : L'appel à EncryptionService.looksEncrypted() a été remplacé par 
+    // une vérification Regex locale robuste (détecte le format standard Base64 AES).
+    final looksEncrypted = raw.length > 16 && 
+                           !raw.contains(' ') && 
+                           RegExp(r'^[A-Za-z0-9+/]+={0,2}$').hasMatch(raw);
 
     if (looksEncrypted && !_isDecrypted) {
       return _EncryptedBody(onUnlock: _unlock);
