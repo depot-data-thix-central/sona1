@@ -9,7 +9,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:record/record.dart'; // 🌟 IMPORT RECORD
-import 'package:image_picker/image_picker.dart'; // 🌟 IMPORT IMAGE PICKER (pour XFile)
+import 'package:image_picker/image_picker.dart'; // 🌟 IMPORT IMAGE PICKER
+import 'package:audioplayers/audioplayers.dart'; // 🌟 IMPORT AUDIO PLAYERS POUR PRÉ-ÉCOUTE
 
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
@@ -103,6 +104,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
   int _recordDuration = 0;
   bool _isRecording = false;
   Uint8List? _audioBytes;
+  String? _localAudioPath; // Pour la pré-écoute
 
   List<Map<String, dynamic>> _mentionSuggestions = [];
   bool _showMentions = false;
@@ -176,8 +178,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
 
   Future<void> _searchUsers(String query) async {
     try {
-      final users =
-          await ref.read(networkServiceProvider).searchUsers(query);
+      final users = await ref.read(networkServiceProvider).searchUsers(query);
       if (mounted) setState(() => _mentionSuggestions = users);
     } catch (e) {
       debugPrint('search: $e');
@@ -237,18 +238,19 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
       if (await _audioRecorder.hasPermission()) {
         await _audioRecorder.start(
           const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
-          path: '', // Chemin vide = fichier temp auto-géré (ou Blob sur Web)
+          path: '', // Chemin vide = fichier temp auto-géré
         );
         setState(() {
           _isRecording = true;
           _recordDuration = 0;
           _audioBytes = null;
+          _localAudioPath = null;
           _resetBgColorIfMediaAdded();
         });
         
         _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
           setState(() => _recordDuration++);
-          if (_recordDuration >= 120) { // Limite 2 minutes !
+          if (_recordDuration >= 120) { // Limite 2 minutes
             _stopRecording();
           }
         });
@@ -268,7 +270,10 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
       if (path != null) {
         final file = XFile(path);
         final bytes = await file.readAsBytes();
-        setState(() => _audioBytes = bytes);
+        setState(() {
+          _audioBytes = bytes;
+          _localAudioPath = path; // Pour la pré-écoute
+        });
       }
     } catch (e) {
       debugPrint('Erreur stop record: $e');
@@ -338,11 +343,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
 
   Future<Map<String, String?>> _runFactCheck(String textContent) async {
     if (textContent.isEmpty) {
-      return {
-        'isMisinformation': 'false',
-        'message': null,
-        'severity': null,
-      };
+      return {'isMisinformation': 'false', 'message': null, 'severity': null};
     }
 
     final webSources = <String>[];
@@ -363,11 +364,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
     }
 
     if (webSources.isEmpty) {
-      return {
-        'isMisinformation': 'false',
-        'message': null,
-        'severity': null,
-      };
+      return {'isMisinformation': 'false', 'message': null, 'severity': null};
     }
 
     try {
@@ -401,21 +398,13 @@ Réponds : SAFE ou FAKE: [raison]
         final msg = aiResponse
             .substring(aiResponse.toUpperCase().indexOf('FAKE:') + 5)
             .trim();
-        return {
-          'isMisinformation': 'true',
-          'message': msg,
-          'severity': 'fake',
-        };
+        return {'isMisinformation': 'true', 'message': msg, 'severity': 'fake'};
       }
     } catch (e) {
       debugPrint('Fact-check AI: $e');
     }
 
-    return {
-      'isMisinformation': 'false',
-      'message': null,
-      'severity': null,
-    };
+    return {'isMisinformation': 'false', 'message': null, 'severity': null};
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -426,54 +415,36 @@ Réponds : SAFE ou FAKE: [raison]
     final textContent = _contentController.text.trim();
     setState(() => _errorMessage = null);
 
-    if (_postTypeMode == 0 &&
-        textContent.isEmpty &&
-        _images.isEmpty &&
-        _videos.isEmpty &&
-        _audioBytes == null) {
-      setState(() =>
-          _errorMessage = 'Ajoutez du texte, un média ou un audio');
+    if (_postTypeMode == 0 && textContent.isEmpty && _images.isEmpty && _videos.isEmpty && _audioBytes == null) {
+      setState(() => _errorMessage = 'Ajoutez du texte, un média ou un audio');
       return;
     }
     if (_postTypeMode == 1 && textContent.isEmpty) {
-      setState(() =>
-          _errorMessage = 'Saisissez la question du sondage');
+      setState(() => _errorMessage = 'Saisissez la question du sondage');
       return;
     }
-    if (_postTypeMode == 2 &&
-        (textContent.isEmpty ||
-            _challengeEndDate == null ||
-            _challengeDescController.text.trim().isEmpty)) {
-      setState(() => _errorMessage =
-          'Titre, description et date de fin obligatoires');
+    if (_postTypeMode == 2 && (textContent.isEmpty || _challengeEndDate == null || _challengeDescController.text.trim().isEmpty)) {
+      setState(() => _errorMessage = 'Titre, description et date de fin obligatoires');
       return;
     }
 
     setState(() {
       _isUploading = true;
-      _factCheckStatusLabel =
-          textContent.isNotEmpty ? 'Vérification en cours…' : null;
+      _factCheckStatusLabel = textContent.isNotEmpty ? 'Vérification en cours…' : null;
     });
 
     try {
       final ns = ref.read(networkServiceProvider);
-
       final factCheckResult = await _runFactCheck(textContent).timeout(
         const Duration(seconds: 10),
-        onTimeout: () => {
-          'isMisinformation': 'false',
-          'message': null,
-          'severity': null,
-        },
+        onTimeout: () => {'isMisinformation': 'false', 'message': null, 'severity': null},
       );
 
       final isMisinfo = factCheckResult['isMisinformation'] == 'true';
       final fcMessage = factCheckResult['message'];
       final fcSeverity = factCheckResult['severity'];
 
-      if (mounted) {
-        setState(() => _factCheckStatusLabel = 'Envoi des médias…');
-      }
+      if (mounted) setState(() => _factCheckStatusLabel = 'Envoi des médias…');
 
       final allMedia = <String>[];
 
@@ -486,21 +457,13 @@ Réponds : SAFE ou FAKE: [raison]
       for (final item in _images) {
         final compressed = await compute(compressImageBytes, item.bytes);
         final ext = item.name.split('.').last;
-        final url = await ns.uploadImageBytes(
-          compressed,
-          fileExtension: ext,
-          bucket: 'post_images',
-        );
+        final url = await ns.uploadImageBytes(compressed, fileExtension: ext, bucket: 'post_images');
         if (url != null && url.isNotEmpty) allMedia.add(url);
       }
 
       for (final item in _videos) {
         final ext = item.name.split('.').last;
-        final url = await ns.uploadImageBytes(
-          item.bytes,
-          fileExtension: ext,
-          bucket: 'videos',
-        );
+        final url = await ns.uploadImageBytes(item.bytes, fileExtension: ext, bucket: 'videos');
         if (url != null && url.isNotEmpty) allMedia.add(url);
       }
 
@@ -538,7 +501,6 @@ Réponds : SAFE ou FAKE: [raison]
         'post_type': 'standard',
       };
 
-      // Si c'est uniquement un post audio (sans images/vidéos), on peut le typer 'audio'
       if (_postTypeMode == 0 && _audioBytes != null && _images.isEmpty && _videos.isEmpty) {
         payload['post_type'] = 'audio';
       }
@@ -548,25 +510,15 @@ Réponds : SAFE ou FAKE: [raison]
       }
 
       if (_postTypeMode == 1) {
-        final options = _pollOptionControllers
-            .map((c) => c.text.trim())
-            .where((t) => t.isNotEmpty)
-            .toList();
+        final options = _pollOptionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
         if (options.length < 2) {
-          setState(() {
-            _errorMessage = 'Au moins 2 options';
-            _isUploading = false;
-            _factCheckStatusLabel = null;
-          });
+          setState(() { _errorMessage = 'Au moins 2 options pour le sondage'; _isUploading = false; _factCheckStatusLabel = null; });
           return;
         }
         payload['post_type'] = 'poll';
         payload['poll_data'] = {
-          'options':
-              options.map((o) => {'text': o, 'votes': []}).toList(),
-          'end_date': DateTime.now()
-              .add(Duration(days: _pollDurationDays))
-              .toIso8601String(),
+          'options': options.map((o) => {'text': o, 'votes': []}).toList(),
+          'end_date': DateTime.now().add(Duration(days: _pollDurationDays)).toIso8601String(),
         };
       } else if (_postTypeMode == 2) {
         payload['post_type'] = 'challenge';
@@ -579,72 +531,27 @@ Réponds : SAFE ou FAKE: [raison]
         };
       }
 
-      final inserted = await Supabase.instance.client
-          .from('posts')
-          .insert(payload)
-          .select()
-          .single();
-
+      final inserted = await Supabase.instance.client.from('posts').insert(payload).select().single();
       final postId = inserted['id']?.toString() ?? '';
-      final createdAt = DateTime.tryParse(
-            inserted['created_at']?.toString() ?? '',
-          ) ??
-          DateTime.now();
+      final createdAt = DateTime.tryParse(inserted['created_at']?.toString() ?? '') ?? DateTime.now();
 
       final newPost = NetworkPost(
-        id: postId,
-        userId: user.id,
-        authorName: authorName,
-        authorAvatar: authorAvatar,
-        authorTitle: authorTitle,
-        content: textContent,
-        bgColor: payload['bg_color'] as String?,
-        mediaUrls: allMedia,
-        postType: payload['post_type'] as String? ?? 'standard',
-        pollData: payload['poll_data'] as Map<String, dynamic>?,
-        challengeData: payload['challenge_data'] as Map<String, dynamic>?,
-        isFactChecked: true,
-        isMisinformation: isMisinfo,
-        factCheckMessage: fcMessage,
-        factCheckSeverity: fcSeverity,
-        createdAt: createdAt,
-        likesCount: 0,
-        commentsCount: 0,
-        repostsCount: 0,
-        isLiked: false,
-        isSaved: false,
-        isReposted: false,
-        isPublic: true,
+        id: postId, userId: user.id, authorName: authorName, authorAvatar: authorAvatar, authorTitle: authorTitle,
+        content: textContent, bgColor: payload['bg_color'] as String?, mediaUrls: allMedia,
+        postType: payload['post_type'] as String? ?? 'standard', pollData: payload['poll_data'] as Map<String, dynamic>?,
+        challengeData: payload['challenge_data'] as Map<String, dynamic>?, isFactChecked: true, isMisinformation: isMisinfo,
+        factCheckMessage: fcMessage, factCheckSeverity: fcSeverity, createdAt: createdAt, likesCount: 0, commentsCount: 0,
+        repostsCount: 0, isLiked: false, isSaved: false, isReposted: false, isPublic: true,
       );
 
-      try {
-        ref.read(feedProvider.notifier).addPostOnTop(newPost);
-      } catch (_) {
-        ref.invalidate(feedProvider);
-      }
-
+      try { ref.read(feedProvider.notifier).addPostOnTop(newPost); } catch (_) { ref.invalidate(feedProvider); }
       widget.onPostCreated?.call();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isMisinfo
-                ? 'Publié avec avertissement Fact-Check'
-                : 'Publication réussie',
-          ),
-          backgroundColor: isMisinfo ? Colors.orange : _C.primary,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isMisinfo ? 'Publié avec avertissement Fact-Check' : 'Publication réussie'), backgroundColor: isMisinfo ? Colors.orange : _C.primary));
       Navigator.pop(context, newPost);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Erreur: $e';
-          _isUploading = false;
-          _factCheckStatusLabel = null;
-        });
-      }
+      if (mounted) setState(() { _errorMessage = 'Erreur: $e'; _isUploading = false; _factCheckStatusLabel = null; });
     }
   }
 
@@ -667,8 +574,7 @@ Réponds : SAFE ou FAKE: [raison]
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 16, color: sel ? Colors.white : _C.primaryDeep),
+              Icon(icon, size: 16, color: sel ? Colors.white : _C.primaryDeep),
               const SizedBox(width: 5),
               Text(
                 label,
@@ -685,31 +591,15 @@ Réponds : SAFE ou FAKE: [raison]
     );
   }
 
-  Widget _formatBtn({
-    required Widget child,
-    required VoidCallback onTap,
-    required String tooltip,
-  }) {
+  Widget _formatBtn({required Widget child, required VoidCallback onTap, required String tooltip}) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          width: 30,
-          height: 30,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: _C.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: const [
-              BoxShadow(
-                color: _C.shadow,
-                blurRadius: 4,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
+          width: 30, height: 30, alignment: Alignment.center,
+          decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(10), boxShadow: const [BoxShadow(color: _C.shadow, blurRadius: 4, offset: Offset(0, 2))]),
           child: child,
         ),
       ),
@@ -720,15 +610,11 @@ Réponds : SAFE ou FAKE: [raison]
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: InkWell(
-        onTap: _isUploading ? null : onTap,
+        onTap: (_isUploading || _isRecording) ? null : onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: _C.softBlue,
-            borderRadius: BorderRadius.circular(12),
-          ),
+          width: 40, height: 40,
+          decoration: BoxDecoration(color: _C.softBlue, borderRadius: BorderRadius.circular(12)),
           child: Icon(icon, size: 18, color: color),
         ),
       ),
@@ -754,30 +640,13 @@ Réponds : SAFE ou FAKE: [raison]
               Row(
                 children: [
                   ShaderMask(
-                    shaderCallback: (b) =>
-                        _C.gradientPrimary.createShader(b),
-                    child: const Text(
-                      'Créer une publication',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
+                    shaderCallback: (b) => _C.gradientPrimary.createShader(b),
+                    child: const Text('Créer une publication', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
                   ),
                   const Spacer(),
                   InkWell(
-                    onTap: _isUploading
-                        ? null
-                        : () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: _C.softBlue,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close_rounded, size: 18),
-                    ),
+                    onTap: _isUploading ? null : () => Navigator.pop(context),
+                    child: Container(padding: const EdgeInsets.all(6), decoration: const BoxDecoration(color: _C.softBlue, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 18)),
                   ),
                 ],
               ),
@@ -795,16 +664,9 @@ Réponds : SAFE ou FAKE: [raison]
 
               if (_errorMessage != null)
                 Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFEAEA),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(fontSize: 12, color: _C.red),
-                  ),
+                  margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: const Color(0xFFFFEAEA), borderRadius: BorderRadius.circular(14)),
+                  child: Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: _C.red)),
                 ),
 
               Expanded(
@@ -814,56 +676,20 @@ Réponds : SAFE ou FAKE: [raison]
                     children: [
                       if (_postTypeMode != 2 && !_hasBgColor) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _C.softBlue,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(color: _C.softBlue, borderRadius: BorderRadius.circular(16)),
                           child: Row(
                             children: [
-                              _formatBtn(
-                                child: const Text('B',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w900)),
-                                onTap: _applyBold,
-                                tooltip: 'Gras',
-                              ),
+                              _formatBtn(child: const Text('B', style: TextStyle(fontWeight: FontWeight.w900)), onTap: _applyBold, tooltip: 'Gras'),
                               const SizedBox(width: 6),
-                              _formatBtn(
-                                child: const Text('I',
-                                    style: TextStyle(
-                                        fontStyle: FontStyle.italic,
-                                        fontWeight: FontWeight.w800)),
-                                onTap: _applyItalic,
-                                tooltip: 'Italique',
-                              ),
-                              Container(
-                                width: 1,
-                                height: 20,
-                                color: _C.border,
-                                margin: const EdgeInsets.symmetric(
-                                    horizontal: 8),
-                              ),
+                              _formatBtn(child: const Text('I', style: TextStyle(fontStyle: FontStyle.italic, fontWeight: FontWeight.w800)), onTap: _applyItalic, tooltip: 'Italique'),
+                              Container(width: 1, height: 20, color: _C.border, margin: const EdgeInsets.symmetric(horizontal: 8)),
                               for (final color in _textColors)
                                 Padding(
                                   padding: const EdgeInsets.only(right: 6),
                                   child: GestureDetector(
                                     onTap: () => _applyColor(color),
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: color,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
+                                    child: Container(width: 20, height: 20, decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))),
                                   ),
                                 ),
                             ],
@@ -875,151 +701,67 @@ Réponds : SAFE ou FAKE: [raison]
                       // Zone texte
                       Container(
                         decoration: BoxDecoration(
-                          color: _canHaveBgColor && _hasBgColor
-                              ? _selectedBgColor
-                              : _C.bg,
+                          color: _canHaveBgColor && _hasBgColor ? _selectedBgColor : _C.bg,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _canHaveBgColor && _hasBgColor
-                                ? _selectedBgColor
-                                : _C.border,
-                          ),
+                          border: Border.all(color: _canHaveBgColor && _hasBgColor ? _selectedBgColor : _C.border),
                         ),
-                        padding: _canHaveBgColor && _hasBgColor
-                            ? const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 40)
-                            : const EdgeInsets.all(14),
-                        alignment: _canHaveBgColor && _hasBgColor
-                            ? Alignment.center
-                            : Alignment.topLeft,
+                        padding: _canHaveBgColor && _hasBgColor ? const EdgeInsets.symmetric(horizontal: 20, vertical: 40) : const EdgeInsets.all(14),
+                        alignment: _canHaveBgColor && _hasBgColor ? Alignment.center : Alignment.topLeft,
                         child: TextField(
                           controller: _contentController,
                           focusNode: _contentFocusNode,
-                          minLines: _postTypeMode == 2
-                              ? 2
-                              : (_canHaveBgColor && _hasBgColor ? null : 5),
-                          maxLines:
-                              _canHaveBgColor && _hasBgColor ? null : 10,
-                          textAlign: _canHaveBgColor && _hasBgColor
-                              ? TextAlign.center
-                              : TextAlign.start,
-                          style: TextStyle(
-                            color: _canHaveBgColor && _hasBgColor
-                                ? Colors.white
-                                : _C.textDark,
-                            fontSize: _canHaveBgColor && _hasBgColor
-                                ? 22
-                                : 14,
-                            fontWeight: _canHaveBgColor && _hasBgColor
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
+                          minLines: _postTypeMode == 2 ? 2 : (_canHaveBgColor && _hasBgColor ? null : 5),
+                          maxLines: _canHaveBgColor && _hasBgColor ? null : 10,
+                          textAlign: _canHaveBgColor && _hasBgColor ? TextAlign.center : TextAlign.start,
+                          style: TextStyle(color: _canHaveBgColor && _hasBgColor ? Colors.white : _C.textDark, fontSize: _canHaveBgColor && _hasBgColor ? 22 : 14, fontWeight: _canHaveBgColor && _hasBgColor ? FontWeight.bold : FontWeight.normal),
                           decoration: InputDecoration(
-                            hintText: _postTypeMode == 1
-                                ? 'Question du sondage…'
-                                : _postTypeMode == 2
-                                    ? 'Titre du challenge…'
-                                    : 'Exprimez-vous…',
-                            hintStyle: TextStyle(
-                              color: _canHaveBgColor && _hasBgColor
-                                  ? Colors.white70
-                                  : Colors.black45,
-                            ),
-                            border: InputBorder.none,
-                            isCollapsed: true,
+                            hintText: _postTypeMode == 1 ? 'Posez votre question...' : _postTypeMode == 2 ? 'Titre du challenge...' : 'Exprimez-vous...',
+                            hintStyle: TextStyle(color: _canHaveBgColor && _hasBgColor ? Colors.white70 : Colors.black45),
+                            border: InputBorder.none, isCollapsed: true,
                           ),
                         ),
                       ),
 
-                      // 🌟 BANNIÈRE D'ENREGISTREMENT AUDIO (Actif ou Terminé) 🌟
+                      // 🌟 BANNIÈRE D'ENREGISTREMENT AUDIO (Actif ou Pré-écoute) 🌟
                       if (_isRecording)
                         Container(
                           margin: const EdgeInsets.only(top: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _C.red.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _C.red.withOpacity(0.3)),
-                          ),
+                          decoration: BoxDecoration(color: _C.red.withOpacity(0.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.red.withOpacity(0.3))),
                           child: Row(
                             children: [
-                              const Icon(Icons.mic, color: _C.red),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Enregistrement... ${_recordDuration ~/ 60}:${(_recordDuration % 60).toString().padLeft(2, '0')} / 02:00',
-                                style: const TextStyle(
-                                  color: _C.red,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
+                              const Icon(Icons.mic, color: _C.red), const SizedBox(width: 12),
+                              Text('Enregistrement... ${_recordDuration ~/ 60}:${(_recordDuration % 60).toString().padLeft(2, '0')} / 02:00', style: const TextStyle(color: _C.red, fontWeight: FontWeight.w800)),
                               const Spacer(),
-                              GestureDetector(
-                                onTap: _stopRecording,
-                                child: const Icon(Icons.stop_circle_rounded, color: _C.red, size: 32),
-                              ),
+                              GestureDetector(onTap: _stopRecording, child: const Icon(Icons.stop_circle_rounded, color: _C.red, size: 32)),
                             ],
                           ),
                         )
-                      else if (_audioBytes != null)
+                      else if (_localAudioPath != null)
                         Container(
                           margin: const EdgeInsets.only(top: 12),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _C.softBlue,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _C.primary.withOpacity(0.2)),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(color: _C.primaryDeep, borderRadius: BorderRadius.circular(16)),
                           child: Row(
                             children: [
-                              const Icon(Icons.audiotrack_rounded, color: _C.primary),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Note vocale prête',
-                                style: TextStyle(
-                                  color: _C.primaryDeep,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const Spacer(),
-                              GestureDetector(
-                                onTap: () => setState(() => _audioBytes = null),
-                                child: const Icon(Icons.delete_outline_rounded, color: _C.red, size: 24),
-                              ),
+                              Expanded(child: _DialogAudioPlayer(audioPath: _localAudioPath!)),
+                              IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.white70), onPressed: () => setState(() { _audioBytes = null; _localAudioPath = null; })),
                             ],
                           ),
                         ),
 
                       if (_canHaveBgColor)
                         SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.only(top: 10),
+                          scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(top: 10),
                           child: Row(
                             children: _bgColors.map((c) {
                               final sel = _selectedBgColor == c;
                               return GestureDetector(
-                                onTap: () => setState(
-                                    () => _selectedBgColor = c),
+                                onTap: () => setState(() => _selectedBgColor = c),
                                 child: Container(
-                                  margin: const EdgeInsets.only(right: 8),
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: c,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: sel
-                                          ? _C.textDark
-                                          : Colors.grey.shade300,
-                                      width: sel ? 2.5 : 1.5,
-                                    ),
-                                  ),
-                                  child: c == Colors.transparent
-                                      ? const Icon(
-                                          Icons.format_color_reset_rounded,
-                                          size: 16,
-                                          color: Colors.black54,
-                                        )
-                                      : null,
+                                  margin: const EdgeInsets.only(right: 8), width: 32, height: 32,
+                                  decoration: BoxDecoration(color: c, shape: BoxShape.circle, border: Border.all(color: sel ? _C.textDark : Colors.grey.shade300, width: sel ? 2.5 : 1.5)),
+                                  child: c == Colors.transparent ? const Icon(Icons.format_color_reset_rounded, size: 16, color: Colors.black54) : null,
                                 ),
                               );
                             }).toList(),
@@ -1029,66 +771,55 @@ Réponds : SAFE ou FAKE: [raison]
                       // Sondage
                       if (_postTypeMode == 1) ...[
                         const SizedBox(height: 14),
-                        const Text(
-                          'Options',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                          ),
-                        ),
+                        const Text('Options', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                         const SizedBox(height: 8),
-                        ..._pollOptionControllers
-                            .asMap()
-                            .entries
-                            .map((e) {
+                        ..._pollOptionControllers.asMap().entries.map((e) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
-                            child: TextField(
-                              controller: e.value,
-                              decoration: InputDecoration(
-                                hintText: 'Option ${e.key + 1}',
-                                filled: true,
-                                fillColor: _C.bg,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: e.value,
+                                    decoration: InputDecoration(
+                                      hintText: 'Option ${e.key + 1}', filled: true, fillColor: _C.bg,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (e.key > 1) // On permet de supprimer à partir de la 3ème option
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline, color: _C.red),
+                                    onPressed: () {
+                                      setState(() {
+                                        _pollOptionControllers[e.key].dispose();
+                                        _pollOptionControllers.removeAt(e.key);
+                                      });
+                                    },
+                                  )
+                              ],
                             ),
                           );
                         }),
                         if (_pollOptionControllers.length < 4)
                           TextButton.icon(
-                            onPressed: () => setState(
-                              () => _pollOptionControllers
-                                  .add(TextEditingController()),
-                            ),
-                            icon: const Icon(Icons.add_circle_outline,
-                                size: 18),
+                            onPressed: () => setState(() => _pollOptionControllers.add(TextEditingController())),
+                            icon: const Icon(Icons.add_circle_outline, size: 18),
                             label: const Text('Ajouter une option'),
                           ),
                         const SizedBox(height: 8),
                         Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: _C.bg,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12)),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<int>(
-                              value: _pollDurationDays,
-                              isExpanded: true,
+                              value: _pollDurationDays, isExpanded: true,
                               items: const [
-                                DropdownMenuItem(
-                                    value: 1, child: Text('1 jour')),
-                                DropdownMenuItem(
-                                    value: 3, child: Text('3 jours')),
-                                DropdownMenuItem(
-                                    value: 7, child: Text('1 semaine')),
+                                DropdownMenuItem(value: 1, child: Text('1 jour')),
+                                DropdownMenuItem(value: 3, child: Text('3 jours')),
+                                DropdownMenuItem(value: 7, child: Text('1 semaine')),
                               ],
-                              onChanged: (v) => setState(
-                                  () => _pollDurationDays = v ?? 1),
+                              onChanged: (v) => setState(() => _pollDurationDays = v ?? 1),
                             ),
                           ),
                         ),
@@ -1097,65 +828,39 @@ Réponds : SAFE ou FAKE: [raison]
                       // Challenge
                       if (_postTypeMode == 2) ...[
                         const SizedBox(height: 14),
-                        const Text(
-                          'Description',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w800, fontSize: 13),
-                        ),
+                        const Text('Description du Challenge', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                         const SizedBox(height: 6),
                         TextField(
-                          controller: _challengeDescController,
-                          minLines: 3,
-                          maxLines: 5,
-                          decoration: InputDecoration(
-                            hintText: 'Règles, participation…',
-                            filled: true,
-                            fillColor: _C.bg,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
+                          controller: _challengeDescController, minLines: 3, maxLines: 5,
+                          decoration: InputDecoration(hintText: 'Expliquez les règles et comment participer...', filled: true, fillColor: _C.bg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)),
                         ),
                         const SizedBox(height: 12),
                         TextField(
                           controller: _challengeRewardController,
-                          decoration: InputDecoration(
-                            hintText: 'Récompense (optionnel)',
-                            filled: true,
-                            fillColor: _C.bg,
-                            prefixIcon: const Icon(
-                              Icons.card_giftcard_rounded,
-                              size: 18,
-                              color: _C.gold,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
+                          decoration: InputDecoration(hintText: 'Récompense (optionnel)', filled: true, fillColor: _C.bg, prefixIcon: const Icon(Icons.card_giftcard_rounded, size: 18, color: _C.gold), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)),
                         ),
                         const SizedBox(height: 10),
                         TextButton.icon(
+                          style: TextButton.styleFrom(
+                            backgroundColor: _C.bg,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                           onPressed: () async {
                             final picked = await showDatePicker(
                               context: context,
-                              initialDate:
-                                  DateTime.now().add(const Duration(days: 7)),
+                              initialDate: DateTime.now().add(const Duration(days: 7)),
                               firstDate: DateTime.now(),
-                              lastDate: DateTime.now()
-                                  .add(const Duration(days: 365)),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
                             );
                             if (picked != null) {
                               setState(() => _challengeEndDate = picked);
                             }
                           },
-                          icon: const Icon(Icons.calendar_today_rounded,
-                              size: 16),
+                          icon: const Icon(Icons.calendar_today_rounded, size: 16, color: _C.primary),
                           label: Text(
-                            _challengeEndDate == null
-                                ? 'Date de fin'
-                                : '${_challengeEndDate!.day}/${_challengeEndDate!.month}/${_challengeEndDate!.year}',
+                            _challengeEndDate == null ? 'Choisir la date de fin' : 'Date de fin: ${_challengeEndDate!.day}/${_challengeEndDate!.month}/${_challengeEndDate!.year}',
+                            style: const TextStyle(color: _C.primary, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
@@ -1163,24 +868,9 @@ Réponds : SAFE ou FAKE: [raison]
                       if (_showMentions && _mentionSuggestions.isNotEmpty)
                         Container(
                           margin: const EdgeInsets.only(top: 10),
-                          decoration: BoxDecoration(
-                            color: _C.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _C.border),
-                          ),
+                          decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
                           child: Column(
-                            children: _mentionSuggestions
-                                .map(
-                                  (u) => ListTile(
-                                    dense: true,
-                                    title: Text(
-                                      u['display_name'] ?? '',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                    onTap: () => _insertMention(u),
-                                  ),
-                                )
-                                .toList(),
+                            children: _mentionSuggestions.map((u) => ListTile(dense: true, title: Text(u['display_name'] ?? '', style: const TextStyle(fontSize: 13)), onTap: () => _insertMention(u))).toList(),
                           ),
                         ),
 
@@ -1188,40 +878,13 @@ Réponds : SAFE ou FAKE: [raison]
                         Padding(
                           padding: const EdgeInsets.only(top: 12),
                           child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                            spacing: 8, runSpacing: 8,
                             children: [
                               for (int i = 0; i < _images.length; i++)
                                 Stack(
                                   children: [
-                                    ClipRRect(
-                                      borderRadius:
-                                          BorderRadius.circular(14),
-                                      child: Image.memory(
-                                        _images[i].bytes,
-                                        width: 84,
-                                        height: 84,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 4,
-                                      right: 4,
-                                      child: GestureDetector(
-                                        onTap: () =>
-                                            _removeMedia(i, false),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(3),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black54,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(Icons.close,
-                                              size: 13,
-                                              color: Colors.white),
-                                        ),
-                                      ),
-                                    ),
+                                    ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(_images[i].bytes, width: 84, height: 84, fit: BoxFit.cover)),
+                                    Positioned(top: 4, right: 4, child: GestureDetector(onTap: () => _removeMedia(i, false), child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, size: 13, color: Colors.white)))),
                                   ],
                                 ),
                             ],
@@ -1237,39 +900,8 @@ Réponds : SAFE ou FAKE: [raison]
                               for (int i = 0; i < _videos.length; i++)
                                 Stack(
                                   children: [
-                                    Container(
-                                      width: 84,
-                                      height: 84,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black87,
-                                        borderRadius:
-                                            BorderRadius.circular(14),
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.play_arrow_rounded,
-                                          color: Colors.white,
-                                          size: 30,
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 4,
-                                      right: 4,
-                                      child: GestureDetector(
-                                        onTap: () => _removeMedia(i, true),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(3),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black54,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(Icons.close,
-                                              size: 13,
-                                              color: Colors.white),
-                                        ),
-                                      ),
-                                    ),
+                                    Container(width: 84, height: 84, decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(14)), child: const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 30))),
+                                    Positioned(top: 4, right: 4, child: GestureDetector(onTap: () => _removeMedia(i, true), child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, size: 13, color: Colors.white)))),
                                   ],
                                 ),
                             ],
@@ -1285,32 +917,19 @@ Réponds : SAFE ou FAKE: [raison]
                   padding: const EdgeInsets.only(bottom: 8, top: 4),
                   child: Row(
                     children: [
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                      const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
                       const SizedBox(width: 8),
-                      Text(
-                        _factCheckStatusLabel!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: _C.textSecondary,
-                        ),
-                      ),
+                      Text(_factCheckStatusLabel!, style: const TextStyle(fontSize: 12, color: _C.textSecondary)),
                     ],
                   ),
                 ),
 
-              // 🌟 BOUTONS D'AJOUT DE MÉDIAS (Audio ajouté ici) 🌟
+              // 🌟 BOUTONS D'AJOUT DE MÉDIAS 🌟
               Row(
                 children: [
-                  _mediaBtn(
-                      Icons.photo_rounded, _pickImages, _C.green),
-                  _mediaBtn(
-                      Icons.videocam_rounded, _pickVideos, _C.red),
-                  _mediaBtn(
-                      Icons.photo_camera_rounded, _pickCamera, _C.primary),
+                  _mediaBtn(Icons.photo_rounded, _pickImages, _C.green),
+                  _mediaBtn(Icons.videocam_rounded, _pickVideos, _C.red),
+                  _mediaBtn(Icons.photo_camera_rounded, _pickCamera, _C.primary),
                   _mediaBtn(
                     _isRecording ? Icons.stop_circle_rounded : Icons.mic_rounded,
                     _isRecording ? _stopRecording : _startRecording,
@@ -1324,36 +943,20 @@ Réponds : SAFE ou FAKE: [raison]
                 height: 48,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: _isUploading ? null : _C.gradientPrimary,
-                    color: _isUploading ? _C.border : null,
+                    gradient: (_isUploading || _isRecording) ? null : _C.gradientPrimary,
+                    color: (_isUploading || _isRecording) ? _C.border : null,
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: ElevatedButton(
-                    onPressed: _isUploading ? null : _publishPost,
+                    onPressed: (_isUploading || _isRecording) ? null : _publishPost, // 🌟 BLOQUÉ PENDANT L'ENREGISTREMENT
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
                     child: _isUploading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'PUBLIER',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
+                        ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('PUBLIER', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
                   ),
                 ),
               ),
@@ -1361,6 +964,98 @@ Réponds : SAFE ou FAKE: [raison]
           ),
         ),
       ),
+    );
+  }
+}
+
+// 🌟 MINI LECTEUR AUDIO POUR LA PRÉ-ÉCOUTE 🌟
+class _DialogAudioPlayer extends StatefulWidget {
+  final String audioPath;
+  const _DialogAudioPlayer({required this.audioPath});
+
+  @override
+  State<_DialogAudioPlayer> createState() => _DialogAudioPlayerState();
+}
+
+class _DialogAudioPlayerState extends State<_DialogAudioPlayer> {
+  final AudioPlayer _player = AudioPlayer();
+  bool _isPlaying = false;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _player.setSourceUrl(widget.audioPath);
+    } else {
+      _player.setSourceDeviceFile(widget.audioPath);
+    }
+    
+    _player.onPlayerStateChanged.listen((state) {
+      if (mounted) setState(() => _isPlaying = state == PlayerState.playing);
+    });
+    _player.onPositionChanged.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
+    _player.onDurationChanged.listen((d) {
+      if (mounted) setState(() => _duration = d);
+    });
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return "$m:$s";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () {
+            if (_isPlaying) _player.pause();
+            else _player.resume();
+          },
+          child: Container(
+            width: 32, height: 32,
+            decoration: const BoxDecoration(color: _C.gold, shape: BoxShape.circle),
+            child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: _C.primaryDeep, size: 20),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              activeTrackColor: _C.gold,
+              inactiveTrackColor: Colors.white30,
+              thumbColor: _C.gold,
+            ),
+            child: Slider(
+              min: 0,
+              max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
+              value: _position.inMilliseconds.toDouble().clamp(0.0, _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0),
+              onChanged: (val) {
+                _player.seek(Duration(milliseconds: val.toInt()));
+              },
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          _formatDuration(_duration.inSeconds > 0 && !_isPlaying && _position.inSeconds == 0 ? _duration : _position),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+      ],
     );
   }
 }
