@@ -168,7 +168,8 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
     );
   }
 
-    Widget _buildRoundBtn({required IconData icon, required bool isActive, required VoidCallback onTap}) {
+  // La fonction corrigée sans le backdropFilter
+  Widget _buildRoundBtn({required IconData icon, required bool isActive, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -183,4 +184,4 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
       ),
     );
   }
-
+} // <-- C'est cette accolade qui manquait et causait l'erreur !
