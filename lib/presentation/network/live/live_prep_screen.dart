@@ -1,6 +1,6 @@
 // lib/presentation/network/live/live_prep_screen.dart
 import 'package:flutter/material.dart';
-
+import 'package:thix_id/presentation/network/live/live_broadcast_screen.dart';
 class _C {
   static const primary = Color(0xFF2D6CDF);
   static const primaryDeep = Color(0xFF0A1F44);
