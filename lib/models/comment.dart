@@ -4,12 +4,14 @@ class Comment {
   final String userId;
   final String userName;
   final String? userAvatar;
-  String content; // ← plus final
+  String content; 
+  final String? audioUrl; // 🌟 AJOUT : Pour la note vocale
+  final String? imageUrl; // 🌟 AJOUT : Pour la photo
   final DateTime createdAt;
-  int likesCount; // ← plus final
-  bool isLiked; // ← plus final
+  int likesCount; 
+  bool isLiked; 
   final String? parentId;
-  List<Comment> replies; // ← plus final (si vous voulez pouvoir ajouter des réponses)
+  List<Comment> replies; 
 
   Comment({
     required this.id,
@@ -18,6 +20,8 @@ class Comment {
     required this.userName,
     this.userAvatar,
     required this.content,
+    this.audioUrl, // 🌟
+    this.imageUrl, // 🌟
     required this.createdAt,
     this.likesCount = 0,
     this.isLiked = false,
@@ -26,7 +30,6 @@ class Comment {
   });
 
   factory Comment.fromJson(Map<String, dynamic> json) {
-    // Assurez-vous que les clés correspondent à votre base
     return Comment(
       id: json['id'],
       postId: json['post_id'],
@@ -34,6 +37,8 @@ class Comment {
       userName: json['profiles']?['display_name'] ?? json['user_name'] ?? 'Utilisateur',
       userAvatar: json['profiles']?['avatar_url'] ?? json['user_avatar'],
       content: json['content'] ?? '',
+      audioUrl: json['audio_url'], // 🌟 Mapper depuis Supabase
+      imageUrl: json['image_url'], // 🌟 Mapper depuis Supabase
       createdAt: DateTime.parse(json['created_at']),
       likesCount: json['likes_count'] ?? 0,
       isLiked: json['is_liked'] ?? false,
@@ -51,6 +56,8 @@ class Comment {
     'user_name': userName,
     'user_avatar': userAvatar,
     'content': content,
+    'audio_url': audioUrl, // 🌟 Envoyer à Supabase
+    'image_url': imageUrl, // 🌟 Envoyer à Supabase
     'created_at': createdAt.toIso8601String(),
     'likes_count': likesCount,
     'is_liked': isLiked,
