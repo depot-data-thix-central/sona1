@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:audioplayers/audioplayers.dart'; // 🌟 IMPORT AUDIO
+import 'package:audioplayers/audioplayers.dart'; // 🌟 IMPORT POUR L'AUDIO
 
 import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
 import 'package:thix_id/models/network_post.dart';
@@ -46,78 +46,11 @@ class _PostColors {
     end: Alignment.bottomRight,
     colors: [gold, goldLight],
   );
-}
-
-// ─────────────────────────────────────────────────────────────
-// AVATAR HEXAGONAL
-// ─────────────────────────────────────────────────────────────
-class _HexClipper extends CustomClipper<Path> {
-  const _HexClipper();
-
-  @override
-  Path getClip(Size size) {
-    final w = size.width;
-    final h = size.height;
-    return Path()
-      ..moveTo(w * 0.5, 0)
-      ..lineTo(w, h * 0.25)
-      ..lineTo(w, h * 0.75)
-      ..lineTo(w * 0.5, h)
-      ..lineTo(0, h * 0.75)
-      ..lineTo(0, h * 0.25)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class _HexAvatar extends StatelessWidget {
-  final double size;
-  final String? imageUrl;
-  final Color ringColor;
-  final double ringWidth;
-
-  const _HexAvatar({
-    required this.size,
-    this.imageUrl,
-    this.ringColor = _PostColors.gold,
-    this.ringWidth = 2.2,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipPath(
-      clipper: const _HexClipper(),
-      child: Container(
-        width: size,
-        height: size,
-        color: ringColor,
-        padding: EdgeInsets.all(ringWidth),
-        child: ClipPath(
-          clipper: const _HexClipper(),
-          child: Container(
-            color: _PostColors.softBlue,
-            child: (imageUrl != null && imageUrl!.isNotEmpty)
-                ? Image.network(
-                    imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Icon(
-                      Icons.person_rounded,
-                      size: size * 0.45,
-                      color: _PostColors.primaryDeep,
-                    ),
-                  )
-                : Icon(
-                    Icons.person_rounded,
-                    size: size * 0.45,
-                    color: _PostColors.primaryDeep,
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
+  static const gradientAvatarRing = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primary, primaryDeep, gold],
+  );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -195,9 +128,11 @@ class PostCard extends ConsumerStatefulWidget {
   final VoidCallback? onShare;
   final VoidCallback? onRefresh;
   final VoidCallback? onPin;
-  final VoidCallback? onEdit;
+  final VoidCallback? onEdit; // 🌟 Ajout Modification
   final VoidCallback? onDelete;
   final VoidCallback? onSave;
+  
+  // 🌟 Ajout pour la gestion des abonnements
   final bool isFollowingAuthor;
   final VoidCallback? onFollow;
 
@@ -230,9 +165,11 @@ class _PostCardState extends ConsumerState<PostCard>
   bool _isReposting = false;
   bool _isLikedAnimating = false;
   bool _isExpanded = false;
+  final _quoteController = TextEditingController();
+  
+  // 🌟 Variables locales pour le bouton d'abonnement
   bool _isFollowingLocal = false;
   bool _followBusy = false;
-  final _quoteController = TextEditingController();
 
   static const _maxContentChars = 250;
   static const _maxParseDepth = 6;
@@ -470,6 +407,7 @@ class _PostCardState extends ConsumerState<PostCard>
     );
   }
 
+  // ── IMAGE PLEINE LARGEUR ──
   Widget _buildImageGrid(List<String> urls, String postId) {
     if (urls.isEmpty) return const SizedBox.shrink();
     const spacing = 4.0;
@@ -551,6 +489,7 @@ class _PostCardState extends ConsumerState<PostCard>
       );
     }
 
+    // 3+
     return SizedBox(
       height: 240,
       child: Row(
@@ -625,8 +564,8 @@ class _PostCardState extends ConsumerState<PostCard>
     );
   }
 
+  // ── SONDAGE (design entreprise) ──
   Widget _buildPollWidget(NetworkPost post) {
-    // ... (Code du sondage inchangé)
     final pollData = post.pollData ?? {};
     final options = (pollData['options'] as List?) ?? [];
     if (options.isEmpty) return const SizedBox.shrink();
@@ -746,16 +685,142 @@ class _PostCardState extends ConsumerState<PostCard>
               ),
             );
           }),
+          if (totalVotes > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '$totalVotes vote${totalVotes > 1 ? 's' : ''}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _PostColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
+  // ── CHALLENGE (design entreprise) ──
   Widget _buildChallengeWidget(NetworkPost post) {
-    // ... (Code du challenge inchangé)
-    return Container();
+    final data = post.challengeData ?? {};
+    final description = '${data['description'] ?? ''}';
+    final participantsCount = data['participants_count'] ?? 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_PostColors.softBlue, _PostColors.background],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _PostColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  gradient: _PostColors.gradientGold,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: _PostColors.navyDeep,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Challenge THIX',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: _PostColors.textDark,
+                  ),
+                ),
+              ),
+              Text(
+                '$participantsCount participants',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _PostColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: _PostColors.textDark,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 44,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: _PostColors.gradientPrimary,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(
+                    color: _PostColors.shadow,
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TextButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Participation enregistrée'),
+                      backgroundColor: _PostColors.green,
+                    ),
+                  );
+                },
+                style: TextButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(
+                  Icons.check_circle_outline_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
+                label: const Text(
+                  'RELEVER LE DÉFI',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    color: Colors.white,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
+  // ── FACT-CHECK IA ──
   Widget _buildFactCheckBanner(bool isMisinformation, String? message) {
     if (!isMisinformation || message == null || message.isEmpty) {
       return const SizedBox.shrink();
@@ -851,43 +916,6 @@ class _PostCardState extends ConsumerState<PostCard>
     );
   }
 
-  Widget _buildFollowBadge(bool isOwner) {
-    if (isOwner || _isFollowingLocal) return const SizedBox.shrink();
-    return Positioned(
-      bottom: -3,
-      right: -3,
-      child: GestureDetector(
-        onTap: () async {
-          if (_followBusy) return;
-          setState(() => _followBusy = true);
-          HapticFeedback.selectionClick();
-          setState(() => _isFollowingLocal = true);
-          try {
-            widget.onFollow?.call();
-          } catch (_) {
-            if (mounted) setState(() => _isFollowingLocal = false);
-          } finally {
-            if (mounted) setState(() => _followBusy = false);
-          }
-        },
-        child: Container(
-          width: 18,
-          height: 18,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _PostColors.gold,
-            border: Border.all(color: _PostColors.white, width: 2),
-          ),
-          child: const Icon(
-            Icons.add_rounded,
-            size: 12,
-            color: _PostColors.navyDeep,
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -931,6 +959,7 @@ class _PostCardState extends ConsumerState<PostCard>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Header
                       Row(
                         children: [
                           GestureDetector(
@@ -939,12 +968,72 @@ class _PostCardState extends ConsumerState<PostCard>
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                _HexAvatar(
-                                  size: 42,
-                                  imageUrl: post.authorAvatar,
-                                  ringWidth: 2.2,
+                                // L'Avatar avec le gradient
+                                Container(
+                                  padding: const EdgeInsets.all(2.2),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: _PostColors.gradientAvatarRing,
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: _PostColors.softBlue,
+                                    backgroundImage: post.authorAvatar != null &&
+                                            post.authorAvatar!.isNotEmpty
+                                        ? NetworkImage(post.authorAvatar!)
+                                        : null,
+                                    child: post.authorAvatar == null ||
+                                            post.authorAvatar!.isEmpty
+                                        ? const Icon(
+                                            Icons.person_rounded,
+                                            size: 19,
+                                            color: _PostColors.primaryDeep,
+                                          )
+                                        : null,
+                                  ),
                                 ),
-                                _buildFollowBadge(isOwner),
+                                // 🌟 BOUTON D'ABONNEMENT (+) 🌟
+                                if (!isOwner && !_isFollowingLocal)
+                                  Positioned(
+                                    bottom: -2,
+                                    right: -2,
+                                    child: GestureDetector(
+                                      onTap: () async {
+                                        if (_followBusy) return;
+                                        setState(() => _followBusy = true);
+                                        HapticFeedback.selectionClick();
+                                        setState(() => _isFollowingLocal = true);
+                                        try {
+                                          widget.onFollow?.call();
+                                        } catch (_) {
+                                          if (mounted) {
+                                            setState(() => _isFollowingLocal = false);
+                                          }
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() => _followBusy = false);
+                                          }
+                                        }
+                                      },
+                                      child: Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: _PostColors.gold,
+                                          border: Border.all(
+                                            color: _PostColors.white,
+                                            width: 2.5,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.add_rounded,
+                                          size: 14,
+                                          color: _PostColors.navyDeep,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -989,10 +1078,157 @@ class _PostCardState extends ConsumerState<PostCard>
                               ),
                             ),
                           ),
+                          PopupMenuButton<String>(
+                            icon: const Icon(
+                              Icons.more_vert_rounded,
+                              size: 18,
+                              color: _PostColors.primaryDeep,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            onSelected: (v) async {
+                              final service = ref.read(networkServiceProvider);
+                              switch (v) {
+                                case 'edit':
+                                  widget.onEdit?.call(); // 🌟 Action de modification
+                                  break;
+                                case 'delete':
+                                  // 🌟 BOÎTE DE DIALOGUE DE SUPPRESSION AMÉLIORÉE 🌟
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      title: const Row(
+                                        children: [
+                                          Icon(Icons.warning_amber_rounded, color: _PostColors.red),
+                                          SizedBox(width: 8),
+                                          Text('Supprimer', style: TextStyle(color: _PostColors.red)),
+                                        ],
+                                      ),
+                                      content: const Text(
+                                        'Êtes-vous sûr de vouloir supprimer définitivement cette publication ?',
+                                        style: TextStyle(color: _PostColors.textDark, height: 1.4),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: const Text('Annuler', style: TextStyle(color: _PostColors.textSecondary, fontWeight: FontWeight.w600)),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _PostColors.red,
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          child: const Text('Supprimer', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok == true) {
+                                    if (widget.onDelete != null) {
+                                      widget.onDelete!();
+                                    } else {
+                                      await service.deletePost(post.id);
+                                    }
+                                  }
+                                  break;
+                                case 'save':
+                                  await ref
+                                      .read(postItemProvider.notifier)
+                                      .toggleSave();
+                                  widget.onSave?.call();
+                                  break;
+                                case 'repost':
+                                  await _repost(post, ref);
+                                  break;
+                                case 'hide':
+                                  await service.hidePost(post.id);
+                                  break;
+                                case 'share':
+                                  widget.onShare?.call();
+                                  break;
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              // 🌟 OPTION MODIFIER POUR LE PROPRIÉTAIRE 🌟
+                              if (isOwner)
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit_outlined, size: 18, color: _PostColors.textDark),
+                                      SizedBox(width: 10),
+                                      Text('Modifier'),
+                                    ],
+                                  ),
+                                ),
+                              if (isOwner)
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline_rounded, size: 18, color: _PostColors.red),
+                                      SizedBox(width: 10),
+                                      Text('Supprimer', style: TextStyle(color: _PostColors.red)),
+                                    ],
+                                  ),
+                                ),
+                              const PopupMenuItem(
+                                value: 'save',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.bookmark_border_rounded, size: 18, color: _PostColors.textDark),
+                                    SizedBox(width: 10),
+                                    Text('Sauvegarder'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'repost',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.repeat_rounded, size: 18, color: _PostColors.textDark),
+                                    SizedBox(width: 10),
+                                    Text('Reposter'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'hide',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.visibility_off_outlined, size: 18, color: _PostColors.textDark),
+                                    SizedBox(width: 10),
+                                    Text('Masquer'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'share',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.share_outlined, size: 18, color: _PostColors.textDark),
+                                    SizedBox(width: 10),
+                                    Text('Partager'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
+
                       const SizedBox(height: 13),
 
+                      // Bandeau "a reposté"
                       if (post.isRepostCard)
                         const Padding(
                           padding: EdgeInsets.only(bottom: 8),
@@ -1015,6 +1251,7 @@ class _PostCardState extends ConsumerState<PostCard>
 
                       _buildPostContent(post),
 
+                      // 🔥 Post original ENCAPSULÉ AVEC STATS
                       if (post.isRepostCard &&
                           post.repostOfId != null &&
                           post.repostOfId!.isNotEmpty) ...[
@@ -1027,7 +1264,7 @@ class _PostCardState extends ConsumerState<PostCard>
                         post.factCheckMessage,
                       ),
 
-                      // 🌟 GESTION DU LECTEUR AUDIO AVEC WAVEFORM 🌟
+                      // 🌟 AFFICHAGE DU LECTEUR AUDIO 🌟
                       if (post.hasAudio && post.audioUrls.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _ThixWaveformAudioPlayer(audioUrl: post.audioUrls.first),
@@ -1046,6 +1283,7 @@ class _PostCardState extends ConsumerState<PostCard>
                         const SizedBox(height: 10),
                         _buildChallengeWidget(post),
                       ] else if (post.imageUrls.isNotEmpty && !post.isRepostCard) ...[
+                        // Empêcher l'image de s'afficher en double si c'est un repost
                         const SizedBox(height: 10),
                         _buildImageGrid(post.imageUrls, post.id),
                       ],
@@ -1053,6 +1291,7 @@ class _PostCardState extends ConsumerState<PostCard>
                       const SizedBox(height: 8),
                       const Divider(height: 1, color: _PostColors.border),
 
+                      // Actions
                       Row(
                         children: [
                           _actionPill(
@@ -1126,20 +1365,262 @@ class _PostCardState extends ConsumerState<PostCard>
   }
 
   Future<void> _repost(NetworkPost post, WidgetRef ref) async {
-    // ... (Code repost inchangé)
+    if (_isReposting) return;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Reposter'),
+        content: TextField(
+          controller: _quoteController,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'Commentaire optionnel',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _PostColors.primary,
+            ),
+            child: const Text('Reposter'),
+          ),
+        ],
+      ),
+    );
+    if (result != true) return;
+
+    setState(() => _isReposting = true);
+    final quote = _quoteController.text.trim();
+
+    try {
+      final created = await ref.read(networkServiceProvider).repostPost(
+            post.id,
+            quote: quote.isEmpty ? null : quote,
+          );
+
+      if (!mounted) return;
+
+      ref.read(postItemProvider.notifier).incRepost();
+
+      if (created != null) {
+        ref.read(feedProvider.notifier).addPostOnTop(created);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reposté sur votre fil'),
+          backgroundColor: _PostColors.green,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: _PostColors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isReposting = false);
+      _quoteController.clear();
+    }
   }
 }
 
 // ─────────────────────────────────────────────────────────────
+// NOUVEL EMBED POUR LES REPOSTS (Cliquable avec statistiques)
+// ─────────────────────────────────────────────────────────────
 class _OriginalPostEmbed extends ConsumerWidget {
   final String postId;
   const _OriginalPostEmbed({required this.postId});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(); // Ton code existant...
+    return FutureBuilder<NetworkPost?>(
+      future: ref.read(networkServiceProvider).getPostById(postId),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return Container(
+            height: 80,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _PostColors.background,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _PostColors.border),
+            ),
+            child: const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: _PostColors.primary,
+              ),
+            ),
+          );
+        }
+
+        final original = snap.data;
+        if (original == null) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _PostColors.background,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _PostColors.border),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, size: 18, color: _PostColors.textSecondary),
+                SizedBox(width: 8),
+                Text(
+                  'Publication d’origine indisponible',
+                  style: TextStyle(fontSize: 12, color: _PostColors.textSecondary),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: _PostColors.background,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _PostColors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                // Navigation propre pour voir le post original
+                context.push('/network/comments/${original.id}');
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Auteur du post original
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: _PostColors.softBlue,
+                          backgroundImage: original.authorAvatar != null &&
+                                  original.authorAvatar!.isNotEmpty
+                              ? NetworkImage(original.authorAvatar!)
+                              : null,
+                          child: original.authorAvatar == null ||
+                                  original.authorAvatar!.isEmpty
+                              ? const Icon(Icons.person,
+                                  size: 16, color: _PostColors.primaryDeep)
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            original.authorName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: _PostColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          timeago.format(original.createdAt.toLocal(), locale: 'fr'),
+                          style: const TextStyle(
+                              fontSize: 10, color: _PostColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                    
+                    // Contenu du post original
+                    if (original.content.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        original.content,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.35,
+                          color: _PostColors.textDark,
+                        ),
+                      ),
+                    ],
+                    
+                    // Image miniature
+                    if (original.imageUrls.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          original.imageUrls.first,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
+                    
+                    // Statistiques du post original
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, color: _PostColors.border),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _miniStatRow(Icons.favorite_border_rounded, _formatCountHelper(original.likesCount)),
+                        const SizedBox(width: 16),
+                        _miniStatRow(Icons.chat_bubble_outline_rounded, _formatCountHelper(original.commentsCount)),
+                        const SizedBox(width: 16),
+                        _miniStatRow(Icons.repeat_rounded, _formatCountHelper(original.repostsCount)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _miniStatRow(IconData icon, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: _PostColors.textSecondary),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: _PostColors.textSecondary,
+          ),
+        ),
+      ],
+    );
   }
 }
 
+// ─────────────────────────────────────────────────────────────
 class _FullScreenGallery extends StatefulWidget {
   final List<String> imageUrls;
   final int initialIndex;
@@ -1147,18 +1628,85 @@ class _FullScreenGallery extends StatefulWidget {
     required this.imageUrls,
     required this.initialIndex,
   });
+
   @override
   State<_FullScreenGallery> createState() => _FullScreenGalleryState();
 }
+
 class _FullScreenGalleryState extends State<_FullScreenGallery> {
-  // Ton code existant...
+  late final PageController _pageController;
+  late int _currentIndex;
+
   @override
-  Widget build(BuildContext context) => Container();
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.imageUrls.length,
+            onPageChanged: (i) => setState(() => _currentIndex = i),
+            itemBuilder: (_, index) => Center(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Image.network(
+                  widget.imageUrls[index],
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: SafeArea(
+              child: IconButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close, color: Colors.white),
+              ),
+            ),
+          ),
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              top: 16,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Center(
+                  child: Text(
+                    '${_currentIndex + 1} / ${widget.imageUrls.length}',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
-
-// 🌟 NOUVEAU : LE LECTEUR AUDIO "WAVEFORM" PREMIUM DE THIX PRO 🌟
-// Il simule une onde sonore élégante sans nécessiter de package complexe.
+// 🌟 LECTEUR AUDIO "WAVEFORM" PREMIUM THIX PRO 🌟
 class _ThixWaveformAudioPlayer extends StatefulWidget {
   final String audioUrl;
   const _ThixWaveformAudioPlayer({required this.audioUrl});
@@ -1173,7 +1721,6 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
-  // Un motif fixe de hauteurs pour créer une belle onde sonore statique.
   final List<double> _wavePattern = [
     0.3, 0.5, 0.4, 0.7, 0.9, 0.6, 0.3, 0.5, 0.8, 1.0, 0.7, 0.4,
     0.5, 0.8, 0.6, 0.4, 0.7, 0.9, 0.5, 0.3, 0.6, 0.8, 0.5, 0.4,
@@ -1210,7 +1757,6 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    // Progression actuelle de l'audio (de 0.0 à 1.0)
     final progress = _duration.inMilliseconds > 0
         ? _position.inMilliseconds / _duration.inMilliseconds
         : 0.0;
@@ -1218,7 +1764,7 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _PostColors.navyDeep, // Fond Premium THIX PRO
+        color: _PostColors.navyDeep,
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
@@ -1230,7 +1776,6 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
       ),
       child: Row(
         children: [
-          // Bouton Play/Pause Gold
           GestureDetector(
             onTap: () {
               if (_isPlaying) {
@@ -1254,20 +1799,16 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
             ),
           ),
           const SizedBox(width: 14),
-
-          // L'onde sonore simulée (Waveform)
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Calculer combien de barres on peut afficher dans l'espace restant
-                final barWidth = 4.0;
-                final spacing = 3.0;
-                final totalBarWidth = barWidth + spacing;
+                const barWidth = 4.0;
+                const spacing = 3.0;
+                const totalBarWidth = barWidth + spacing;
                 final barCount = (constraints.maxWidth / totalBarWidth).floor();
 
                 return GestureDetector(
                   onTapDown: (details) {
-                    // Permet à l'utilisateur de cliquer sur l'onde pour avancer
                     if (_duration.inMilliseconds > 0) {
                       final tapPosition = details.localPosition.dx;
                       final tapProgress = (tapPosition / constraints.maxWidth).clamp(0.0, 1.0);
@@ -1277,22 +1818,19 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
                   },
                   child: Container(
                     height: 38,
-                    color: Colors.transparent, // Rend toute la zone cliquable
+                    color: Colors.transparent,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: List.generate(barCount, (index) {
-                        // Utiliser le motif en boucle
                         final patternIndex = index % _wavePattern.length;
                         final baseHeight = _wavePattern[patternIndex];
-                        
-                        // Calculer si la barre est "déjà lue" (Or) ou "à venir" (Bleu clair opaque)
                         final barProgress = index / barCount;
                         final isPlayed = barProgress <= progress;
 
                         return Container(
                           width: barWidth,
                           height: 38 * baseHeight,
-                          margin: EdgeInsets.only(right: spacing),
+                          margin: const EdgeInsets.only(right: spacing),
                           decoration: BoxDecoration(
                             color: isPlayed ? _PostColors.gold : _PostColors.softBlue.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(2),
@@ -1305,9 +1843,7 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
               },
             ),
           ),
-          
           const SizedBox(width: 12),
-          // Affichage du chronomètre
           Text(
             _formatDuration(_duration.inSeconds > 0 && !_isPlaying && _position.inSeconds == 0 ? _duration : _position),
             style: const TextStyle(
