@@ -25,7 +25,7 @@ class _ThixColors {
   static const textDark = Color(0xFF10192E);
   static const textSecondary = Color(0xFF7386A8);
   static const red = Color(0xFFE5484D);
-
+static const softBlue = Color(0xFFEAF1FF);
   static const gradientGold = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
