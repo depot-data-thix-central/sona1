@@ -16,6 +16,10 @@ import 'widgets/create_story_dialog.dart';
 import 'widgets/post_card.dart';
 import 'widgets/story_viewer.dart';
 
+// IMPORTANT : Assure-toi d'importer ton LivePrepScreen si tu as créé le fichier.
+// Sinon, tu peux commenter la ligne d'import et l'action du bouton "Direct" en attendant.
+import 'package:thix_id/presentation/network/live/live_prep_screen.dart'; 
+
 class ThixColors {
   static const background = Color(0xFFF6F7FB);
   static const white = Color(0xFFFFFFFF);
@@ -175,7 +179,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
 
   Future<void> _init() async {
     final now = DateTime.now();
-    // Le refresh se fait seulement si inactif pendant > 1 min
     final needsRefresh = _lastRefreshTime == null ||
         now.difference(_lastRefreshTime!) > _refreshCooldown;
 
@@ -190,8 +193,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
 
   Future<void> _loadStories() async {
     try {
-      final data =
-          await ref.read(networkServiceProvider).getActiveStories();
+      final data = await ref.read(networkServiceProvider).getActiveStories();
       if (mounted) {
         setState(() {
           _stories = data;
@@ -242,7 +244,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   }
 
   Future<void> _openComments(String postId) async {
-    // Navigation douce seule, sans recharger le feed au retour
     _safePush('/network/comments/$postId');
   }
 
@@ -288,7 +289,10 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   child: _buildStoriesFacebook(currentUser.id),
                 ),
                 SliverToBoxAdapter(child: _buildFilters()),
-                SliverToBoxAdapter(child: _buildCreatePostBar()),
+                
+                // 🌟 REMPLACEMENT DE LA ZONE "QUOI DE NEUF PRO" PAR L'ESPACE LIVES & SPACES
+                SliverToBoxAdapter(child: _buildLiveAndSpacesSection()),
+                
                 if (_suggestions.isNotEmpty)
                   SliverToBoxAdapter(child: _buildSuggestions()),
                 feedAsync.when(
@@ -320,12 +324,12 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                           post: post,
                           currentProfileId: currentUser.id,
                           onLike: null,
-                          onComment: () => _openComments(post.id), // CORRECTION
+                          onComment: () => _openComments(post.id),
                           onShare: () => _showShareSheet(post),
                           onDelete: () => ref
                               .read(feedProvider.notifier)
-                              .deletePost(post.id), // CORRECTION : Suppression locale
-                          onRefresh: null, // CORRECTION : Pas de reload agressif
+                              .deletePost(post.id),
+                          onRefresh: null,
                         );
                       },
                     );
@@ -407,7 +411,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
           ),
         ),
       ],
-      // Liseré or — signature THIX ID, remplace la ligne neutre de Facebook
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(
@@ -483,10 +486,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       );
     }
 
-    // 1. Isoler tes propres stories
     final myStories = _stories.where((s) => s.userId == currentUserId).toList();
-
-    // 2. Grouper les stories des autres utilisateurs par leur ID (Finit les doublons !)
     final Map<String, List<NetworkStory>> groupedOtherStories = {};
     for (final s in _stories) {
       if (s.userId != currentUserId) {
@@ -494,7 +494,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       }
     }
 
-    // Liste unique des autres utilisateurs ayant posté
     final otherUsersList = groupedOtherStories.keys.toList();
 
     return Container(
@@ -508,8 +507,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
           itemCount: otherUsersList.length + 1,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (c, i) {
-
-            // CARTE 0 : TA PROPRE STORY
             if (i == 0) {
               return _FbStoryCard(
                 isMe: true,
@@ -530,10 +527,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               );
             }
 
-            // CARTES SUIVANTES : LES AUTRES UTILISATEURS (1 seule carte par personne)
             final userId = otherUsersList[i - 1];
             final userStories = groupedOtherStories[userId]!;
-            final firstStory = userStories.first; // Sert pour la miniature
+            final firstStory = userStories.first;
 
             return _FbStoryCard(
               isMe: false,
@@ -629,12 +625,12 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     );
   }
 
-  // ─────────────────────────── CREATE POST ───────────────────────────
+  // ─────────────────────────── NOUVEL ESPACE LIVES & SPACES ───────────────────────────
 
-  Widget _buildCreatePostBar() {
+  Widget _buildLiveAndSpacesSection() {
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       decoration: BoxDecoration(
         color: ThixColors.white,
         borderRadius: BorderRadius.circular(20),
@@ -648,40 +644,64 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // Titre de la section
+          const Row(
             children: [
-              const HexAvatar(size: 40, ringWidth: 2.5),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => showDialog(
-                    context: context,
-                    builder: (_) => const CreatePostDialog(),
-                  ),
-                  // Plus de reload global ici. La boite de dialogue gère déjà "addPostOnTop" pour afficher en direct.
-                  child: Container(
-                    height: 42,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: ThixColors.background,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    alignment: Alignment.centerLeft,
-                    child: const Text(
-                      'Quoi de neuf, pro ?',
-                      style: TextStyle(
-                        color: ThixColors.textSecondary,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                  ),
+              Icon(Icons.sensors_rounded, color: Color(0xFFE5484D), size: 18),
+              SizedBox(width: 6),
+              Text(
+                'En direct maintenant',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                  color: ThixColors.textDark,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+
+          // Liste Horizontale des Lives en cours (Données fictives pour l'UI)
+          SizedBox(
+            height: 110,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              children: [
+                _buildLiveCard(
+                  title: 'Stratégie Marketing 2026',
+                  host: 'Nathan Lumina',
+                  type: 'video',
+                  viewers: 342,
+                  color: ThixColors.primary,
+                ),
+                const SizedBox(width: 10),
+                _buildLiveCard(
+                  title: 'L\'avenir de la Tech en RDC',
+                  host: 'Sonathix Group',
+                  type: 'audio',
+                  viewers: 128,
+                  color: ThixColors.gold,
+                ),
+                const SizedBox(width: 10),
+                _buildLiveCard(
+                  title: 'Session Q&R avec les fondateurs',
+                  host: 'Thix ID Central',
+                  type: 'video',
+                  viewers: 89,
+                  color: ThixColors.navyDeep,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
           const Divider(height: 1, color: ThixColors.border),
+          const SizedBox(height: 10),
+
+          // Actions de création de contenu
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -691,6 +711,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                 Icons.sensors_rounded,
                 'Direct',
                 const Color(0xFFE0453C),
+                onTap: () {
+                  // Navigation vers l'écran de préparation du Live
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LivePrepScreen()),
+                  );
+                },
               ),
               _quickAction(
                 Icons.mic_rounded,
@@ -704,14 +731,112 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     );
   }
 
-  Widget _quickAction(IconData icon, String label, Color color) {
+  Widget _buildLiveCard({
+    required String title,
+    required String host,
+    required String type,
+    required int viewers,
+    required Color color,
+  }) {
+    final isVideo = type == 'video';
+    return Container(
+      width: 140,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [color.withValues(alpha: 0.8), color],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Icône en filigrane pour le style
+          Positioned(
+            right: -10,
+            bottom: -10,
+            child: Icon(
+              isVideo ? Icons.videocam_rounded : Icons.mic_rounded,
+              size: 70,
+              color: Colors.white.withValues(alpha: 0.15),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5484D),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'EN DIRECT',
+                        style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.visibility_rounded, color: Colors.white, size: 10),
+                        const SizedBox(width: 3),
+                        Text(
+                          viewers.toString(),
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  host,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickAction(IconData icon, String label, Color color, {VoidCallback? onTap}) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => showDialog(
+      onTap: onTap ?? () => showDialog(
         context: context,
         builder: (_) => const CreatePostDialog(),
       ),
-      // Pas de reload, addPostOnTop le fait en direct.
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         child: Row(
@@ -848,7 +973,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   }
 
   // ─────────────────────────── BOTTOM NAV ───────────────────────────
-  // 5 boutons identiques en taille et couleur — plus de FAB flottant.
 
   Widget _buildBottomNav(bool visible) {
     return AnimatedSlide(
@@ -1107,9 +1231,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
 }
 
 // ─────────────────────────────────────────────────────────────
-// STORY CARD — petit cadrement épuré : image encadrée en carré,
-// avatar hexagonal posé sur le coin, nom en dessous (plus de
-// texte incrusté sur dégradé sombre).
+// STORY CARD
 // ─────────────────────────────────────────────────────────────
 
 class _FbStoryCard extends StatelessWidget {
