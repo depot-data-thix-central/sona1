@@ -12,18 +12,17 @@ import 'package:thix_id/presentation/chat/widgets/chat_ephemeral_timer.dart';
 import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
 
 // ─────────────────────────────────────────────────────────────
-// CHARTE
+// CHARTE THIX ENTERPRISE (Fini le vert WhatsApp)
 // ─────────────────────────────────────────────────────────────
 class _C {
-  static const ownBubble = Color(0xFFDCF8C6);
+  static const primary = Color(0xFF2D6CDF); // Bleu THIX pour tes bulles
   static const otherBubble = Colors.white;
-  static const noteBubble = Color(0xFFFFF7ED);
+  static const noteBubble = Color(0xFFFFFBEB);
   static const searchBg = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8);
-  static const textMain = Color(0xFF0F172A);
-  static const textMuted = Color(0xFF64748B);
-  static const red = Color(0xFFEF4444);
+  static const textMain = Color(0xFF10192E);
+  static const textMuted = Color(0xFF7386A8);
+  static const red = Color(0xFFE5484D);
   static const orange = Color(0xFFF59E0B);
   static const gold = Color(0xFFE3B23C);
 }
@@ -34,6 +33,7 @@ class ChatMessageBubble extends ConsumerStatefulWidget {
   final VoidCallback? onReply;
   final void Function(String reaction)? onReaction;
   final VoidCallback? onDelete;
+  final void Function(String newContent)? onEdit; // 🌟 NOUVEAU: Callback pour l'édition
   final ChatMessage? replyToMessage;
   final bool isEphemeralActive;
   final bool isInternalNote;
@@ -46,6 +46,7 @@ class ChatMessageBubble extends ConsumerStatefulWidget {
     this.onReply,
     this.onReaction,
     this.onDelete,
+    this.onEdit, // 🌟 AJOUT
     this.replyToMessage,
     this.isEphemeralActive = false,
     this.isInternalNote = false,
@@ -64,7 +65,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
   static const _quickReactions = ['❤️', '😂', '🔥', '👍', '😮', '😢'];
 
   ChatMessage get m => widget.message;
-
   bool get _isNote => widget.isInternalNote || m.isInternalNote;
 
   bool get _shouldHideNote {
@@ -72,12 +72,14 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     return !widget.isAgentView;
   }
 
+  // 🌟 Couleurs dynamiques selon si c'est ton message ou celui de l'autre
   Color get _bubbleColor {
     if (_isNote) return _C.noteBubble;
-    return widget.isOwn ? _C.ownBubble : _C.otherBubble;
+    return widget.isOwn ? _C.primary : _C.otherBubble;
   }
 
-  Color get _textColor => _C.textMain;
+  Color get _textColor => (widget.isOwn && !_isNote) ? Colors.white : _C.textMain;
+  Color get _timeColor => (widget.isOwn && !_isNote) ? Colors.white70 : _C.textMuted;
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +140,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                   widget.isOwn ? Alignment.centerRight : Alignment.centerLeft,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.78,
+                  maxWidth: MediaQuery.of(context).size.width * 0.85, // 🌟 Élargi à 85% pour respirer
                 ),
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -148,23 +150,23 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                         left: widget.isOwn ? 40 : 4,
                         right: widget.isOwn ? 4 : 40,
                       ),
-                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                       decoration: BoxDecoration(
                         color: _bubbleColor,
                         borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(14),
-                          topRight: const Radius.circular(14),
-                          bottomLeft: Radius.circular(widget.isOwn ? 14 : 4),
-                          bottomRight: Radius.circular(widget.isOwn ? 4 : 14),
+                          topLeft: const Radius.circular(16),
+                          topRight: const Radius.circular(16),
+                          bottomLeft: Radius.circular(widget.isOwn ? 16 : 4),
+                          bottomRight: Radius.circular(widget.isOwn ? 4 : 16),
                         ),
                         border: _isNote
                             ? Border.all(color: _C.orange.withValues(alpha: 0.35))
                             : Border.all(color: _C.border.withValues(alpha: 0.6)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
+                            color: Colors.black.withOpacity(0.04),
                             blurRadius: 4,
-                            offset: const Offset(0, 1),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -183,6 +185,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
 
                           Row(
                             mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               if (m.isEphemeral || widget.isEphemeralActive) ...[
                                 ChatEphemeralTimer(
@@ -199,9 +202,9 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                               ],
                               Text(
                                 DateFormat('HH:mm').format(m.createdAt.toLocal()),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
-                                  color: _C.textMuted,
+                                  color: _timeColor,
                                 ),
                               ),
                               if (widget.isOwn) ...[
@@ -209,6 +212,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                                 MessageStatusTicks(
                                   isDelivered: m.isDelivered,
                                   isRead: m.isRead,
+                                  color: _timeColor, // 🌟 Adapté à la couleur du fond
                                 ),
                               ],
                             ],
@@ -276,7 +280,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                            RegExp(r'^[A-Za-z0-9+/]+={0,2}$').hasMatch(raw);
 
     if (looksEncrypted && !_isDecrypted) {
-      return _EncryptedBody(onUnlock: _unlock);
+      return _EncryptedBody(onUnlock: _unlock, isOwn: widget.isOwn);
     }
 
     final text = _isDecrypted ? (_decrypted ?? raw) : raw;
@@ -312,16 +316,16 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
             child: const Text('Annuler'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _C.primary),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Déverrouiller'),
+            child: const Text('Déverrouiller', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
     if (ok != true) return;
     try {
-      final plain =
-          EncryptionService.decryptMessage(m.content, ctrl.text.trim());
+      final plain = EncryptionService.decryptMessage(m.content, ctrl.text.trim());
       if (mounted) {
         setState(() {
           _isDecrypted = true;
@@ -337,6 +341,46 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
           ),
         );
       }
+    }
+  }
+
+  // 🌟 NOUVEAU: Boîte de dialogue pour MODIFIER le message
+  void _showEditDialog() async {
+    final ctrl = TextEditingController(text: _isDecrypted ? _decrypted : m.content);
+    
+    final newContent = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Modifier le message', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: ctrl,
+          maxLines: null,
+          keyboardType: TextInputType.multiline,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: _C.searchBg,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler', style: TextStyle(color: _C.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _C.primary),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (newContent != null && newContent.isNotEmpty && newContent != m.content) {
+      widget.onEdit?.call(newContent);
     }
   }
 
@@ -391,7 +435,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
               leading: const Icon(Icons.copy_rounded, color: _C.textMuted),
               title: const Text('Copier'),
               onTap: () {
-                Clipboard.setData(ClipboardData(text: m.content));
+                Clipboard.setData(ClipboardData(text: _isDecrypted ? _decrypted! : m.content));
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -401,6 +445,18 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                 );
               },
             ),
+            
+            // 🌟 NOUVEAU: Bouton "Modifier" affiché uniquement si c'est notre propre message (et pas une image/audio)
+            if (widget.isOwn && m.mediaUrl == null && !m.isDeleted)
+              ListTile(
+                leading: const Icon(Icons.edit_rounded, color: _C.textMain),
+                title: const Text('Modifier'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showEditDialog();
+                },
+              ),
+
             if (widget.isOwn)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: _C.red),
@@ -470,10 +526,10 @@ class _ReplyQuote extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.05),
+        color: Colors.black.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        border: const Border(
-          left: BorderSide(color: _C.primary, width: 3),
+        border: Border(
+          left: BorderSide(color: isOwn ? Colors.white : _C.primary, width: 3),
         ),
       ),
       child: Column(
@@ -481,17 +537,17 @@ class _ReplyQuote extends StatelessWidget {
         children: [
           Text(
             message.senderName.isNotEmpty ? message.senderName : 'Message',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: _C.primary,
+              fontWeight: FontWeight.w800,
+              color: isOwn ? Colors.white : _C.primary,
             ),
           ),
           Text(
             message.content,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: _C.textMuted),
+            style: TextStyle(fontSize: 12, color: isOwn ? Colors.white70 : _C.textMuted),
           ),
         ],
       ),
@@ -501,23 +557,27 @@ class _ReplyQuote extends StatelessWidget {
 
 class _EncryptedBody extends StatelessWidget {
   final VoidCallback onUnlock;
-  const _EncryptedBody({required this.onUnlock});
+  final bool isOwn;
+  const _EncryptedBody({required this.onUnlock, required this.isOwn});
 
   @override
   Widget build(BuildContext context) {
+    final color = isOwn ? Colors.white : _C.primary;
     return InkWell(
       onTap: onUnlock,
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.lock_rounded, size: 16, color: _C.primary),
-          SizedBox(width: 8),
-          Text(
-            'Message protégé — appuyer pour ouvrir',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: _C.primary,
+        children: [
+          Icon(Icons.lock_rounded, size: 16, color: color),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'Message protégé — appuyer',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],
@@ -549,13 +609,13 @@ class _ImageBody extends StatelessWidget {
           tag: tag,
           child: Image.network(
             url,
-            width: 220,
+            width: 240,
             height: 180,
             fit: BoxFit.cover,
             loadingBuilder: (_, child, progress) {
               if (progress == null) return child;
               return Container(
-                width: 220,
+                width: 240,
                 height: 180,
                 color: _C.searchBg,
                 child: const Center(
@@ -598,9 +658,9 @@ class _FileBody extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.04),
+        color: Colors.black.withOpacity(0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _C.border),
+        border: Border.all(color: isOwn ? Colors.white30 : _C.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -610,7 +670,7 @@ class _FileBody extends StatelessWidget {
                 ? Icons.videocam_rounded
                 : Icons.insert_drive_file_rounded,
             size: 18,
-            color: _C.primary,
+            color: isOwn ? Colors.white : _C.primary,
           ),
           const SizedBox(width: 8),
           Flexible(
@@ -618,10 +678,10 @@ class _FileBody extends StatelessWidget {
               name.isNotEmpty ? name : type,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: _C.textMain,
+                color: isOwn ? Colors.white : _C.textMain,
               ),
             ),
           ),
@@ -650,7 +710,7 @@ class _ReactionsChip extends StatelessWidget {
         border: Border.all(color: _C.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 4,
           ),
         ],
@@ -686,7 +746,7 @@ class _QuickReactions extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 8,
           ),
         ],
@@ -712,22 +772,24 @@ class _QuickReactions extends StatelessWidget {
 class MessageStatusTicks extends StatelessWidget {
   final bool isDelivered;
   final bool isRead;
+  final Color color;
 
   const MessageStatusTicks({
     super.key,
     this.isDelivered = true,
     required this.isRead,
+    this.color = _C.primary,
   });
 
   @override
   Widget build(BuildContext context) {
     if (isRead) {
-      return const Icon(Icons.done_all_rounded, size: 14, color: _C.primary);
+      return Icon(Icons.done_all_rounded, size: 14, color: color);
     }
     if (isDelivered) {
-      return const Icon(Icons.done_all_rounded, size: 14, color: _C.textMuted);
+      return Icon(Icons.done_all_rounded, size: 14, color: color.withOpacity(0.7));
     }
-    return const Icon(Icons.check_rounded, size: 14, color: _C.textMuted);
+    return Icon(Icons.check_rounded, size: 14, color: color.withOpacity(0.7));
   }
 }
 
