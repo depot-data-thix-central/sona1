@@ -414,7 +414,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPage()));
   }
 
-  // ─── GESTION AUDIO (WAVEFORM INTÉGRÉ) ───
+    // ─── GESTION AUDIO (ILLIMITÉ DANS LE CHAT) ───
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
@@ -429,7 +429,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         
         _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
           setState(() => _recordDuration++);
-          if (_recordDuration >= 120) _stopRecording(); // Limite 2 minutes
+          // 🌟 J'ai retiré la limite "if (_recordDuration >= 120) _stopRecording();"
+          // L'audio continuera de s'enregistrer jusqu'à ce que l'utilisateur appuie sur STOP.
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permission microphone requise')));
@@ -438,6 +439,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       debugPrint('Erreur record: $e');
     }
   }
+
 
   Future<void> _stopRecording() async {
     _recordTimer?.cancel();
@@ -913,7 +915,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       child: Row(
                         children: [
                           const Icon(Icons.mic, color: _C.red), const SizedBox(width: 12),
-                          Expanded(child: Text('Enregistrement... 00:${_recordDuration.toString().padLeft(2, '0')} / 02:00', style: const TextStyle(color: _C.red, fontWeight: FontWeight.w800))),
+                          Expanded(
+  child: Text(
+    'Enregistrement... ${(_recordDuration ~/ 60).toString().padLeft(2, '0')}:${(_recordDuration % 60).toString().padLeft(2, '0')}', 
+    style: const TextStyle(color: _C.red, fontWeight: FontWeight.w800)
+  )
+),
+
                           GestureDetector(onTap: _stopRecording, child: const Icon(Icons.stop_circle_rounded, color: _C.red, size: 30)),
                         ],
                       ),
