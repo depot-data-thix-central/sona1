@@ -79,7 +79,7 @@ dependencies:
   # Notifications & Sharing
   flutter_local_notifications: ^22.2.0
   permission_handler: ^13.0.0
-  share_plus: ^10.1.4
+  share_plus: ^10.0.0
 
     # Files & PDF
   file_picker: ^5.3.3
@@ -96,7 +96,7 @@ dependencies:
   # Sécurité / Chiffrement
   encrypt: ^5.0.3
   local_auth: ^3.0.2
-  flutter_secure_storage: ^11.0.0
+  flutter_secure_storage: ^9.2.2
 
   # Contacts
   flutter_contacts: ^2.3.1
