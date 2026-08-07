@@ -4,12 +4,14 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:http/http.dart' as http; // 🌟 IMPORT POUR RÉCUPÉRER L'AUDIO WEB
-import 'package:image_picker/image_picker.dart'; // 🌟 IMPORT POUR XFILE MOBILE
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/models/comment.dart';
@@ -18,6 +20,17 @@ import 'package:thix_id/features/network/presentation/providers/comments_provide
 import 'package:thix_id/presentation/network/widgets/post_card.dart';
 import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
+class _C {
+  static const bg = Color(0xFFF5F8FA);
+  static const bubbleBg = Color(0xFFF1F2F6);
+  static const primary = Color(0xFF2D6CDF);
+  static const navyDeep = Color(0xFF0A1F44);
+  static const gold = Color(0xFFE3B23C);
+  static const textDark = Color(0xFF10192E);
+  static const textGrey = Color(0xFF65676B);
+  static const red = Color(0xFFE5484D);
+}
 
 class CommentsPage extends ConsumerStatefulWidget {
   final String postId;
@@ -100,6 +113,10 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   @override
   void initState() {
     super.initState();
+    // 🌟 Écouteur unifié pour la pagination et la réactivité du bouton d'envoi (Micro/Send)
+    _controller.addListener(() {
+      setState(() {});
+    });
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 400) {
         ref.read(commentsProvider(widget.postId).notifier).loadMore();
@@ -127,13 +144,13 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     }
   }
 
-  // ─── LOGIQUE AUDIO (Vraie capture Web/Mobile) ───
+  // ─── LOGIQUE AUDIO ───
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
         await _audioRecorder.start(
           const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
-          path: '', // Fichier temp
+          path: '',
         );
         setState(() {
           _isRecording = true;
@@ -164,11 +181,9 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       if (path != null) {
         Uint8List bytes;
         if (kIsWeb) {
-          // 🌟 Sur le Web, Record génère un blob URL. On le télécharge en bytes :
           final response = await http.get(Uri.parse(path));
           bytes = response.bodyBytes;
         } else {
-          // 🌟 Sur Mobile, on lit le fichier
           final file = XFile(path);
           bytes = await file.readAsBytes();
         }
@@ -203,24 +218,20 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       String? audioUrl;
       String? imageUrl;
 
-      // 1. Upload de l'Audio si présent
       if (_audioBytes != null && _audioBytes!.isNotEmpty) {
         audioUrl = await ns.uploadAudioBytes(_audioBytes!);
       }
       
-      // 2. Upload de l'Image si présente
       if (_imageBytes != null && _imageBytes!.isNotEmpty) {
         imageUrl = await ns.uploadImageBytes(_imageBytes!, fileExtension: 'jpg', bucket: 'post_images');
       }
 
-      // 3. Définir le texte de fallback si le champ est vide
       String finalContent = text;
       if (finalContent.isEmpty) {
         if (audioUrl != null) finalContent = '🎤 Note vocale';
         else if (imageUrl != null) finalContent = '📷 Photo';
       }
 
-      // 4. Envoi direct via le NetworkService pour garantir le passage des URLs
       await ns.addComment(
         widget.postId,
         finalContent,
@@ -229,7 +240,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
         imageUrl: imageUrl,
       );
 
-      // 5. Rafraîchir la liste des commentaires à l'écran
       ref.invalidate(commentsProvider(widget.postId));
       
       setState(() {
@@ -329,11 +339,9 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     );
   }
 
-  // ─── TUILE DE COMMENTAIRE (Avec Audio et Image activés) ───
+  // ─── TUILE DE COMMENTAIRE ───
   Widget _buildCommentTile(Comment comment, String? currentUserId, {bool isRoot = true}) {
     final hasReplies = comment.replies.isNotEmpty;
-    
-    // 🌟 On vérifie maintenant les vraies variables
     final hasAudio = comment.audioUrl != null && comment.audioUrl!.isNotEmpty;
     final hasImage = comment.imageUrl != null && comment.imageUrl!.isNotEmpty;
 
@@ -391,7 +399,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                         child: Text(comment.content, style: const TextStyle(fontSize: 13.5, height: 1.4, color: Color(0xFF10192E)))
                       ),
 
-                    // Affichage de la photo
                     if (hasImage)
                       Padding(
                         padding: const EdgeInsets.only(left: 14, right: 14, top: 8),
@@ -401,7 +408,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                         ),
                       ),
                       
-                    // Affichage du lecteur Audio
                     if (hasAudio)
                       Padding(
                         padding: const EdgeInsets.only(left: 14, right: 14, top: 8),
@@ -465,8 +471,10 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     );
   }
 
-  // ─── BARRE DE SAISIE ───
+  // ─── BARRE DE SAISIE AVEC BOUTON DYNAMIQUE (Micro / Send) ───
   Widget _buildInputBar() {
+    final hasTextOrImage = _controller.text.trim().isNotEmpty || _imageBytes != null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -596,23 +604,24 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                   ),
                   const SizedBox(width: 8),
                   
-                  _controller.text.trim().isEmpty && _imageBytes == null
-                    ? CircleAvatar(
-                        radius: 20, 
-                        backgroundColor: const Color(0xFFE3B23C), 
-                        child: IconButton(
-                          icon: const Icon(Icons.mic_rounded, color: Colors.white, size: 20), 
-                          onPressed: _startRecording,
-                        )
-                      )
-                    : CircleAvatar(
-                        radius: 20, 
-                        backgroundColor: const Color(0xFF2D6CDF),
-                        child: IconButton(
-                          icon: _isSubmitting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, color: Colors.white, size: 18), 
-                          onPressed: _isSubmitting ? null : () => _submitComment()
-                        )
-                      ),
+                  // 🌟 BOUTON DYNAMIQUE : Micro Or (si vide) -> Disparaît et devient Send Bleu (dès qu'on tape du texte)
+                  GestureDetector(
+                    onTap: () {
+                      if (_isSubmitting) return;
+                      if (hasTextOrImage) {
+                        _submitComment();
+                      } else {
+                        _startRecording();
+                      }
+                    },
+                    child: CircleAvatar(
+                      radius: 20, 
+                      backgroundColor: hasTextOrImage ? const Color(0xFF2D6CDF) : const Color(0xFFE3B23C), 
+                      child: _isSubmitting 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+                          : Icon(hasTextOrImage ? Icons.send_rounded : Icons.mic_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
                 ]
               ),
 
