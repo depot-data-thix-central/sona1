@@ -11,6 +11,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
@@ -22,8 +26,6 @@ import 'package:thix_id/models/chat/group_info.dart';
 import 'package:thix_id/models/chat/call_status.dart';
 
 import 'package:thix_id/presentation/chat/widgets/chat_message_bubble.dart';
-import 'package:thix_id/presentation/chat/widgets/chat_input_bar.dart';
-import 'package:thix_id/presentation/chat/widgets/audio_recorder.dart';
 import 'package:thix_id/presentation/chat/encryption_service.dart';
 import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
@@ -32,29 +34,26 @@ import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
 
 // ─────────────────────────────────────────────────────────────
-// CHARTE THIX + STYLE WHATSAPP ENTERPRISE
+// CHARTE THIX CHAT ENTERPRISE
 // ─────────────────────────────────────────────────────────────
 class _C {
-  static const bg = Color(0xFFEFE6DD); // fond beige type WhatsApp
+  static const bg = Color(0xFFF5F7FA); // Fond clair et premium
   static const surface = Colors.white;
   static const surfaceAlt = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8);
-  static const primaryDeep = Color(0xFF123B7A);
+  static const primary = Color(0xFF2D6CDF); // Bleu THIX
+  static const primaryDeep = Color(0xFF0A1F44); // Navy Deep THIX
   static const primarySoft = Color(0xFFEFF6FF);
-  static const textMain = Color(0xFF0F172A);
-  static const textMuted = Color(0xFF64748B);
-  static const red = Color(0xFFEF4444);
-  static const green = Color(0xFF22C55E);
+  static const textMain = Color(0xFF10192E);
+  static const textMuted = Color(0xFF7386A8);
+  static const red = Color(0xFFE5484D);
+  static const green = Color(0xFF059669);
   static const orange = Color(0xFFF59E0B);
-  static const gold = Color(0xFFE3B23C);
-  static const bubbleOwn = Color(0xFFE7FFDB); // Vert WhatsApp classique
-  static const bubbleOther = Colors.white;
+  static const gold = Color(0xFFE3B23C); // Gold THIX
 }
 
 // Messages provider (family)
-final chatMessagesProvider = StateNotifierProvider.family<
-    ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
+final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
   return ChatMsgNotifier(ref.read(chatServiceProvider), conversationId);
 });
 
@@ -148,8 +147,7 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen>
-    with WidgetsBindingObserver {
+class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   final _inputController = TextEditingController();
   final _inputFocus = FocusNode();
@@ -164,6 +162,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   bool _otherUserTyping = false;
   bool _isSending = false;
 
+  // ─── AUDIO RECORDING (Directement intégré) ───
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  Timer? _recordTimer;
+  int _recordDuration = 0;
+  bool _isRecording = false;
+  Uint8List? _audioBytes;
+  String? _localAudioPath;
+
   List<PlatformFile> _selectedFiles = [];
 
   Timer? _typingTimer;
@@ -174,7 +180,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   StreamSubscription<List<UserStatus>>? _presenceSub;
 
   // ── Stickers organisés ──
-  static const List<String> _emojis = [
+  bool _showStickers = false;
+    static const List<String> _emojis = [
     '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹',
     '😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗',
     '😙','😚','🤩','🥳','🤗','🤔','🤭','🤫','🤥','😏',
@@ -221,10 +228,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     '🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼',
   ];
 
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
+    // 🌟 Écouteur pour rendre le bouton Micro/Send réactif
+    _inputController.addListener(() => setState(() {})); 
+
     ref.read(chatServiceProvider).startPresenceHeartbeat();
     _loadUserRole();
     _getParticipantInfo();
@@ -253,8 +265,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMore();
     }
   }
@@ -271,10 +282,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (row != null && mounted) {
         final role = (row['role'] ?? row['account_type'] ?? '').toString();
         setState(() {
-          _isAgent = role == 'agent' ||
-              role == 'admin' ||
-              role == 'support' ||
-              role == 'enterprise';
+          _isAgent = role == 'agent' || role == 'admin' || role == 'support' || role == 'enterprise';
         });
       }
     } catch (_) {}
@@ -283,8 +291,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _loadGroupMembers() async {
     if (!widget.conversation.isGroup) return;
     try {
-      final members =
-          await ref.read(chatServiceProvider).getGroupMembers(widget.conversationId);
+      final members = await ref.read(chatServiceProvider).getGroupMembers(widget.conversationId);
       if (mounted) setState(() => _groupMembers = members);
     } catch (e) {
       debugPrint('Error loading group members: $e');
@@ -302,6 +309,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _messageSub?.cancel();
     _presenceSub?.cancel();
     _typingChannel?.unsubscribe();
+    _recordTimer?.cancel();
+    _audioRecorder.dispose();
     ref.read(audioServiceProvider).dispose();
     super.dispose();
   }
@@ -315,50 +324,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOut,
-      );
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
     }
   }
 
+  // ─── PRESENCE ET REALTIME ───
   void _subscribeToPresence() {
     if (widget.conversation.isGroup) return;
     final svc = ref.read(chatServiceProvider);
-    final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id != svc.currentUserId,
-      orElse: () => '',
-    );
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
     if (otherId.isEmpty) return;
 
     _presenceSub = svc.subscribeToPresence([otherId]).listen((list) {
-      if (mounted && list.isNotEmpty) {
-        setState(() => _otherParticipant = list.first);
-      }
+      if (mounted && list.isNotEmpty) setState(() => _otherParticipant = list.first);
     });
   }
 
   Future<void> _getParticipantInfo() async {
     if (widget.conversation.isGroup) return;
     final svc = ref.read(chatServiceProvider);
-    final otherId = widget.conversation.participantIds.firstWhere(
-      (id) => id != svc.currentUserId,
-      orElse: () => '',
-    );
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
     if (otherId.isEmpty) return;
     final p = await svc.getUserPresence(otherId);
     if (mounted) setState(() => _otherParticipant = p);
   }
 
   void _subscribeToRealtime() {
-    _messageSub = ref
-        .read(chatServiceProvider)
-        .subscribeToMessages(widget.conversationId)
-        .listen((updated) {
-      ref
-          .read(chatMessagesProvider(widget.conversationId).notifier)
-          .upsertRealtime(updated);
+    _messageSub = ref.read(chatServiceProvider).subscribeToMessages(widget.conversationId).listen((updated) {
+      ref.read(chatMessagesProvider(widget.conversationId).notifier).upsertRealtime(updated);
       _markAsRead();
     });
   }
@@ -367,28 +360,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final cur = ref.read(chatServiceProvider).currentUserId;
     if (cur.isEmpty) return;
 
-    _typingChannel = Supabase.instance.client
-        .channel('typing:${widget.conversationId}')
-        .onBroadcast(
-          event: 'typing',
-          callback: (payload) {
-            final sid = payload['senderId'] as String?;
-            final typing = payload['isTyping'] as bool? ?? false;
-            if (sid != null && sid != cur && mounted) {
-              setState(() => _otherUserTyping = typing);
-            }
-          },
-        )
-        .subscribe();
+    _typingChannel = Supabase.instance.client.channel('typing:${widget.conversationId}').onBroadcast(
+      event: 'typing',
+      callback: (payload) {
+        final sid = payload['senderId'] as String?;
+        final typing = payload['isTyping'] as bool? ?? false;
+        if (sid != null && sid != cur && mounted) setState(() => _otherUserTyping = typing);
+      },
+    ).subscribe();
   }
 
   void _sendTypingStatus(bool t) {
     final cur = ref.read(chatServiceProvider).currentUserId;
     if (cur.isEmpty || _typingChannel == null) return;
-    _typingChannel!.sendBroadcastMessage(
-      event: 'typing',
-      payload: {'senderId': cur, 'isTyping': t},
-    );
+    _typingChannel!.sendBroadcastMessage(event: 'typing', payload: {'senderId': cur, 'isTyping': t});
   }
 
   void _onTypingChanged(String t) {
@@ -409,84 +394,110 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _startCall(CallType type) {
-  final svc = ref.read(chatServiceProvider);
-  final myId = svc.currentUserId;
-  final otherId = widget.conversation.participantIds.firstWhere(
-    (id) => id != myId,
-    orElse: () => '',
-  );
-  if (otherId.isEmpty) return;
+    final svc = ref.read(chatServiceProvider);
+    final myId = svc.currentUserId;
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != myId, orElse: () => '');
+    if (otherId.isEmpty) return;
 
-  ref.read(callProvider.notifier).start(
-        myUserId: myId,
-        calleeId: otherId,
-        calleeName: widget.conversation.displayName,
-        calleeAvatar: widget.conversation.displayAvatar,
-        type: type,
-      );
+    ref.read(callProvider.notifier).start(
+      myUserId: myId,
+      calleeId: otherId,
+      calleeName: widget.conversation.displayName,
+      calleeAvatar: widget.conversation.displayAvatar,
+      type: type,
+    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPage()));
+  }
 
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const CallPage()),
-  );
-}
+  // ─── GESTION AUDIO (WAVEFORM INTÉGRÉ) ───
+  Future<void> _startRecording() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000), path: '');
+        setState(() {
+          _isRecording = true;
+          _recordDuration = 0;
+          _audioBytes = null;
+          _localAudioPath = null;
+          _showStickers = false;
+        });
+        
+        _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          setState(() => _recordDuration++);
+          if (_recordDuration >= 120) _stopRecording(); // Limite 2 minutes
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permission microphone requise')));
+      }
+    } catch (e) {
+      debugPrint('Erreur record: $e');
+    }
+  }
 
+  Future<void> _stopRecording() async {
+    _recordTimer?.cancel();
+    try {
+      final path = await _audioRecorder.stop();
+      setState(() => _isRecording = false);
+      if (path != null) {
+        Uint8List bytes;
+        if (kIsWeb) {
+          final response = await http.get(Uri.parse(path));
+          bytes = response.bodyBytes;
+        } else {
+          final file = XFile(path);
+          bytes = await file.readAsBytes();
+        }
+        setState(() {
+          _audioBytes = bytes;
+          _localAudioPath = path;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur stop record: $e');
+    }
+  }
+
+  // ─── SOUMISSION GLOBALE (Texte, Fichiers, Audio) ───
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty && _selectedFiles.isEmpty) return;
+    if (text.isEmpty && _selectedFiles.isEmpty && _audioBytes == null) return;
     if (_isSending) return;
 
     final svc = ref.read(chatServiceProvider);
-
-    if (!widget.conversation.isGroup && !_isInternalNoteMode) {
-      final cur = svc.currentUserId;
-      if (cur.isNotEmpty) {
-        final otherId = widget.conversation.participantIds.firstWhere(
-          (id) => id != cur,
-          orElse: () => '',
-        );
-        if (otherId.isNotEmpty) {
-          final ok =
-              await ref.read(connectionServiceProvider).checkConnection(cur, otherId);
-          if (!ok && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Vous devez être connecté pour interagir'),
-                backgroundColor: _C.orange,
-              ),
-            );
-            return;
-          }
-        }
-      }
-    }
 
     _isTyping = false;
     _sendTypingStatus(false);
     setState(() => _isSending = true);
 
     try {
-      if (_selectedFiles.isNotEmpty) {
+      // 1. Envoi Audio
+      if (_audioBytes != null) {
+        final msg = await svc.sendAudioMessage(
+          conversationId: widget.conversationId,
+          audioData: _audioBytes!,
+          duration: _recordDuration > 0 ? _recordDuration : 1,
+          isEphemeral: _isEphemeral,
+          ephemeralDuration: _ephemeralDuration,
+          replyToId: _replyToId.isEmpty ? null : _replyToId,
+        );
+        ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
+      } 
+      // 2. Envoi Fichiers / Images
+      else if (_selectedFiles.isNotEmpty) {
         final filesToSend = List<PlatformFile>.from(_selectedFiles);
         setState(() => _selectedFiles.clear());
 
         await Future.wait(filesToSend.map((f) async {
-          final bytes =
-              f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
+          final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
           if (bytes == null) return;
-
           final ext = f.extension ?? 'jpg';
-          final url = await svc.uploadFileWithUniqueName(
-            'chat-media',
-            'messages/${widget.conversationId}',
-            Uint8List.fromList(bytes),
-            ext,
-          );
+          final url = await svc.uploadFileWithUniqueName('chat-media', 'messages/${widget.conversationId}', Uint8List.fromList(bytes), ext);
 
           if (url != null) {
             final msg = await svc.sendMessage(
               conversationId: widget.conversationId,
-              content: f.name,
+              content: text.isNotEmpty ? text : f.name,
               mediaUrl: url,
               mediaType: _getMediaType(ext),
               mediaName: f.name,
@@ -495,14 +506,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ephemeralDuration: _ephemeralDuration,
               replyToId: _replyToId.isEmpty ? null : _replyToId,
             );
-            ref
-                .read(chatMessagesProvider(widget.conversationId).notifier)
-                .addLocal(msg);
+            ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
           }
         }));
-      }
-
-      if (text.isNotEmpty && !text.startsWith('📎')) {
+      } 
+      // 3. Envoi Texte
+      else if (text.isNotEmpty) {
         final msg = await svc.sendMessage(
           conversationId: widget.conversationId,
           content: text,
@@ -510,15 +519,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           isEphemeral: _isEphemeral,
           ephemeralDuration: _isEphemeral ? _ephemeralDuration : null,
         );
-        ref
-            .read(chatMessagesProvider(widget.conversationId).notifier)
-            .addLocal(msg);
+        ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
       }
 
       if (mounted) {
         setState(() {
           _inputController.clear();
           _replyToId = '';
+          _audioBytes = null;
+          _localAudioPath = null;
           _isSending = false;
           if (_isInternalNoteMode) _isInternalNoteMode = false;
         });
@@ -527,109 +536,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } catch (e) {
       if (mounted) {
         setState(() => _isSending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
       }
     }
   }
 
-  void _showStickerPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (ctx) {
-        return DefaultTabController(
-          length: 3,
-          child: DraggableScrollableSheet(
-            initialChildSize: 0.52,
-            maxChildSize: 0.9,
-            minChildSize: 0.35,
-            expand: false,
-            builder: (_, scrollCtrl) {
-              return Column(
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _C.border,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const TabBar(
-                    labelColor: _C.primary,
-                    unselectedLabelColor: _C.textMuted,
-                    indicatorColor: _C.primary,
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                    tabs: [
-                      Tab(text: 'Emojis'),
-                      Tab(text: 'Réactions'),
-                      Tab(text: 'Drapeaux'),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _stickerGrid(_emojis, scrollCtrl, ctx),
-                        _stickerGrid(_reactions, scrollCtrl, ctx),
-                        _stickerGrid(_flags, scrollCtrl, ctx),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _stickerGrid(
-    List<String> items,
-    ScrollController scrollCtrl,
-    BuildContext sheetCtx,
-  ) {
-    return GridView.builder(
-      controller: scrollCtrl,
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 8,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
-      ),
-      itemCount: items.length,
-      itemBuilder: (_, i) {
-        return InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () {
-            Navigator.pop(sheetCtx);
-            _inputController.text += items[i];
-            _inputController.selection = TextSelection.fromPosition(
-              TextPosition(offset: _inputController.text.length),
-            );
-          },
-          child: Center(
-            child: Text(items[i], style: const TextStyle(fontSize: 26)),
-          ),
-        );
-      },
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // MODIFICATION : MINUTEUR ÉPHÉMÈRE AVEC CHAMP PERSONNALISÉ
-  // ─────────────────────────────────────────────────────────────
+  // ─── OPTIONS ENTREPRISE ───
   void _showEphemeralTimerDialog() {
     bool showCustomInput = false;
     final customTimeCtrl = TextEditingController();
@@ -637,11 +549,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true, // Permet au bottom sheet de monter avec le clavier
+      isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           return Padding(
-            // Padding dynamique pour éviter que le clavier ne cache le champ
             padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
             child: Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -652,23 +563,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _C.border,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Message éphémère',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                  ),
+                  const Text('Message éphémère', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   const SizedBox(height: 12),
                   
                   if (!showCustomInput) ...[
-                    // Options prédéfinies
                     ...[
                       ('Désactivé', null),
                       ('10 secondes', 10),
@@ -679,64 +579,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       final selected = _ephemeralDuration == e.$2;
                       return ListTile(
                         title: Text(e.$1),
-                        trailing: selected
-                            ? const Icon(Icons.check_circle, color: _C.primary)
-                            : null,
+                        trailing: selected ? const Icon(Icons.check_circle, color: _C.primary) : null,
                         onTap: () {
-                          setState(() {
-                            _ephemeralDuration = e.$2;
-                            _isEphemeral = e.$2 != null;
-                          });
+                          setState(() { _ephemeralDuration = e.$2; _isEphemeral = e.$2 != null; });
                           Navigator.pop(ctx);
                         },
                       );
                     }),
-                    // Bouton pour activer le champ personnalisé
                     ListTile(
                       title: const Text('Personnalisé...', style: TextStyle(color: _C.primary, fontWeight: FontWeight.w600)),
                       leading: const Icon(Icons.timer_outlined, color: _C.primary),
-                      onTap: () {
-                        setModalState(() => showCustomInput = true);
-                      },
+                      onTap: () => setModalState(() => showCustomInput = true),
                     ),
                   ] else ...[
-                    // Champ de saisie personnalisé
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: Row(
                         children: [
                           Expanded(
                             child: TextField(
-                              controller: customTimeCtrl,
-                              keyboardType: TextInputType.number,
-                              autofocus: true,
-                              decoration: InputDecoration(
-                                labelText: 'Durée en secondes',
-                                hintText: 'Ex: 45',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                              ),
+                              controller: customTimeCtrl, keyboardType: TextInputType.number, autofocus: true,
+                              decoration: InputDecoration(labelText: 'Durée en secondes', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), contentPadding: const EdgeInsets.symmetric(horizontal: 16)),
                             ),
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _C.primary,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                            ),
+                            style: ElevatedButton.styleFrom(backgroundColor: _C.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16)),
                             onPressed: () {
                               final val = int.tryParse(customTimeCtrl.text.trim());
                               if (val != null && val > 0) {
-                                setState(() {
-                                  _ephemeralDuration = val;
-                                  _isEphemeral = true;
-                                });
+                                setState(() { _ephemeralDuration = val; _isEphemeral = true; });
                                 Navigator.pop(ctx);
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Veuillez entrer un nombre valide.'), backgroundColor: _C.orange)
-                                );
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nombre invalide.'), backgroundColor: _C.orange));
                               }
                             },
                             child: const Text('Valider', style: TextStyle(color: Colors.white)),
@@ -744,10 +619,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         ],
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => setModalState(() => showCustomInput = false),
-                      child: const Text('Retour aux options', style: TextStyle(color: _C.textMuted)),
-                    )
+                    TextButton(onPressed: () => setModalState(() => showCustomInput = false), child: const Text('Retour', style: TextStyle(color: _C.textMuted)))
                   ]
                 ],
               ),
@@ -768,17 +640,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: msgCtrl,
-              decoration: const InputDecoration(labelText: 'Message'),
-              maxLines: 3,
-            ),
+            TextField(controller: msgCtrl, decoration: const InputDecoration(labelText: 'Message'), maxLines: 3),
             const SizedBox(height: 12),
-            TextField(
-              controller: passCtrl,
-              decoration: const InputDecoration(labelText: 'Mot de passe'),
-              obscureText: true,
-            ),
+            TextField(controller: passCtrl, decoration: const InputDecoration(labelText: 'Mot de passe'), obscureText: true),
           ],
         ),
         actions: [
@@ -787,28 +651,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             style: ElevatedButton.styleFrom(backgroundColor: _C.primary),
             onPressed: () async {
               if (msgCtrl.text.isEmpty || passCtrl.text.isEmpty) return;
-              final enc =
-                  EncryptionService.encryptMessage(msgCtrl.text, passCtrl.text);
+              final enc = EncryptionService.encryptMessage(msgCtrl.text, passCtrl.text);
               Navigator.pop(ctx);
               try {
                 final msg = await ref.read(chatServiceProvider).sendMessage(
-                      conversationId: widget.conversationId,
-                      content: enc,
-                      replyToId: _replyToId.isEmpty ? null : _replyToId,
-                      isEphemeral: _isEphemeral,
-                      ephemeralDuration: _ephemeralDuration,
+                      conversationId: widget.conversationId, content: enc, replyToId: _replyToId.isEmpty ? null : _replyToId, isEphemeral: _isEphemeral, ephemeralDuration: _ephemeralDuration,
                     );
-                ref
-                    .read(chatMessagesProvider(widget.conversationId).notifier)
-                    .addLocal(msg);
+                ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
                 if (mounted) setState(() => _replyToId = '');
                 _scrollToBottom();
               } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red),
-                  );
-                }
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
               }
             },
             child: const Text('Envoyer', style: TextStyle(color: Colors.white)),
@@ -818,168 +671,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  void _startAudioRecording() async {
-    final st = await Permission.microphone.request();
-    if (st.isGranted) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: AudioRecorderWidget(
-            audioService: ref.read(audioServiceProvider),
-            onRecordingComplete: (p, d) {
-              Navigator.pop(ctx);
-              _sendAudio(p, d);
-            },
-            onRecordingCanceled: () => Navigator.pop(ctx),
-            maxDuration: 120,
-          ),
-        ),
-      );
-    } else if (st.isPermanentlyDenied) {
-      openAppSettings();
-    }
-  }
-
-  Future<void> _sendAudio(String path, int dur) async {
+  Future<void> _pickFile() async {
     try {
-      final bytes = await File(path).readAsBytes();
-      final msg = await ref.read(chatServiceProvider).sendAudioMessage(
-            conversationId: widget.conversationId,
-            audioData: Uint8List.fromList(bytes),
-            duration: dur,
-            isEphemeral: _isEphemeral,
-            ephemeralDuration: _ephemeralDuration,
-            replyToId: _replyToId.isEmpty ? null : _replyToId,
-          );
-      ref
-          .read(chatMessagesProvider(widget.conversationId).notifier)
-          .addLocal(msg);
-      if (mounted) setState(() => _replyToId = '');
-      _scrollToBottom();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur audio: $e'), backgroundColor: _C.red),
-        );
-      }
-    }
-  }
-
-  void _showAttachmentMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: _C.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _C.border,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(Icons.attach_file_rounded, color: _C.primary),
-                  SizedBox(width: 10),
-                  Text(
-                    'Joindre un fichier',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                  ),
-                ],
-              ),
-            ),
-            _attachTile(Icons.image_rounded, _C.gold, 'Photo(s)', FileType.image, ctx),
-            _attachTile(Icons.videocam_rounded, _C.primary, 'Vidéo(s)', FileType.video, ctx),
-            _attachTile(
-              Icons.insert_drive_file_rounded,
-              _C.textMain,
-              'Document(s)',
-              FileType.any,
-              ctx,
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _attachTile(
-    IconData icon,
-    Color color,
-    String title,
-    FileType type,
-    BuildContext ctx,
-  ) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: color),
-      ),
-      title: Text(title),
-      onTap: () {
-        Navigator.pop(ctx);
-        _pickFile(type: type);
-      },
-    );
-  }
-
-  Future<void> _pickFile({FileType type = FileType.any}) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: type,
-        withData: true,
-      );
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true, withData: true);
       if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _selectedFiles.addAll(result.files);
-          if (_inputController.text.trim().isEmpty) {
-            _inputController.text = '📎 ${_selectedFiles.length} fichier(s)';
-          }
-        });
+        setState(() => _selectedFiles.addAll(result.files));
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
     }
   }
 
-  void _removeFile(int index) {
-    setState(() {
-      _selectedFiles.removeAt(index);
-      if (_selectedFiles.isEmpty && _inputController.text.startsWith('📎')) {
-        _inputController.clear();
-      } else if (_selectedFiles.isNotEmpty &&
-          _inputController.text.startsWith('📎')) {
-        _inputController.text = '📎 ${_selectedFiles.length} fichier(s)';
-      }
-    });
-  }
+  void _removeFile(int index) => setState(() => _selectedFiles.removeAt(index));
 
   String _getMediaType(String ext) {
     const img = {'jpg', 'jpeg', 'png', 'gif', 'webp'};
@@ -993,50 +696,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _escalateConversation() {
-    context.pushNamed(
-      'chatEscalate',
-      pathParameters: {'conversationId': widget.conversationId},
-      queryParameters: {
-        'agentId': ref.read(chatServiceProvider).currentUserId,
-        'agentName': 'Agent',
-      },
-    );
+    context.pushNamed('chatEscalate', pathParameters: {'conversationId': widget.conversationId}, queryParameters: {'agentId': ref.read(chatServiceProvider).currentUserId, 'agentName': 'Agent'});
   }
 
   void _viewEscalationHistory() {
-    context.pushNamed(
-      'chatEscalationHistory',
-      pathParameters: {'conversationId': widget.conversationId},
-    );
+    context.pushNamed('chatEscalationHistory', pathParameters: {'conversationId': widget.conversationId});
   }
 
   void _toggleInternalNoteMode() {
     setState(() => _isInternalNoteMode = !_isInternalNoteMode);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isInternalNoteMode ? 'Mode note interne ON' : 'Mode note interne OFF',
-        ),
-        backgroundColor: _isInternalNoteMode ? _C.orange : _C.textMuted,
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isInternalNoteMode ? 'Mode note interne ON' : 'Mode note interne OFF'), backgroundColor: _isInternalNoteMode ? _C.orange : _C.textMuted));
   }
 
   String _getPresenceText(UserStatus status) {
     final lastSeen = status.lastSeenAt;
     final diff = DateTime.now().difference(lastSeen);
-    if (status.status == 'online' && diff.inMinutes <= 2) {
-      return 'En ligne';
-    }
+    if (status.status == 'online' && diff.inMinutes <= 2) return 'En ligne';
     return 'Vu ${_formatLastSeen(lastSeen)}';
   }
 
   bool get _isOnline {
-    if (_otherParticipant == null) {
-      return false;
-    }
-    final diff = DateTime.now().difference(_otherParticipant!.lastSeenAt);
-    return _otherParticipant!.status == 'online' && diff.inMinutes <= 2;
+    if (_otherParticipant == null) return false;
+    return _otherParticipant!.status == 'online' && DateTime.now().difference(_otherParticipant!.lastSeenAt).inMinutes <= 2;
+  }
+
+  String _formatLastSeen(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inDays == 0) return 'à ${DateFormat('HH:mm').format(d)}';
+    if (diff.inDays == 1) return 'hier à ${DateFormat('HH:mm').format(d)}';
+    return 'le ${DateFormat('dd/MM/yyyy').format(d)}';
   }
 
   // ─────────────────────── UI ───────────────────────
@@ -1044,20 +732,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   @override
   Widget build(BuildContext context) {
     final messages = ref.watch(chatMessagesProvider(widget.conversationId));
-    final msgNotifier =
-        ref.watch(chatMessagesProvider(widget.conversationId).notifier);
+    final msgNotifier = ref.watch(chatMessagesProvider(widget.conversationId).notifier);
 
     return Scaffold(
       backgroundColor: _C.bg,
       appBar: _buildAppBar(),
       body: Stack(
         children: [
-          // Fond Thix Chat Doodle façon WhatsApp
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _WhatsAppDoodlePainter(),
-            ),
-          ),
+          // 🌟 NOUVEAU FOND THIX CHAT WATERMARK
+          Positioned.fill(child: CustomPaint(painter: _ThixChatBackgroundPainter())),
+          
           Column(
             children: [
               Expanded(
@@ -1067,112 +751,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       controller: _scrollController,
                       reverse: true,
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                      itemCount:
-                          messages.length + (msgNotifier.loadingMore ? 1 : 0),
+                      itemCount: messages.length + (msgNotifier.loadingMore ? 1 : 0),
                       itemBuilder: (ctx, i) {
-                        if (i == messages.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: _C.primary,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
+                        if (i == messages.length) return const Center(child: Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary))));
 
                         final msg = messages[i];
-                        final isOwn = msg.senderId ==
-                            ref.read(chatServiceProvider).currentUserId;
+                        final isOwn = msg.senderId == ref.read(chatServiceProvider).currentUserId;
 
                         return ChatMessageBubble(
                           message: msg,
                           isOwn: isOwn,
                           onReply: () => setState(() => _replyToId = msg.id),
                           onDelete: () async {
-                            ref
-                                .read(chatMessagesProvider(widget.conversationId)
-                                    .notifier)
-                                .removeLocal(msg.id);
-                            if (isOwn) {
-                              try {
-                                await ref
-                                    .read(chatServiceProvider)
-                                    .deleteMessage(msg.id);
-                              } catch (_) {}
-                            }
+                            ref.read(chatMessagesProvider(widget.conversationId).notifier).removeLocal(msg.id);
+                            if (isOwn) try { await ref.read(chatServiceProvider).deleteMessage(msg.id); } catch (_) {}
                           },
-                          onReaction: (r) => ref
-                              .read(chatServiceProvider)
-                              .toggleReaction(msg.id, r),
-                          replyToMessage: msg.replyToId != null
-                              ? messages
-                                  .where((m) => m.id == msg.replyToId)
-                                  .firstOrNull
-                              : null,
+                          onReaction: (r) => ref.read(chatServiceProvider).toggleReaction(msg.id, r),
+                          replyToMessage: msg.replyToId != null ? messages.where((m) => m.id == msg.replyToId).firstOrNull : null,
                           isEphemeralActive: msg.isEphemeral,
                           isInternalNote: msg.isInternalNote,
                           isAgentView: _isAgent,
                         );
                       },
                     ),
-                    if (_otherUserTyping)
-                      Positioned(
-                        bottom: 10,
-                        left: 16,
-                        child: _TypingPill(),
-                      ),
+                    if (_otherUserTyping) Positioned(bottom: 10, left: 16, child: _TypingPill()),
                   ],
                 ),
               ),
 
-              // Banner reply
               if (_replyToId.isNotEmpty) _ReplyBanner(
-                text: messages
-                    .firstWhere(
-                      (m) => m.id == _replyToId,
-                      orElse: () => messages.isNotEmpty
-                          ? messages.first
-                          : ChatMessage(
-                              id: '',
-                              conversationId: '',
-                              senderId: '',
-                              senderName: '',
-                              content: '',
-                              createdAt: DateTime.now(),
-                            ),
-                    )
-                    .content,
+                text: messages.firstWhere((m) => m.id == _replyToId, orElse: () => messages.first).content,
                 onClose: () => setState(() => _replyToId = ''),
               ),
 
-              // Fichiers sélectionnés
-              if (_selectedFiles.isNotEmpty) _FilesPreview(
-                files: _selectedFiles,
-                onRemove: _removeFile,
-              ),
+              // Barre de saisie intelligente
+              _buildInputBar(),
 
-              // Input
-              ChatInputBar(
-                controller: _inputController,
-                focusNode: _inputFocus,
-                onSend: _sendMessage,
-                isSending: _isSending,
-                onAttach: _showAttachmentMenu,
-                onAudio: _startAudioRecording,
-                onSecureMessage: _showPasswordProtectDialog,
-                onEphemeralToggle: _showEphemeralTimerDialog,
-                isEphemeral: _isEphemeral,
-                onTyping: _onTypingChanged,
-                onInternalNoteToggle: _isAgent ? _toggleInternalNoteMode : null,
-                onStickerTap: _showStickerPicker,
-                isInternalNote: _isInternalNoteMode,
-              ),
+              if (_showStickers) _buildStickerPicker(),
             ],
           ),
         ],
@@ -1183,51 +798,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
-      elevation: 0.8,
-      shadowColor: Colors.black12,
-      titleSpacing: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain),
-        onPressed: () {
-          _markAsRead();
-          context.pop();
-        },
-      ),
+      elevation: 0.8, shadowColor: Colors.black12, titleSpacing: 0,
+      leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain), onPressed: () { _markAsRead(); context.pop(); }),
       title: Row(
         children: [
           Stack(
             children: [
               CircleAvatar(
-                radius: 20,
-                backgroundColor: _C.surfaceAlt,
+                radius: 20, backgroundColor: _C.surfaceAlt,
                 child: widget.conversation.isGroup
                     ? const Icon(Icons.groups_rounded, color: _C.textMuted)
-                    : ClipOval(
-                        child: Image.network(
-                          widget.conversation.displayAvatar ??
-                              'https://i.pravatar.cc/150?img=11',
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.person, color: _C.textMuted),
-                        ),
-                      ),
+                    : ClipOval(child: Image.network(widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11', width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: _C.textMuted))),
               ),
-              if (!widget.conversation.isGroup && _isOnline)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: _C.green,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
+              if (!widget.conversation.isGroup && _isOnline) Positioned(right: 0, bottom: 0, child: Container(width: 12, height: 12, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))),
             ],
           ),
           const SizedBox(width: 12),
@@ -1235,97 +818,204 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.conversation.displayName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: _C.textMain,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(widget.conversation.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _C.textMain), maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (!widget.conversation.isGroup && _otherParticipant != null)
-                  Text(
-                    _getPresenceText(_otherParticipant!),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _isOnline ? _C.green : _C.textMuted,
-                      fontWeight: _isOnline ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  )
+                  Text(_getPresenceText(_otherParticipant!), style: TextStyle(fontSize: 12, color: _isOnline ? _C.green : _C.textMuted, fontWeight: _isOnline ? FontWeight.w600 : FontWeight.w400))
                 else if (widget.conversation.isGroup)
-                  Text(
-                    '${_groupMembers.length} membres',
-                    style: const TextStyle(fontSize: 12, color: _C.textMuted),
-                  ),
+                  Text('${_groupMembers.length} membres', style: const TextStyle(fontSize: 12, color: _C.textMuted)),
               ],
             ),
           ),
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.videocam_outlined, color: _C.primary, size: 26),
-          onPressed: () => _startCall(CallType.video),
-        ),
-        IconButton(
-          icon: const Icon(Icons.call_outlined, color: _C.primary, size: 24),
-          onPressed: () => _startCall(CallType.audio),
-        ),
+        IconButton(icon: const Icon(Icons.videocam_outlined, color: _C.primary, size: 26), onPressed: () => _startCall(CallType.video)),
+        IconButton(icon: const Icon(Icons.call_outlined, color: _C.primary, size: 24), onPressed: () => _startCall(CallType.audio)),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded, color: _C.textMain),
-          color: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          color: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           onSelected: (v) {
             if (v == 'escalate') _escalateConversation();
             else if (v == 'history') _viewEscalationHistory();
-            else if (v == 'group') {
-              GoRouter.of(context).go('/chat/group/${widget.conversationId}/info');
-            }
+            else if (v == 'group') GoRouter.of(context).go('/chat/group/${widget.conversationId}/info');
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(
-              value: 'escalate',
-              child: Row(children: [
-                Icon(Icons.arrow_upward, color: _C.orange, size: 20),
-                SizedBox(width: 10),
-                Text('Escalader'),
-              ]),
-            ),
-            const PopupMenuItem(
-              value: 'history',
-              child: Row(children: [
-                Icon(Icons.history, color: _C.primary, size: 20),
-                SizedBox(width: 10),
-                Text('Historique'),
-              ]),
-            ),
-            if (widget.conversation.isGroup)
-              const PopupMenuItem(
-                value: 'group',
-                child: Row(children: [
-                  Icon(Icons.info_outline, color: _C.textMuted, size: 20),
-                  SizedBox(width: 10),
-                  Text('Infos groupe'),
-                ]),
-              ),
+            const PopupMenuItem(value: 'escalate', child: Row(children: [Icon(Icons.arrow_upward, color: _C.orange, size: 20), SizedBox(width: 10), Text('Escalader')])),
+            const PopupMenuItem(value: 'history', child: Row(children: [Icon(Icons.history, color: _C.primary, size: 20), SizedBox(width: 10), Text('Historique')])),
+            if (widget.conversation.isGroup) const PopupMenuItem(value: 'group', child: Row(children: [Icon(Icons.info_outline, color: _C.textMuted, size: 20), SizedBox(width: 10), Text('Infos groupe')])),
           ],
         ),
       ],
     );
   }
 
-  String _formatLastSeen(DateTime d) {
-    final diff = DateTime.now().difference(d);
-    if (diff.inDays == 0) return 'à ${DateFormat('HH:mm').format(d)}';
-    if (diff.inDays == 1) return 'hier à ${DateFormat('HH:mm').format(d)}';
-    return 'le ${DateFormat('dd/MM/yyyy').format(d)}';
+  // ─── BARRE DE SAISIE UNIFIÉE THIX PRO (Avec Row Options) ───
+  Widget _buildInputBar() {
+    final hasTextOrImage = _inputController.text.trim().isNotEmpty || _selectedFiles.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, -2))]
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 1. Barre d'options (Fichier, Sticker, Éphémère, Protégé)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    _optionButton(Icons.attach_file_rounded, 'Fichier', _pickFile),
+                    _optionButton(Icons.sentiment_satisfied_alt_rounded, 'Sticker', () { FocusScope.of(context).unfocus(); setState(() => _showStickers = !_showStickers); }, isActive: _showStickers),
+                    _optionButton(Icons.timer_outlined, 'Éphémère', _showEphemeralTimerDialog, isActive: _isEphemeral),
+                    _optionButton(Icons.lock_outline_rounded, 'Protégé', _showPasswordProtectDialog),
+                    if (_isAgent) _optionButton(Icons.note_alt_outlined, 'Note Int.', _toggleInternalNoteMode, isActive: _isInternalNoteMode),
+                  ],
+                ),
+              ),
+            ),
+
+            // 2. Fichiers sélectionnés
+            if (_selectedFiles.isNotEmpty) _FilesPreview(files: _selectedFiles, onRemove: _removeFile),
+
+            // 3. Zone de saisie principale
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: _localAudioPath != null && !_isRecording
+                // Mode Pré-écoute Audio
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(color: _C.navyDeep, borderRadius: BorderRadius.circular(24)),
+                    child: Row(
+                      children: [
+                        Expanded(child: _ChatWaveformAudioPlayer(audioUrl: _localAudioPath!, isLocal: true)),
+                        IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.white70), onPressed: () => setState(() { _audioBytes = null; _localAudioPath = null; })),
+                        CircleAvatar(radius: 16, backgroundColor: _C.primary, child: IconButton(icon: _isSending ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.send_rounded, color: Colors.white, size: 14), onPressed: _isSending ? null : () => _sendMessage())),
+                      ],
+                    ),
+                  )
+                // Mode Enregistrement en cours
+                : _isRecording
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(color: _C.red.withOpacity(0.08), borderRadius: BorderRadius.circular(24)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.mic, color: _C.red), const SizedBox(width: 12),
+                          Expanded(child: Text('Enregistrement... 00:${_recordDuration.toString().padLeft(2, '0')} / 02:00', style: const TextStyle(color: _C.red, fontWeight: FontWeight.w800))),
+                          GestureDetector(onTap: _stopRecording, child: const Icon(Icons.stop_circle_rounded, color: _C.red, size: 30)),
+                        ],
+                      ),
+                    )
+                  // Mode Normal (Saisie Texte)
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(color: const Color(0xFFF1F2F6), borderRadius: BorderRadius.circular(24)),
+                            child: TextField(
+                              controller: _inputController, focusNode: _focusNode, maxLines: 5, minLines: 1, textCapitalization: TextCapitalization.sentences,
+                              onTap: () { if (_showStickers) setState(() => _showStickers = false); },
+                              decoration: const InputDecoration(hintText: 'Écrire un message...', hintStyle: TextStyle(color: _C.textMuted), border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        
+                        // Bouton Magique (Micro Doré -> Send Bleu)
+                        GestureDetector(
+                          onTap: () {
+                            if (_isSending) return;
+                            if (hasTextOrImage) _sendMessage();
+                            else _startRecording();
+                          },
+                          child: CircleAvatar(
+                            radius: 22, backgroundColor: hasTextOrImage ? _C.primary : _C.gold,
+                            child: _isSending 
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : Icon(hasTextOrImage ? Icons.send_rounded : Icons.mic_rounded, color: hasTextOrImage ? Colors.white : _C.navyDeep, size: 22),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _optionButton(IconData icon, String label, VoidCallback onTap, {bool isActive = false}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: isActive ? _C.primary : _C.textMuted),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: isActive ? FontWeight.w700 : FontWeight.w600, color: isActive ? _C.primary : _C.textMuted)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── STICKERS ───
+    Widget _buildStickerPicker() {
+    return SizedBox(
+      height: 250,
+      child: DefaultTabController(
+        length: 3, // 🌟 On met 3 onglets
+        child: Column(
+          children: [
+            const TabBar(
+              labelColor: _C.primary,
+              indicatorColor: _C.primary,
+              tabs: [
+                Tab(text: 'Émojis'),
+                Tab(text: 'Réactions'),
+                Tab(text: 'Drapeaux'),
+              ]
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildStickerGrid(_emojis),
+                  _buildStickerGrid(_reactions),
+                  _buildStickerGrid(_flags), // 🌟 Les drapeaux sont de retour !
+                ]
+              )
+            )
+          ]
+        )
+      )
+    );
+  }
+
+
+  Widget _buildStickerGrid(List<String> items) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(8), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, mainAxisSpacing: 8, crossAxisSpacing: 8),
+      itemCount: items.length, itemBuilder: (context, index) => InkWell(onTap: () {
+        _inputController.text += items[index];
+        _inputController.selection = TextSelection.fromPosition(TextPosition(offset: _inputController.text.length));
+      }, child: Center(child: Text(items[index], style: const TextStyle(fontSize: 24)))),
+    );
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// PETITS WIDGETS DESIGN
+// PETITS WIDGETS DESIGN (Pill, Dot, Files)
 // ─────────────────────────────────────────────────────────────
 
 class _TypingPill extends StatelessWidget {
@@ -1333,35 +1023,12 @@ class _TypingPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.95), borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))]),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _Dot(),
-          SizedBox(width: 3),
-          _Dot(delay: 120),
-          SizedBox(width: 3),
-          _Dot(delay: 240),
-          SizedBox(width: 8),
-          Text(
-            "écrit…",
-            style: TextStyle(
-              fontSize: 12,
-              color: _C.primary,
-              fontStyle: FontStyle.italic,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          _Dot(), SizedBox(width: 3), _Dot(delay: 120), SizedBox(width: 3), _Dot(delay: 240), SizedBox(width: 8),
+          Text("écrit…", style: TextStyle(fontSize: 12, color: _C.primary, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -1371,86 +1038,33 @@ class _TypingPill extends StatelessWidget {
 class _Dot extends StatefulWidget {
   final int delay;
   const _Dot({this.delay = 0});
-  @override
-  State<_Dot> createState() => _DotState();
+  @override State<_Dot> createState() => _DotState();
 }
 
 class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
   late AnimationController _c;
-  @override
-  void initState() {
+  @override void initState() {
     super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    )..repeat(reverse: true);
-    if (widget.delay > 0) {
-      Future.delayed(Duration(milliseconds: widget.delay), () {
-        if (mounted) _c.forward();
-      });
-    } else {
-      _c.forward();
-    }
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 600))..repeat(reverse: true);
+    if (widget.delay > 0) Future.delayed(Duration(milliseconds: widget.delay), () { if (mounted) _c.forward(); });
+    else _c.forward();
   }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _c,
-      child: Container(
-        width: 5,
-        height: 5,
-        decoration: const BoxDecoration(
-          color: _C.primary,
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
+  @override void dispose() { _c.dispose(); super.dispose(); }
+  @override Widget build(BuildContext context) => FadeTransition(opacity: _c, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle)));
 }
 
 class _ReplyBanner extends StatelessWidget {
   final String text;
   final VoidCallback onClose;
   const _ReplyBanner({required this.text, required this.onClose});
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: _C.border)),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: _C.border))),
       child: Row(
         children: [
-          Container(
-            width: 4,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _C.primary,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: _C.textMuted, fontSize: 13),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close_rounded, size: 20, color: _C.textMuted),
-            onPressed: onClose,
-          ),
+          Container(width: 4, height: 36, decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 12),
+          Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _C.textMuted, fontSize: 13))),
+          IconButton(icon: const Icon(Icons.close_rounded, size: 20, color: _C.textMuted), onPressed: onClose),
         ],
       ),
     );
@@ -1461,56 +1075,22 @@ class _FilesPreview extends StatelessWidget {
   final List<PlatformFile> files;
   final void Function(int) onRemove;
   const _FilesPreview({required this.files, required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build(BuildContext context) {
     return Container(
-      height: 90,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: _C.border)),
-      ),
+      height: 70, width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: files.length,
+        scrollDirection: Axis.horizontal, itemCount: files.length,
         itemBuilder: (ctx, i) {
           final f = files[i];
-          final ext = f.extension?.toLowerCase() ?? '';
-          final isImg = ['jpg', 'jpeg', 'png', 'webp'].contains(ext);
-
+          final isImg = ['jpg', 'jpeg', 'png', 'webp'].contains(f.extension?.toLowerCase() ?? '');
           return Stack(
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 70,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  color: _C.surfaceAlt,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _C.border),
-                ),
-                clipBehavior: Clip.hardEdge,
-                child: isImg && f.bytes != null
-                    ? Image.memory(f.bytes!, fit: BoxFit.cover)
-                    : const Center(
-                        child: Icon(Icons.insert_drive_file_rounded,
-                            color: _C.primary, size: 28),
-                      ),
+                width: 60, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: _C.surfaceAlt, borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.border)), clipBehavior: Clip.hardEdge,
+                child: isImg && f.bytes != null ? Image.memory(f.bytes!, fit: BoxFit.cover) : const Center(child: Icon(Icons.insert_drive_file_rounded, color: _C.primary, size: 24)),
               ),
-              Positioned(
-                top: -4,
-                right: 4,
-                child: GestureDetector(
-                  onTap: () => onRemove(i),
-                  child: const CircleAvatar(
-                    radius: 11,
-                    backgroundColor: Colors.black87,
-                    child: Icon(Icons.close, size: 13, color: Colors.white),
-                  ),
-                ),
-              ),
+              Positioned(top: -4, right: 4, child: GestureDetector(onTap: () => onRemove(i), child: const CircleAvatar(radius: 10, backgroundColor: Colors.black87, child: Icon(Icons.close, size: 12, color: Colors.white)))),
             ],
           );
         },
@@ -1519,135 +1099,98 @@ class _FilesPreview extends StatelessWidget {
   }
 }
 
+// ─── LECTEUR AUDIO COMMENTAIRE INTÉGRÉ ───
+class _ChatWaveformAudioPlayer extends StatefulWidget {
+  final String audioUrl;
+  final bool isLocal;
+  const _ChatWaveformAudioPlayer({required this.audioUrl, this.isLocal = false});
+  @override State<_ChatWaveformAudioPlayer> createState() => _ChatWaveformAudioPlayerState();
+}
+
+class _ChatWaveformAudioPlayerState extends State<_ChatWaveformAudioPlayer> {
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  final List<double> _wavePattern = [0.4, 0.7, 0.5, 0.9, 0.6, 0.4, 0.8, 1.0, 0.5, 0.3, 0.7, 0.8, 0.4, 0.6];
+
+  @override void initState() {
+    super.initState();
+    if (widget.isLocal) {
+      if (kIsWeb) _audioPlayer.setSourceUrl(widget.audioUrl); else _audioPlayer.setSourceDeviceFile(widget.audioUrl);
+    } else {
+      _audioPlayer.setSourceUrl(widget.audioUrl);
+    }
+    _audioPlayer.onPlayerStateChanged.listen((state) { if (mounted) setState(() => _isPlaying = state == PlayerState.playing); });
+    _audioPlayer.onDurationChanged.listen((d) { if (mounted) setState(() => _duration = d); });
+    _audioPlayer.onPositionChanged.listen((p) { if (mounted) setState(() => _position = p); });
+  }
+
+  @override void dispose() { _audioPlayer.dispose(); super.dispose(); }
+  String _formatDuration(Duration d) { final m = d.inMinutes.remainder(60).toString().padLeft(2, '0'); final s = d.inSeconds.remainder(60).toString().padLeft(2, '0'); return "$m:$s"; }
+
+  @override Widget build(BuildContext context) {
+    final progress = _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () { if (_isPlaying) _audioPlayer.pause(); else _audioPlayer.resume(); },
+          child: Container(width: 32, height: 32, decoration: const BoxDecoration(color: _C.gold, shape: BoxShape.circle), child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: _C.navyDeep, size: 20)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const barWidth = 3.0; const spacing = 2.0;
+              final barCount = (constraints.maxWidth / (barWidth + spacing)).floor();
+              return GestureDetector(
+                onTapDown: (details) { if (_duration.inMilliseconds > 0) _audioPlayer.seek(Duration(milliseconds: (_duration.inMilliseconds * (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0)).round())); },
+                child: Container(
+                  height: 24, color: Colors.transparent,
+                  child: Row(children: List.generate(barCount, (index) {
+                    final isPlayed = (index / barCount) <= progress;
+                    return Container(width: barWidth, height: 24 * _wavePattern[index % _wavePattern.length], margin: const EdgeInsets.only(right: spacing), decoration: BoxDecoration(color: isPlayed ? _C.gold : Colors.white30, borderRadius: BorderRadius.circular(2)));
+                  })),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(_formatDuration(_duration.inSeconds > 0 && !_isPlaying && _position.inSeconds == 0 ? _duration : _position), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white)),
+      ],
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
-// NOUVEAU FOND D'ÉCRAN : "DOODLE" STYLE WHATSAPP
+// 🌟 BACKGROUND THIX CHAT (Filigrane Premium)
 // ─────────────────────────────────────────────────────────────
-class _WhatsAppDoodlePainter extends CustomPainter {
+class _ThixChatBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFD3C7B5).withOpacity(0.4) // Couleur subtile 
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    final textStyle = TextStyle(
+      color: const Color(0xFFD3C7B5).withOpacity(0.20), // Doux et subtil
+      fontSize: 18,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 2.0,
+    );
+    final textPainter = TextPainter(text: TextSpan(text: 'THIX CHAT', style: textStyle), textDirection: TextDirection.ltr);
+    textPainter.layout();
 
-    final double step = 60.0; // Espacement de la grille
-    int i = 0;
+    final double stepX = 180.0;
+    final double stepY = 140.0;
 
-    for (double y = 0; y < size.height; y += step) {
-      for (double x = 0; x < size.width; x += step) {
+    for (double y = -stepY; y < size.height + stepY; y += stepY) {
+      for (double x = -stepX; x < size.width + stepX; x += stepX) {
         canvas.save();
-        // Léger décalage pour ne pas faire trop "grille parfaite"
-        final offsetX = x + (y % (step * 2) == 0 ? 0 : step / 2);
-        canvas.translate(offsetX + 30, y + 30);
-        
-        // Rotation aléatoire légère pour le style dessiné à la main
-        canvas.rotate((i * 0.5) % (2 * math.pi));
-
-        // Dessine une forme différente selon la position (motif répétitif)
-        int shapeType = i % 7;
-        
-        switch (shapeType) {
-          case 0:
-            _drawStar(canvas, paint);
-            break;
-          case 1:
-            _drawBubble(canvas, paint);
-            break;
-          case 2:
-            _drawZigZag(canvas, paint);
-            break;
-          case 3:
-            _drawCircleDot(canvas, paint);
-            break;
-          case 4:
-            _drawTriangle(canvas, paint);
-            break;
-          case 5:
-            _drawPaperclip(canvas, paint);
-            break;
-          case 6:
-            _drawHeart(canvas, paint);
-            break;
-        }
-        
+        final offsetX = x + ((y / stepY).floor() % 2 == 0 ? 0 : stepX / 2);
+        canvas.translate(offsetX, y);
+        canvas.rotate(-math.pi / 6);
+        textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
         canvas.restore();
-        i++;
       }
     }
   }
-
-  void _drawStar(Canvas canvas, Paint paint) {
-    Path path = Path();
-    path.moveTo(0, -6);
-    path.lineTo(2, -2);
-    path.lineTo(6, -2);
-    path.lineTo(3, 1);
-    path.lineTo(4, 5);
-    path.lineTo(0, 3);
-    path.lineTo(-4, 5);
-    path.lineTo(-3, 1);
-    path.lineTo(-6, -2);
-    path.lineTo(-2, -2);
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawBubble(Canvas canvas, Paint paint) {
-    Path path = Path();
-    path.addRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-6, -5, 12, 10), const Radius.circular(3)));
-    path.moveTo(-3, 5);
-    path.lineTo(-4, 8);
-    path.lineTo(-1, 5);
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawZigZag(Canvas canvas, Paint paint) {
-    Path path = Path();
-    path.moveTo(-6, -3);
-    path.lineTo(-2, 3);
-    path.lineTo(2, -3);
-    path.lineTo(6, 3);
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawCircleDot(Canvas canvas, Paint paint) {
-    canvas.drawCircle(const Offset(0, 0), 5, paint);
-    canvas.drawCircle(const Offset(0, 0), 1, paint..style = PaintingStyle.fill);
-    paint.style = PaintingStyle.stroke; // reset
-  }
-
-  void _drawTriangle(Canvas canvas, Paint paint) {
-    Path path = Path();
-    path.moveTo(0, -5);
-    path.lineTo(5, 4);
-    path.lineTo(-5, 4);
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawPaperclip(Canvas canvas, Paint paint) {
-    Path path = Path();
-    path.moveTo(-2, 4);
-    path.lineTo(-2, -3);
-    path.arcToPoint(const Offset(2, -3), radius: const Radius.circular(2));
-    path.lineTo(2, 5);
-    path.arcToPoint(const Offset(-4, 5), radius: const Radius.circular(3));
-    path.lineTo(-4, -2);
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawHeart(Canvas canvas, Paint paint) {
-    Path path = Path();
-    path.moveTo(0, 2);
-    path.cubicTo(-6, -2, -6, -6, -3, -6);
-    path.cubicTo(-1, -6, 0, -4, 0, -4);
-    path.cubicTo(0, -4, 1, -6, 3, -6);
-    path.cubicTo(6, -6, 6, -2, 0, 2);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  @override bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
