@@ -1,5 +1,6 @@
 // lib/presentation/chat/chat_screen.dart
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
@@ -37,20 +38,24 @@ import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
 // CHARTE THIX CHAT ENTERPRISE
 // ─────────────────────────────────────────────────────────────
 class _C {
-  static const bg = Color(0xFFF5F7FA); // Fond clair et premium
+  static const bg = Color(0xFFEFE6DD); 
   static const surface = Colors.white;
   static const surfaceAlt = Color(0xFFF8FAFC);
   static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF2D6CDF); // Bleu THIX
-  static const primaryDeep = Color(0xFF0A1F44); // Navy Deep THIX
+  static const primary = Color(0xFF1D4ED8);
+  static const primaryDeep = Color(0xFF123B7A);
   static const primarySoft = Color(0xFFEFF6FF);
-  static const textMain = Color(0xFF10192E);
-  static const textMuted = Color(0xFF7386A8);
-  static const red = Color(0xFFE5484D);
-  static const green = Color(0xFF059669);
+  static const textMain = Color(0xFF0F172A);
+  static const textMuted = Color(0xFF64748B);
+  static const red = Color(0xFFEF4444);
+  static const green = Color(0xFF22C55E);
   static const orange = Color(0xFFF59E0B);
-  static const gold = Color(0xFFE3B23C); // Gold THIX
+  static const gold = Color(0xFFE3B23C);
+  static const bubbleOwn = Color(0xFFE7FFDB); 
+  static const bubbleOther = Colors.white;
+  static const navyDeep = Color(0xFF0A1F44); // <-- AJOUTE CETTE LIGNE
 }
+
 
 // Messages provider (family)
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
@@ -921,7 +926,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                           child: Container(
                             decoration: BoxDecoration(color: const Color(0xFFF1F2F6), borderRadius: BorderRadius.circular(24)),
                             child: TextField(
-                              controller: _inputController, focusNode: _focusNode, maxLines: 5, minLines: 1, textCapitalization: TextCapitalization.sentences,
+                              controller: _inputController, focusNode: _inputFocus, maxLines: 5, minLines: 1, textCapitalization: TextCapitalization.sentences,
                               onTap: () { if (_showStickers) setState(() => _showStickers = false); },
                               decoration: const InputDecoration(hintText: 'Écrire un message...', hintStyle: TextStyle(color: _C.textMuted), border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
                             ),
@@ -1175,7 +1180,7 @@ class _ThixChatBackgroundPainter extends CustomPainter {
       fontWeight: FontWeight.w900,
       letterSpacing: 2.0,
     );
-    final textPainter = TextPainter(text: TextSpan(text: 'THIX CHAT', style: textStyle), textDirection: TextDirection.ltr);
+    final textPainter = TextPainter(text: TextSpan(text: 'THIX CHAT', style: textStyle), textDirection: ui.TextDirection.ltr); 
     textPainter.layout();
 
     final double stepX = 180.0;
