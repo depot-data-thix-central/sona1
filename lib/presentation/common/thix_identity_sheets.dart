@@ -693,7 +693,7 @@ class _ThixQrScanBottomSheetState extends State<_ThixQrScanBottomSheet> {
                   child: MobileScanner(
                     controller: _scanner,
                     onDetect: _onDetect,
-                    errorBuilder: (context, error, child) {
+                    errorBuilder: (context, error) {
                       debugPrint('QrScanSheet: camera error=$error');
                       return Container(
                         color: Theme.of(context).colorScheme.surface,
