@@ -168,7 +168,7 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
     );
   }
 
-  Widget _buildRoundBtn({required IconData icon, required bool isActive, required VoidCallback onTap}) {
+    Widget _buildRoundBtn({required IconData icon, required bool isActive, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -178,10 +178,9 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
           color: isActive ? Colors.white.withOpacity(0.2) : Colors.red.withOpacity(0.8),
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white54, width: 1),
-          backdropFilter: isActive ? null : null, // Pour un futur effet Blur
         ),
         child: Icon(icon, color: Colors.white, size: 28),
       ),
     );
   }
-}
+
