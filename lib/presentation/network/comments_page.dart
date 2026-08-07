@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http; // 🌟 IMPORT POUR RÉCUPÉRER L'AUDIO WEB
+import 'package:image_picker/image_picker.dart'; // 🌟 IMPORT POUR XFILE MOBILE
 
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/models/comment.dart';
@@ -125,7 +127,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     }
   }
 
-  // ─── LOGIQUE AUDIO (Max 30s) ───
+  // ─── LOGIQUE AUDIO (Vraie capture Web/Mobile) ───
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
@@ -142,14 +144,12 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
         
         _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
           setState(() => _recordDuration++);
-          if (_recordDuration >= 30) { // 🌟 Limite 30 secondes pour les commentaires
+          if (_recordDuration >= 30) {
             _stopRecording();
           }
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission microphone requise')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permission microphone requise')));
       }
     } catch (e) {
       debugPrint('Erreur record: $e');
@@ -162,15 +162,18 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       final path = await _audioRecorder.stop();
       setState(() => _isRecording = false);
       if (path != null) {
-        // En web, on peut récupérer les bytes depuis le blob, 
-        // ou lire le fichier natif sur mobile
-        // Remplacement simple pour l'exemple (suppose que tu as importé XFile de image_picker ou cross_file)
-        // final file = XFile(path);
-        // _audioBytes = await file.readAsBytes();
-        
-        // Simulé pour l'instant si tu n'utilises pas XFile, tu devras ajuster l'import XFile
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note vocale capturée !')));
-        setState(() => _audioBytes = Uint8List(0)); // Remplace par tes bytes réels
+        Uint8List bytes;
+        if (kIsWeb) {
+          // 🌟 Sur le Web, Record génère un blob URL. On le télécharge en bytes :
+          final response = await http.get(Uri.parse(path));
+          bytes = response.bodyBytes;
+        } else {
+          // 🌟 Sur Mobile, on lit le fichier
+          final file = XFile(path);
+          bytes = await file.readAsBytes();
+        }
+        setState(() => _audioBytes = bytes);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note vocale prête !'), backgroundColor: Color(0xFF2D6CDF)));
       }
     } catch (e) {
       debugPrint('Erreur stop record: $e');
@@ -188,7 +191,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     }
   }
 
-  // ─── SOUMISSION ───
+  // ─── SOUMISSION DÉFINITIVE ───
   Future<void> _submitComment({String? parentId}) async {
     final text = _controller.text.trim();
     if (text.isEmpty && _audioBytes == null && _imageBytes == null) return;
@@ -200,22 +203,34 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       String? audioUrl;
       String? imageUrl;
 
-      if (_audioBytes != null) {
-        // Upload audio
-        // audioUrl = await ns.uploadAudioBytes(_audioBytes!);
+      // 1. Upload de l'Audio si présent
+      if (_audioBytes != null && _audioBytes!.isNotEmpty) {
+        audioUrl = await ns.uploadAudioBytes(_audioBytes!);
       }
-      if (_imageBytes != null) {
-        // Upload photo
-        // imageUrl = await ns.uploadImageBytes(_imageBytes!, fileExtension: 'jpg');
+      
+      // 2. Upload de l'Image si présente
+      if (_imageBytes != null && _imageBytes!.isNotEmpty) {
+        imageUrl = await ns.uploadImageBytes(_imageBytes!, fileExtension: 'jpg', bucket: 'post_images');
       }
 
-      // ⚠️ ASSURE-TOI QUE TON PROVIDER ACCEPTE audioUrl et imageUrl
-      await ref.read(commentsProvider(widget.postId).notifier).addComment(
-        text.isNotEmpty ? text : '🎤 Note vocale', // Texte de fallback
+      // 3. Définir le texte de fallback si le champ est vide
+      String finalContent = text;
+      if (finalContent.isEmpty) {
+        if (audioUrl != null) finalContent = '🎤 Note vocale';
+        else if (imageUrl != null) finalContent = '📷 Photo';
+      }
+
+      // 4. Envoi direct via le NetworkService pour garantir le passage des URLs
+      await ns.addComment(
+        widget.postId,
+        finalContent,
         parentId: parentId ?? _replyingTo,
-        // audioUrl: audioUrl, // Décommente quand ton provider est à jour
-        // imageUrl: imageUrl, // Décommente quand ton provider est à jour
+        audioUrl: audioUrl,
+        imageUrl: imageUrl,
       );
+
+      // 5. Rafraîchir la liste des commentaires à l'écran
+      ref.invalidate(commentsProvider(widget.postId));
       
       setState(() {
         _controller.clear();
@@ -292,7 +307,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                             child: PostCard(
                               post: _post!, 
                               currentProfileId: widget.currentProfileId, 
-                              onTap: () {}, // Désactive le clic dans la page elle-même
+                              onTap: () {}, 
                               onRefresh: _loadPost
                             )
                           ),
@@ -308,28 +323,24 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                   ),
                 ),
                 _buildInputBar(),
-                // Clavier de Stickers conditionnel
                 if (_showStickers) _buildStickerPicker(),
               ]
             ),
     );
   }
 
-  // ─── TUILE DE COMMENTAIRE (Avec IMBRICATION VISUELLE) ───
+  // ─── TUILE DE COMMENTAIRE (Avec Audio et Image activés) ───
   Widget _buildCommentTile(Comment comment, String? currentUserId, {bool isRoot = true}) {
     final hasReplies = comment.replies.isNotEmpty;
     
-    // Support abstrait pour audioUrl et imageUrl (à adapter selon ton modèle Comment)
-    // final hasAudio = comment.audioUrl != null && comment.audioUrl!.isNotEmpty;
-    // final hasImage = comment.imageUrl != null && comment.imageUrl!.isNotEmpty;
-    final hasAudio = false; // Remplace par ta condition réelle
-    final hasImage = false; // Remplace par ta condition réelle
+    // 🌟 On vérifie maintenant les vraies variables
+    final hasAudio = comment.audioUrl != null && comment.audioUrl!.isNotEmpty;
+    final hasImage = comment.imageUrl != null && comment.imageUrl!.isNotEmpty;
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Ligne verticale de connexion (Thread) pour les sous-commentaires
           if (!isRoot)
             Container(
               margin: const EdgeInsets.only(left: 32, right: 10),
@@ -380,21 +391,21 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                         child: Text(comment.content, style: const TextStyle(fontSize: 13.5, height: 1.4, color: Color(0xFF10192E)))
                       ),
 
-                    // Affichage de la photo si présente
+                    // Affichage de la photo
                     if (hasImage)
                       Padding(
                         padding: const EdgeInsets.only(left: 14, right: 14, top: 8),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.network('URL_DE_TON_IMAGE', height: 120, width: double.infinity, fit: BoxFit.cover),
+                          child: Image.network(comment.imageUrl!, height: 160, width: double.infinity, fit: BoxFit.cover),
                         ),
                       ),
                       
-                    // Affichage du lecteur Audio Waveform si présent
+                    // Affichage du lecteur Audio
                     if (hasAudio)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 14, right: 14, top: 8),
-                        child: _CommentAudioPlayer(audioUrl: 'URL_DE_TON_AUDIO'), // Remplacer par comment.audioUrl!
+                      Padding(
+                        padding: const EdgeInsets.only(left: 14, right: 14, top: 8),
+                        child: _CommentAudioPlayer(audioUrl: comment.audioUrl!), 
                       ),
 
                     Padding(
@@ -454,7 +465,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     );
   }
 
-  // ─── BARRE DE SAISIE AVEC MÉDIAS ───
+  // ─── BARRE DE SAISIE ───
   Widget _buildInputBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -467,7 +478,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min, 
           children: [
-            // Indicateur de réponse
             if (_replyingTo != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 8), 
@@ -484,7 +494,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 )
               ),
               
-            // Indicateur Photo
             if (_imageBytes != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -503,7 +512,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 ),
               ),
 
-            // Indicateur Enregistrement Audio
             if (_isRecording)
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -530,7 +538,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                   ],
                 ),
               )
-            // Indicateur Audio prêt
             else if (_audioBytes != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -544,7 +551,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                     const Icon(Icons.audiotrack_rounded, color: Color(0xFF2D6CDF)),
                     const SizedBox(width: 10),
                     const Expanded(
-                      child: Text('Note vocale (Commentaire)', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF123B7A))),
+                      child: Text('Note vocale prête', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF123B7A))),
                     ),
                     GestureDetector(
                       onTap: () => setState(() => _audioBytes = null),
@@ -554,17 +561,14 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 ),
               ),
 
-            // Barre de texte classique
             if (!_isRecording && _audioBytes == null)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Bouton Photo
                   IconButton(
                     icon: const Icon(Icons.camera_alt_rounded, color: Colors.grey),
                     onPressed: _pickImage,
                   ),
-                  // Bouton Stickers
                   IconButton(
                     icon: Icon(_showStickers ? Icons.keyboard_rounded : Icons.emoji_emotions_rounded, color: _showStickers ? const Color(0xFF2D6CDF) : Colors.grey),
                     onPressed: () {
@@ -592,11 +596,10 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                   ),
                   const SizedBox(width: 8),
                   
-                  // Bouton Envoyer OU Micro
                   _controller.text.trim().isEmpty && _imageBytes == null
                     ? CircleAvatar(
                         radius: 20, 
-                        backgroundColor: const Color(0xFFE3B23C), // Gold pour le micro
+                        backgroundColor: const Color(0xFFE3B23C), 
                         child: IconButton(
                           icon: const Icon(Icons.mic_rounded, color: Colors.white, size: 20), 
                           onPressed: _startRecording,
@@ -604,7 +607,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                       )
                     : CircleAvatar(
                         radius: 20, 
-                        backgroundColor: const Color(0xFF2D6CDF), // Primary Blue pour envoyer
+                        backgroundColor: const Color(0xFF2D6CDF),
                         child: IconButton(
                           icon: _isSubmitting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, color: Colors.white, size: 18), 
                           onPressed: _isSubmitting ? null : () => _submitComment()
@@ -613,7 +616,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 ]
               ),
 
-            // Si Audio prêt, on montre juste le bouton envoyer en bas
             if (_audioBytes != null)
               Align(
                 alignment: Alignment.centerRight,
@@ -701,7 +703,6 @@ class _CommentAudioPlayerState extends State<_CommentAudioPlayer> {
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
-  // Motif plus petit pour les commentaires
   final List<double> _wavePattern = [0.4, 0.7, 0.5, 0.9, 0.6, 0.4, 0.8, 1.0, 0.5, 0.3, 0.7, 0.8, 0.4, 0.6];
 
   @override
