@@ -45,11 +45,79 @@ class _PostColors {
     end: Alignment.bottomRight,
     colors: [gold, goldLight],
   );
-  static const gradientAvatarRing = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [primary, primaryDeep, gold],
-  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// AVATAR HEXAGONAL — même signature que le reste de THIX PRO.
+// Anneau UNE seule couleur (or), plus de dégradé multicolore.
+// ─────────────────────────────────────────────────────────────
+class _HexClipper extends CustomClipper<Path> {
+  const _HexClipper();
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    return Path()
+      ..moveTo(w * 0.5, 0)
+      ..lineTo(w, h * 0.25)
+      ..lineTo(w, h * 0.75)
+      ..lineTo(w * 0.5, h)
+      ..lineTo(0, h * 0.75)
+      ..lineTo(0, h * 0.25)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _HexAvatar extends StatelessWidget {
+  final double size;
+  final String? imageUrl;
+  final Color ringColor;
+  final double ringWidth;
+
+  const _HexAvatar({
+    required this.size,
+    this.imageUrl,
+    this.ringColor = _PostColors.gold,
+    this.ringWidth = 2.2,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipPath(
+      clipper: const _HexClipper(),
+      child: Container(
+        width: size,
+        height: size,
+        color: ringColor,
+        padding: EdgeInsets.all(ringWidth),
+        child: ClipPath(
+          clipper: const _HexClipper(),
+          child: Container(
+            color: _PostColors.softBlue,
+            child: (imageUrl != null && imageUrl!.isNotEmpty)
+                ? Image.network(
+                    imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.person_rounded,
+                      size: size * 0.45,
+                      color: _PostColors.primaryDeep,
+                    ),
+                  )
+                : Icon(
+                    Icons.person_rounded,
+                    size: size * 0.45,
+                    color: _PostColors.primaryDeep,
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -130,6 +198,9 @@ class PostCard extends ConsumerStatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onSave;
+  // Suivre l'auteur directement depuis la card
+  final bool isFollowingAuthor;
+  final VoidCallback? onFollow;
 
   const PostCard({
     super.key,
@@ -144,6 +215,8 @@ class PostCard extends ConsumerStatefulWidget {
     this.onEdit,
     this.onDelete,
     this.onSave,
+    this.isFollowingAuthor = false,
+    this.onFollow,
   });
 
   @override
@@ -158,6 +231,8 @@ class _PostCardState extends ConsumerState<PostCard>
   bool _isReposting = false;
   bool _isLikedAnimating = false;
   bool _isExpanded = false;
+  bool _isFollowingLocal = false;
+  bool _followBusy = false;
   final _quoteController = TextEditingController();
 
   static const _maxContentChars = 250;
@@ -179,7 +254,16 @@ class _PostCardState extends ConsumerState<PostCard>
   @override
   void initState() {
     super.initState();
+    _isFollowingLocal = widget.isFollowingAuthor;
     _cacheParsedContent();
+  }
+
+  @override
+  void didUpdateWidget(covariant PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isFollowingAuthor != widget.isFollowingAuthor) {
+      _isFollowingLocal = widget.isFollowingAuthor;
+    }
   }
 
   @override
@@ -898,6 +982,44 @@ class _PostCardState extends ConsumerState<PostCard>
     );
   }
 
+  // ── Bouton "+" pour suivre l'auteur, ancré au coin de l'avatar ──
+  Widget _buildFollowBadge(bool isOwner) {
+    if (isOwner || _isFollowingLocal) return const SizedBox.shrink();
+    return Positioned(
+      bottom: -3,
+      right: -3,
+      child: GestureDetector(
+        onTap: () async {
+          if (_followBusy) return;
+          setState(() => _followBusy = true);
+          HapticFeedback.selectionClick();
+          setState(() => _isFollowingLocal = true);
+          try {
+            widget.onFollow?.call();
+          } catch (_) {
+            if (mounted) setState(() => _isFollowingLocal = false);
+          } finally {
+            if (mounted) setState(() => _followBusy = false);
+          }
+        },
+        child: Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: _PostColors.gold,
+            border: Border.all(color: _PostColors.white, width: 2),
+          ),
+          child: const Icon(
+            Icons.add_rounded,
+            size: 12,
+            color: _PostColors.navyDeep,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -947,28 +1069,16 @@ class _PostCardState extends ConsumerState<PostCard>
                           GestureDetector(
                             onTap: () => context
                                 .push('/network/profile/${post.userId}'),
-                            child: Container(
-                              padding: const EdgeInsets.all(2.2),
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: _PostColors.gradientAvatarRing,
-                              ),
-                              child: CircleAvatar(
-                                radius: 20,
-                                backgroundColor: _PostColors.softBlue,
-                                backgroundImage: post.authorAvatar != null &&
-                                        post.authorAvatar!.isNotEmpty
-                                    ? NetworkImage(post.authorAvatar!)
-                                    : null,
-                                child: post.authorAvatar == null ||
-                                        post.authorAvatar!.isEmpty
-                                    ? const Icon(
-                                        Icons.person_rounded,
-                                        size: 19,
-                                        color: _PostColors.primaryDeep,
-                                      )
-                                    : null,
-                              ),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                _HexAvatar(
+                                  size: 42,
+                                  imageUrl: post.authorAvatar,
+                                  ringWidth: 2.2,
+                                ),
+                                _buildFollowBadge(isOwner),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 11),
@@ -1025,6 +1135,9 @@ class _PostCardState extends ConsumerState<PostCard>
                               final service =
                                   ref.read(networkServiceProvider);
                               switch (v) {
+                                case 'edit':
+                                  widget.onEdit?.call();
+                                  break;
                                 case 'delete':
                                   final ok = await showDialog<bool>(
                                     context: context,
@@ -1075,6 +1188,19 @@ class _PostCardState extends ConsumerState<PostCard>
                               }
                             },
                             itemBuilder: (_) => [
+                              if (isOwner)
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit_outlined,
+                                          size: 17,
+                                          color: _PostColors.primaryDeep),
+                                      SizedBox(width: 10),
+                                      Text('Modifier'),
+                                    ],
+                                  ),
+                                ),
                               if (isOwner)
                                 const PopupMenuItem(
                                   value: 'delete',
@@ -1388,18 +1514,10 @@ class _OriginalPostEmbed extends ConsumerWidget {
                     // Auteur du post original
                     Row(
                       children: [
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundColor: _PostColors.softBlue,
-                          backgroundImage: original.authorAvatar != null &&
-                                  original.authorAvatar!.isNotEmpty
-                              ? NetworkImage(original.authorAvatar!)
-                              : null,
-                          child: original.authorAvatar == null ||
-                                  original.authorAvatar!.isEmpty
-                              ? const Icon(Icons.person,
-                                  size: 16, color: _PostColors.primaryDeep)
-                              : null,
+                        _HexAvatar(
+                          size: 30,
+                          imageUrl: original.authorAvatar,
+                          ringWidth: 1.8,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
