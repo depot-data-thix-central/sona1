@@ -1,9 +1,12 @@
 // lib/presentation/network/live/live_prep_screen.dart
 import 'package:flutter/material.dart';
-import 'package:thix_id/presentation/network/live/live_broadcast_screen.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'live_broadcast_screen.dart';
+
 class _C {
   static const primary = Color(0xFF2D6CDF);
-  static const primaryDeep = Color(0xFF0A1F44);
   static const red = Color(0xFFE5484D);
   static const bgDark = Color(0xFF10192E);
 }
@@ -20,30 +23,77 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
   bool _isVideoEnabled = true;
   bool _isMicEnabled = true;
 
+  late RtcEngine _engine;
+  bool _isEngineReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPreviewAgora();
+  }
+
+  Future<void> _initPreviewAgora() async {
+    try {
+      // 1. Récupérer l'App ID depuis l'Edge Function ou config
+      final response = await Supabase.instance.client.functions.invoke(
+        'get-agora-token',
+        body: {'channelName': 'preview_channel', 'uid': 0},
+      );
+      final data = response.data as Map<String, dynamic>;
+      final appId = data['appId'] as String;
+
+      // 2. Permissions
+      await [Permission.camera, Permission.microphone].request();
+
+      // 3. Init Agora pour le Preview
+      _engine = createAgoraRtcEngine();
+      await _engine.initialize(RtcEngineContext(
+        appId: appId,
+        channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+      ));
+
+      await _engine.enableVideo();
+      await _engine.startPreview();
+
+      if (mounted) setState(() => _isEngineReady = true);
+    } catch (e) {
+      debugPrint('Erreur init preview Agora: $e');
+    }
+  }
+
   void _startLive() {
     final title = _titleController.text.trim().isEmpty 
         ? "Mon Direct" 
         : _titleController.text.trim();
 
-    // TODO: Connecter à Supabase RPC et Agora/LiveKit ici.
-    // Pour l'instant, on simule le lancement.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Lancement du Live : $title...')),
+    // On libère le preview avant de passer à l'écran de diffusion principal
+    _engine.stopPreview();
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LiveBroadcastScreen(
+          title: title,
+          isVideoEnabled: _isVideoEnabled,
+          isMicEnabled: _isMicEnabled,
+        ),
+      ),
     );
-    
-    // Prochaine étape : Rediriger vers LiveBroadcastScreen(title: title, isVideo: _isVideoEnabled)
   }
 
   @override
   void dispose() {
     _titleController.dispose();
+    if (_isEngineReady) {
+      _engine.release();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _C.bgDark, // Thème sombre pour la préparation vidéo
+      backgroundColor: _C.bgDark,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -55,17 +105,24 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
       ),
       body: Stack(
         children: [
-          // TODO: Insérer ici le CameraPreview (Aperçu caméra en fond)
+          // 🌟 VRAI RETOUR CAMÉRA AGORA EN FOND
           Positioned.fill(
-            child: Container(
-              color: const Color(0xFF1E293B), // Fond temporaire en attendant la caméra
-              child: const Center(
-                child: Icon(Icons.camera_alt_outlined, color: Colors.white24, size: 80),
-              ),
-            ),
+            child: _isEngineReady && _isVideoEnabled
+                ? AgoraVideoView(
+                    controller: VideoViewController(
+                      rtcEngine: _engine,
+                      canvas: const VideoCanvas(uid: 0),
+                    ),
+                  )
+                : Container(
+                    color: const Color(0xFF1E293B),
+                    child: const Center(
+                      child: Icon(Icons.videocam_off_rounded, color: Colors.white24, size: 80),
+                    ),
+                  ),
           ),
 
-          // Voile sombre pour lisibilité
+          // Voile sombre progressif pour la lisibilité du texte et des boutons
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -75,14 +132,14 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                   colors: [
                     Colors.black.withOpacity(0.4),
                     Colors.transparent,
-                    Colors.black.withOpacity(0.8),
+                    Colors.black.withOpacity(0.85),
                   ],
                 ),
               ),
             ),
           ),
 
-          // Contenu de la préparation
+          // Contenu (Titre + Contrôles + Bouton Lancer)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -90,7 +147,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Titre du Live
                   TextField(
                     controller: _titleController,
                     style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
@@ -102,34 +158,43 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Contrôles (Mic & Caméra)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _buildRoundBtn(
                         icon: _isMicEnabled ? Icons.mic_rounded : Icons.mic_off_rounded,
                         isActive: _isMicEnabled,
-                        onTap: () => setState(() => _isMicEnabled = !_isMicEnabled),
+                        onTap: () {
+                          setState(() => _isMicEnabled = !_isMicEnabled);
+                          _engine.muteLocalAudioStream(!_isMicEnabled);
+                        },
                       ),
                       const SizedBox(width: 24),
                       _buildRoundBtn(
                         icon: _isVideoEnabled ? Icons.videocam_rounded : Icons.videocam_off_rounded,
                         isActive: _isVideoEnabled,
-                        onTap: () => setState(() => _isVideoEnabled = !_isVideoEnabled),
+                        onTap: () {
+                          setState(() => _isVideoEnabled = !_isVideoEnabled);
+                          if (_isVideoEnabled) {
+                            _engine.enableVideo();
+                            _engine.startPreview();
+                          } else {
+                            _engine.disableVideo();
+                          }
+                        },
                       ),
                       const SizedBox(width: 24),
                       _buildRoundBtn(
                         icon: Icons.flip_camera_ios_rounded,
                         isActive: true,
                         onTap: () {
-                          // TODO: Basculer Caméra Avant/Arrière
+                          _engine.switchCamera();
                         },
                       ),
                     ],
                   ),
                   const SizedBox(height: 40),
 
-                  // Bouton Lancer le Direct
                   SizedBox(
                     height: 56,
                     child: ElevatedButton(
@@ -168,7 +233,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
     );
   }
 
-  // La fonction corrigée sans le backdropFilter
   Widget _buildRoundBtn({required IconData icon, required bool isActive, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -184,4 +248,4 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
       ),
     );
   }
-} // <-- C'est cette accolade qui manquait et causait l'erreur !
+}
