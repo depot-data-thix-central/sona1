@@ -332,7 +332,7 @@ class ChatService {
   }
 
   // ============================================================
-  // MESSAGES
+  // MESSAGES (AVEC NOUVELLE FONCTION EDIT)
   // ============================================================
 
   Future<List<ChatMessage>> getMessages(
@@ -412,6 +412,19 @@ class ChatService {
     response['sender_avatar'] = profile?['avatar_url'];
 
     return ChatMessage.fromJson(response);
+  }
+
+  // 🌟 NOUVEAU: Mettre à jour un message (Edit)
+  Future<void> updateMessage(String messageId, String newContent) async {
+    try {
+      await _supabase.from('messages').update({
+        'content': newContent,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', messageId);
+    } catch (e) {
+      debugPrint('❌ updateMessage: $e');
+      rethrow;
+    }
   }
 
   Future<void> toggleReaction(String messageId, String reaction) async {
@@ -596,8 +609,9 @@ class ChatService {
     final uniqueName = '${const Uuid().v4()}.$extension';
     final path = 'messages/$conversationId/$uniqueName';
 
-    await _supabase.storage.from('audio').uploadBinary(path, audioData);
-    final audioUrl = _supabase.storage.from('audio').getPublicUrl(path);
+    // 🌟 CORRECTION: Le bucket doit être audio_uploads comme dans le Network !
+    await _supabase.storage.from('audio_uploads').uploadBinary(path, audioData);
+    final audioUrl = _supabase.storage.from('audio_uploads').getPublicUrl(path);
 
     return sendMessage(
       conversationId: conversationId,
