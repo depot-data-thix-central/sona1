@@ -1,0 +1,104 @@
+// **************************************************************************
+// RiverpodGenerator
+// **************************************************************************
+
+String _$homePromoSlidesHash() => r'017e2283e25e7c5aed20bbf2f3fad631d5bc4897';
+
+/// See also [homePromoSlides].
+@ProviderFor(homePromoSlides)
+final homePromoSlidesProvider =
+    AutoDisposeFutureProvider<List<Map<String, dynamic>>>.internal(
+  homePromoSlides,
+  name: r'homePromoSlidesProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$homePromoSlidesHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef HomePromoSlidesRef
+    = AutoDisposeFutureProviderRef<List<Map<String, dynamic>>>;
+String _$homeCategoriesHash() => r'7db22ef292b163d142c4778e41fb9b9879996223';
+
+/// See also [homeCategories].
+@ProviderFor(homeCategories)
+final homeCategoriesProvider =
+    AutoDisposeFutureProvider<List<Map<String, dynamic>>>.internal(
+  homeCategories,
+  name: r'homeCategoriesProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$homeCategoriesHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef HomeCategoriesRef
+    = AutoDisposeFutureProviderRef<List<Map<String, dynamic>>>;
+String _$homeStatsHash() => r'3ec13d1115bd4efed62a30d6d31b61c17d2bd47e';
+
+/// See also [homeStats].
+@ProviderFor(homeStats)
+final homeStatsProvider = AutoDisposeFutureProvider<Map<String, int>>.internal(
+  homeStats,
+  name: r'homeStatsProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$homeStatsHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef HomeStatsRef = AutoDisposeFutureProviderRef<Map<String, int>>;
+String _$homeOffersHash() => r'a671242a2e5159c91494ff13dd41183dfd4d1e6c';
+
+/// See also [homeOffers].
+@ProviderFor(homeOffers)
+final homeOffersProvider =
+    AutoDisposeFutureProvider<List<Map<String, dynamic>>>.internal(
+  homeOffers,
+  name: r'homeOffersProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$homeOffersHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef HomeOffersRef
+    = AutoDisposeFutureProviderRef<List<Map<String, dynamic>>>;
+String _$homeProvidersHash() => r'd7b17a05fb00ea6247d97d28f67225f19eddde98';
+
+/// See also [homeProviders].
+@ProviderFor(homeProviders)
+final homeProvidersProvider =
+    AutoDisposeFutureProvider<List<Map<String, dynamic>>>.internal(
+  homeProviders,
+  name: r'homeProvidersProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$homeProvidersHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef HomeProvidersRef
+    = AutoDisposeFutureProviderRef<List<Map<String, dynamic>>>;
+String _$homeAnnouncementsHash() => r'28ba644fd8d1fa5de115fefcff628b27b8af1885';
+
+/// See also [homeAnnouncements].
+@ProviderFor(homeAnnouncements)
+final homeAnnouncementsProvider =
+    AutoDisposeFutureProvider<List<Map<String, dynamic>>>.internal(
+  homeAnnouncements,
+  name: r'homeAnnouncementsProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$homeAnnouncementsHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef HomeAnnouncementsRef
+    = AutoDisposeFutureProviderRef<List<Map<String, dynamic>>>;
+// ignore_for_file: type=lint
+// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member
