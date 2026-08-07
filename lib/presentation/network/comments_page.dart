@@ -31,7 +31,9 @@ class _C {
   static const textDark = Color(0xFF10192E);
   static const textGrey = Color(0xFF65676B);
   static const red = Color(0xFFE5484D);
+  static const orange = Color(0xFFF59E0B); // 🌟 
 }
+
 
 class CommentsPage extends ConsumerStatefulWidget {
   final String postId;
