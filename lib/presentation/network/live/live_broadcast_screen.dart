@@ -1,8 +1,9 @@
 // lib/presentation/network/live/live_broadcast_screen.dart
 import 'package:flutter/material.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class _C {
-  static const primary = Color(0xFF2D6CDF);
   static const red = Color(0xFFE5484D);
   static const bgDark = Color(0xFF10192E);
 }
@@ -24,14 +25,73 @@ class LiveBroadcastScreen extends StatefulWidget {
 }
 
 class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
+  // Remplace ceci par ton App ID Agora (ou récupère-le depuis tes secrets/environnement)
+  static const String _appId = " TON_AGORA_APP_ID "; 
+  static const String _token = ""; // Token temporaire ou vide si le mode test sans certificat est actif
+  static const String _channelName = "thix_pro_live_channel";
+
+  late RtcEngine _engine;
+  bool _isInitialized = false;
   bool _isMuted = false;
   bool _isVideoOff = false;
-  final List<String> _comments = [
-    "Nathan Lumina : Super initiative !",
-    "Sonathix Group : On suit ça de près 🚀",
-    "Utilisateur : Bonjour tout le monde !"
-  ];
-  final TextEditingController _chatController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _initAgora();
+  }
+
+  Future<void> _initAgora() async {
+    // 1. Demander les permissions Caméra et Micro
+    await [Permission.camera, Permission.microphone].request();
+
+    // 2. Créer le moteur Agora
+    _engine = createAgoraRtcEngine();
+    await _engine.initialize(const RtcEngineContext(
+      appId: _appId,
+      channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+    ));
+
+    // 3. Activer la vidéo si demandée
+    if (widget.isVideoEnabled) {
+      await _engine.enableVideo();
+      await _engine.startPreview();
+    } else {
+      await _engine.disableVideo();
+    }
+
+    // 4. Définir le rôle (Broadcaster pour l'hôte)
+    await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+
+    // 5. Rejoindre le canal
+    await _engine.joinChannel(
+      token: _token,
+      channelId: _channelName,
+      options: const ChannelMediaOptions(
+        publishCameraTrack: true,
+        publishMicrophoneTrack: true,
+        autoSubscribeAudio: true,
+        autoSubscribeVideo: true,
+        clientRoleType: ClientRoleType.clientRoleBroadcaster,
+      ),
+      uid: 0,
+    );
+
+    setState(() {
+      _isInitialized = true;
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposeAgora();
+    super.dispose();
+  }
+
+  Future<void> _disposeAgora() async {
+    await _engine.leaveChannel();
+    await _engine.release();
+  }
 
   void _endLiveConfirmation() {
     showDialog(
@@ -49,7 +109,6 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
             onPressed: () {
               Navigator.pop(ctx); // Ferme la modale
               Navigator.pop(context); // Quitte l'écran de live
-              Navigator.pop(context); // Revient au feed principal
             },
             child: const Text('Terminer', style: TextStyle(color: Colors.white)),
           ),
@@ -64,16 +123,13 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
       backgroundColor: _C.bgDark,
       body: Stack(
         children: [
-          // ─── FOND VIDÉO / CAMÉRA OU SIMULATION ───
+          // ─── AFFICHAGE DU FLUX VIDÉO AGORA DE L'HÔTE ───
           Positioned.fill(
-            child: widget.isVideoEnabled && !_isVideoOff
-                ? Container(
-                    color: const Color(0xFF1E293B),
-                    child: const Center(
-                      child: Text(
-                        "Flux Caméra Actif (Hôte)",
-                        style: TextStyle(color: Colors.white54, fontSize: 16),
-                      ),
+            child: _isInitialized && widget.isVideoEnabled && !_isVideoOff
+                ? AgoraVideoView(
+                    controller: VideoViewController(
+                      rtcEngine: _engine,
+                      canvas: const VideoCanvas(uid: 0), // 0 = soi-même (Hôte)
                     ),
                   )
                 : Container(
@@ -106,21 +162,6 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black45,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.visibility, color: Colors.white, size: 14),
-                      SizedBox(width: 5),
-                      Text('342', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                    ],
-                  ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
@@ -130,62 +171,33 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
             ),
           ),
 
-          // ─── TITRE ET CHAT EN DIRECT (Bas de l'écran) ───
+          // ─── CONTRÔLES DU BAS (Mic, Caméra, Quitter) ───
           Positioned(
-            bottom: 20,
+            bottom: 30,
             left: 16,
             right: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Text(
-                  widget.title,
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                IconButton(
+                  icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white, size: 28),
+                  onPressed: () {
+                    setState(() => _isMuted = !_isMuted);
+                    _engine.muteLocalAudioStream(_isMuted);
+                  },
                 ),
-                const SizedBox(height: 10),
-                
-                // Fil de commentaires simulé
-                SizedBox(
-                  height: 150,
-                  child: ListView.builder(
-                    itemCount: _comments.length,
-                    itemBuilder: (context, index) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _comments[index],
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                        ),
-                      );
-                    },
-                  ),
+                IconButton(
+                  icon: Icon(_isVideoOff ? Icons.videocam_off : Icons.videocam, color: Colors.white, size: 28),
+                  onPressed: () {
+                    setState(() => _isVideoOff = !_isVideoOff);
+                    _engine.muteLocalVideoStream(_isVideoOff);
+                  },
                 ),
-                const SizedBox(height: 10),
-
-                // Barre d'outils (Mic, Caméra, Fin)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white),
-                      onPressed: () => setState(() => _isMuted = !_isMuted),
-                    ),
-                    IconButton(
-                      icon: Icon(_isVideoOff ? Icons.videocam_off : Icons.videocam, color: Colors.white),
-                      onPressed: () => setState(() => _isVideoOff = !_isVideoOff),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: _C.red),
-                      onPressed: _endLiveConfirmation,
-                      icon: const Icon(Icons.call_end, color: Colors.white),
-                      label: const Text('Quitter', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: _C.red),
+                  onPressed: _endLiveConfirmation,
+                  icon: const Icon(Icons.call_end, color: Colors.white),
+                  label: const Text('Quitter', style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
