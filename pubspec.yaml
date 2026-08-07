@@ -82,7 +82,7 @@ dependencies:
   share_plus: ^10.0.0
 
   # Files & PDF
-  file_picker: ^5.3.3
+  file_picker: ^8.0.0
   printing: ^5.13.0
   pdf: ^3.10.10
 
