@@ -1,4 +1,3 @@
-
 // lib/presentation/network/network_pro_home.dart
 import 'dart:ui';
 
@@ -43,12 +42,82 @@ class ThixColors {
     end: Alignment.bottomRight,
     colors: [gold, goldLight],
   );
+}
 
-  static const gradientStoryRing = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [primary, primaryDeep, gold],
-  );
+// ─────────────────────────────────────────────────────────────
+// SIGNATURE VISUELLE : avatar hexagonal, anneau UNE seule couleur
+// ─────────────────────────────────────────────────────────────
+
+class _HexClipper extends CustomClipper<Path> {
+  const _HexClipper();
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    return Path()
+      ..moveTo(w * 0.5, 0)
+      ..lineTo(w, h * 0.25)
+      ..lineTo(w, h * 0.75)
+      ..lineTo(w * 0.5, h)
+      ..lineTo(0, h * 0.75)
+      ..lineTo(0, h * 0.25)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class HexAvatar extends StatelessWidget {
+  final double size;
+  final String? imageUrl;
+  final Color ringColor;
+  final IconData fallbackIcon;
+  final double ringWidth;
+
+  const HexAvatar({
+    super.key,
+    required this.size,
+    this.imageUrl,
+    this.ringColor = ThixColors.gold,
+    this.fallbackIcon = Icons.person,
+    this.ringWidth = 2.5,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipPath(
+      clipper: const _HexClipper(),
+      child: Container(
+        width: size,
+        height: size,
+        color: ringColor,
+        padding: EdgeInsets.all(ringWidth),
+        child: ClipPath(
+          clipper: const _HexClipper(),
+          child: Container(
+            color: ThixColors.softBlue,
+            child: (imageUrl != null && imageUrl!.isNotEmpty)
+                ? Image.network(
+                    imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      fallbackIcon,
+                      size: size * 0.45,
+                      color: ThixColors.primaryDeep,
+                    ),
+                  )
+                : Icon(
+                    fallbackIcon,
+                    size: size * 0.45,
+                    color: ThixColors.primaryDeep,
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class NetworkProHome extends ConsumerStatefulWidget {
@@ -334,22 +403,22 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
           padding: const EdgeInsets.only(right: 14),
           child: GestureDetector(
             onTap: () => _safePush('/profile'),
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: ThixColors.gradientStoryRing,
-              ),
-              child: const CircleAvatar(
-                radius: 15,
-                backgroundColor: ThixColors.softBlue,
-                child: Icon(Icons.person,
-                    size: 16, color: ThixColors.primaryDeep),
-              ),
-            ),
+            child: const HexAvatar(size: 34, ringWidth: 2.2),
           ),
         ),
       ],
+      // Liseré or — signature THIX ID, remplace la ligne neutre de Facebook
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.transparent, ThixColors.gold, Colors.transparent],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -400,13 +469,12 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   }
 
   // ─────────────────────────── STORIES ───────────────────────────
-  // ─────────────────────────── STORIES ───────────────────────────
 
   Widget _buildStoriesFacebook(String currentUserId) {
     if (_loadingStories) {
       return Container(
         color: ThixColors.white,
-        height: 200,
+        height: 168,
         alignment: Alignment.center,
         child: const SizedBox(
           width: 22, height: 22,
@@ -433,14 +501,14 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       color: ThixColors.white,
       padding: const EdgeInsets.only(top: 12, bottom: 14),
       child: SizedBox(
-        height: 178,
+        height: 152,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           itemCount: otherUsersList.length + 1,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (c, i) {
-            
+
             // CARTE 0 : TA PROPRE STORY
             if (i == 0) {
               return _FbStoryCard(
@@ -467,13 +535,12 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
             final userStories = groupedOtherStories[userId]!;
             final firstStory = userStories.first; // Sert pour la miniature
 
-                        return _FbStoryCard(
+            return _FbStoryCard(
               isMe: false,
               hasStory: true,
               name: firstStory.userName.split(' ').first,
-              // 🌟 CORRECTION ICI : On ne met PAS l'avatar en fond de story
               coverUrl: firstStory.imageUrl.isNotEmpty ? firstStory.imageUrl : null,
-              avatarUrl: firstStory.userAvatar, // L'avatar reste bien à sa place (la petite bulle ronde)
+              avatarUrl: firstStory.userAvatar,
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => StoryViewer(stories: userStories, initialIndex: 0),
@@ -485,7 +552,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       ),
     );
   }
-
 
   // ─────────────────────────── FILTRES ───────────────────────────
 
@@ -585,19 +651,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: ThixColors.gradientStoryRing,
-                ),
-                child: const CircleAvatar(
-                  radius: 19,
-                  backgroundColor: ThixColors.softBlue,
-                  child: Icon(Icons.person,
-                      size: 19, color: ThixColors.primaryDeep),
-                ),
-              ),
+              const HexAvatar(size: 40, ringWidth: 2.5),
               const SizedBox(width: 12),
               Expanded(
                 child: GestureDetector(
@@ -605,7 +659,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                     context: context,
                     builder: (_) => const CreatePostDialog(),
                   ),
-                  // CORRECTION : Plus de reload global ici. La boite de dialogue gère déjà "addPostOnTop" pour afficher en direct.
+                  // Plus de reload global ici. La boite de dialogue gère déjà "addPostOnTop" pour afficher en direct.
                   child: Container(
                     height: 42,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -635,8 +689,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               _quickAction(Icons.videocam_rounded, 'Vidéo', ThixColors.gold),
               _quickAction(
                 Icons.sensors_rounded,
-                'Live',
+                'Direct',
                 const Color(0xFFE0453C),
+              ),
+              _quickAction(
+                Icons.mic_rounded,
+                'Audio',
+                const Color(0xFF1F9D6F),
               ),
             ],
           ),
@@ -652,7 +711,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         context: context,
         builder: (_) => const CreatePostDialog(),
       ),
-      // CORRECTION : Pas de reload, addPostOnTop le fait en direct.
+      // Pas de reload, addPostOnTop le fait en direct.
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         child: Row(
@@ -722,24 +781,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   ),
                   child: Column(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: ThixColors.gradientStoryRing,
-                        ),
-                        child: CircleAvatar(
-                          radius: 26,
-                          backgroundColor: ThixColors.softBlue,
-                          backgroundImage: u.avatar != null
-                              ? NetworkImage(u.avatar!)
-                              : null,
-                          child: u.avatar == null
-                              ? const Icon(Icons.person,
-                                  color: ThixColors.primaryDeep)
-                              : null,
-                        ),
-                      ),
+                      HexAvatar(size: 54, imageUrl: u.avatar, ringWidth: 2.5),
                       const SizedBox(height: 8),
                       Text(
                         u.name,
@@ -806,6 +848,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   }
 
   // ─────────────────────────── BOTTOM NAV ───────────────────────────
+  // 5 boutons identiques en taille et couleur — plus de FAB flottant.
 
   Widget _buildBottomNav(bool visible) {
     return AnimatedSlide(
@@ -821,104 +864,72 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: SizedBox(
-                height: 58,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    ClipRRect(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    height: 62,
+                    decoration: BoxDecoration(
+                      color: ThixColors.white.withValues(alpha: 0.86),
                       borderRadius: BorderRadius.circular(28),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                        child: Container(
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: ThixColors.white.withValues(alpha: 0.86),
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: ThixColors.border),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: ThixColors.shadowDeep,
-                                blurRadius: 20,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _navBtn(
-                                Icons.home_rounded,
-                                'Accueil',
-                                true,
-                                () => _scrollController.animateTo(
-                                  0,
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeOut,
-                                ),
-                              ),
-                              _navBtn(
-                                Icons.explore_outlined,
-                                'Découvrir',
-                                false,
-                                () => _safePush('/network/discover'),
-                              ),
-                              const SizedBox(width: 46),
-                              _navBtn(
-                                Icons.groups_outlined,
-                                'Réseau',
-                                false,
-                                () => _safePush('/network/connections'),
-                              ),
-                              _navBtn(
-                                Icons.person_outline,
-                                'Profil',
-                                false,
-                                () => _safePush('/profile'),
-                              ),
-                            ],
+                      border: Border.all(color: ThixColors.border),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: ThixColors.shadowDeep,
+                          blurRadius: 20,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _navBtn(
+                          Icons.home_rounded,
+                          'Accueil',
+                          true,
+                          () => _scrollController.animateTo(
+                            0,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
                           ),
                         ),
-                      ),
+                        _navBtn(
+                          Icons.explore_outlined,
+                          'Découvrir',
+                          false,
+                          () => _safePush('/network/discover'),
+                        ),
+                        _navBtn(
+                          Icons.add_circle_outline_rounded,
+                          'Publier',
+                          false,
+                          () => showDialog(
+                            context: context,
+                            builder: (_) => const CreatePostDialog(),
+                          ),
+                        ),
+                        _navBtn(
+                          Icons.groups_outlined,
+                          'Réseau',
+                          false,
+                          () => _safePush('/network/connections'),
+                        ),
+                        _navBtn(
+                          Icons.mail_outline_rounded,
+                          'Message',
+                          false,
+                          () => _safePush('/messages'),
+                        ),
+                      ],
                     ),
-                    Positioned(top: -14, child: _buildFab()),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildFab() {
-    return Container(
-      width: 54,
-      height: 54,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: ThixColors.gradientPrimary,
-        boxShadow: [
-          BoxShadow(
-            color: ThixColors.primary.withValues(alpha: 0.45),
-            blurRadius: 18,
-            spreadRadius: 1,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(color: ThixColors.white, width: 3),
-      ),
-      child: FloatingActionButton(
-        elevation: 0,
-        heroTag: 'network_fab',
-        backgroundColor: Colors.transparent,
-        onPressed: () => showDialog(
-          context: context,
-          builder: (_) => const CreatePostDialog(),
-        ), // CORRECTION : Plus besoin de .then() puisque addPostOnTop le fait en arrière-plan.
-        child: const Icon(Icons.add_rounded, size: 26, color: Colors.white),
       ),
     );
   }
@@ -959,7 +970,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                 height: 4,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: ThixColors.gradientGold,
+                  color: ThixColors.gold,
                 ),
               ),
           ],
@@ -1096,7 +1107,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
 }
 
 // ─────────────────────────────────────────────────────────────
-// STORY CARD style Facebook + touche THIX
+// STORY CARD — petit cadrement épuré : image encadrée en carré,
+// avatar hexagonal posé sur le coin, nom en dessous (plus de
+// texte incrusté sur dégradé sombre).
 // ─────────────────────────────────────────────────────────────
 
 class _FbStoryCard extends StatelessWidget {
@@ -1123,123 +1136,83 @@ class _FbStoryCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 112,
+        width: 92,
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          color: ThixColors.white,
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: ThixColors.border),
           boxShadow: const [
             BoxShadow(
               color: ThixColors.shadow,
-              blurRadius: 10,
-              offset: Offset(0, 4),
+              blurRadius: 8,
+              offset: Offset(0, 3),
             ),
           ],
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Cover
-            if (coverUrl != null && coverUrl!.isNotEmpty)
-              Image.network(
-                coverUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: ThixColors.softBlue,
-                ),
-              )
-            else
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [ThixColors.softBlue, ThixColors.primaryDeep],
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(13),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: (coverUrl != null && coverUrl!.isNotEmpty)
+                        ? Image.network(
+                            coverUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                Container(color: ThixColors.softBlue),
+                          )
+                        : Container(color: ThixColors.softBlue),
                   ),
                 ),
-              ),
-
-            // Gradient bas (lisible comme Facebook)
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black54,
-                  ],
-                  stops: [0.45, 1],
+                Positioned(
+                  top: -6,
+                  left: -6,
+                  child: HexAvatar(
+                    size: 26,
+                    imageUrl: avatarUrl,
+                    ringColor: hasStory || isMe
+                        ? ThixColors.gold
+                        : ThixColors.border,
+                    ringWidth: 2,
+                  ),
                 ),
-              ),
-            ),
-
-            // Avatar + anneau THIX (différence vs Facebook pur)
-            Positioned(
-              top: 10,
-              left: 10,
-              child: Container(
-                padding: const EdgeInsets.all(2.5),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: hasStory || isMe
-                      ? ThixColors.gradientStoryRing
-                      : null,
-                  color: hasStory || isMe ? null : Colors.white24,
-                ),
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: ThixColors.softBlue,
-                  backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
-                      ? NetworkImage(avatarUrl!)
-                      : null,
-                  child: avatarUrl == null || avatarUrl!.isEmpty
-                      ? const Icon(Icons.person,
-                          size: 16, color: ThixColors.primaryDeep)
-                      : null,
-                ),
-              ),
-            ),
-
-            // Bouton + (créer)
-            if (isMe)
-              Positioned(
-                top: 10,
-                right: 10,
-                child: GestureDetector(
-                  onTap: onAdd,
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: ThixColors.gradientGold,
-                      border: Border.all(color: Colors.white, width: 2),
+                if (isMe)
+                  Positioned(
+                    bottom: -6,
+                    right: -6,
+                    child: GestureDetector(
+                      onTap: onAdd,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: ThixColors.gold,
+                          border: Border.all(color: ThixColors.white, width: 2),
+                        ),
+                        child: const Icon(Icons.add_rounded,
+                            size: 14, color: ThixColors.navyDeep),
+                      ),
                     ),
-                    child: const Icon(Icons.add_rounded,
-                        size: 16, color: ThixColors.navyDeep),
                   ),
-                ),
-              ),
-
-            // Nom
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 10,
-              child: Text(
-                name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                  shadows: [
-                    Shadow(color: Colors.black54, blurRadius: 6),
-                  ],
-                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: ThixColors.textDark,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
