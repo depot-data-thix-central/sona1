@@ -23,7 +23,8 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
   bool _isVideoEnabled = true;
   bool _isMicEnabled = true;
 
-  late RtcEngine _engine;
+  // 🌟 Changement ici : RtcEngine devient nullable (?) pour éviter le crash
+  RtcEngine? _engine;
   bool _isEngineReady = false;
 
   @override
@@ -34,30 +35,42 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
 
   Future<void> _initPreviewAgora() async {
     try {
-      // 1. Récupérer l'App ID depuis l'Edge Function ou config
+      // 1. Demander les permissions
+      await [Permission.camera, Permission.microphone].request();
+
+      // 2. Récupérer l'App ID (ATTENTION: Si ta Edge Function n'est pas déployée,
+      // cela va générer une erreur. Assure-toi qu'elle est en ligne).
       final response = await Supabase.instance.client.functions.invoke(
         'get-agora-token',
         body: {'channelName': 'preview_channel', 'uid': 0},
       );
+      
       final data = response.data as Map<String, dynamic>;
       final appId = data['appId'] as String;
 
-      // 2. Permissions
-      await [Permission.camera, Permission.microphone].request();
-
       // 3. Init Agora pour le Preview
       _engine = createAgoraRtcEngine();
-      await _engine.initialize(RtcEngineContext(
+      await _engine!.initialize(RtcEngineContext(
         appId: appId,
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
-      await _engine.enableVideo();
-      await _engine.startPreview();
+      await _engine!.enableVideo();
+      await _engine!.startPreview();
 
       if (mounted) setState(() => _isEngineReady = true);
     } catch (e) {
       debugPrint('Erreur init preview Agora: $e');
+      // 🌟 Affiche l'erreur à l'écran au lieu de planter silencieusement !
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur Caméra : $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 
@@ -66,8 +79,10 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
         ? "Mon Direct" 
         : _titleController.text.trim();
 
-    // On libère le preview avant de passer à l'écran de diffusion principal
-    _engine.stopPreview();
+    // 🌟 Sécurité : on arrête le preview uniquement si la caméra a réussi à s'allumer
+    if (_isEngineReady && _engine != null) {
+      _engine!.stopPreview();
+    }
 
     Navigator.pushReplacement(
       context,
@@ -84,8 +99,9 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    if (_isEngineReady) {
-      _engine.release();
+    // 🌟 Sécurité ici aussi
+    if (_isEngineReady && _engine != null) {
+      _engine!.release();
     }
     super.dispose();
   }
@@ -107,10 +123,10 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
         children: [
           // 🌟 VRAI RETOUR CAMÉRA AGORA EN FOND
           Positioned.fill(
-            child: _isEngineReady && _isVideoEnabled
+            child: _isEngineReady && _isVideoEnabled && _engine != null
                 ? AgoraVideoView(
                     controller: VideoViewController(
-                      rtcEngine: _engine,
+                      rtcEngine: _engine!,
                       canvas: const VideoCanvas(uid: 0),
                     ),
                   )
@@ -122,7 +138,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                   ),
           ),
 
-          // Voile sombre progressif pour la lisibilité du texte et des boutons
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -139,7 +154,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
             ),
           ),
 
-          // Contenu (Titre + Contrôles + Bouton Lancer)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -166,7 +180,9 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                         isActive: _isMicEnabled,
                         onTap: () {
                           setState(() => _isMicEnabled = !_isMicEnabled);
-                          _engine.muteLocalAudioStream(!_isMicEnabled);
+                          if (_isEngineReady && _engine != null) {
+                            _engine!.muteLocalAudioStream(!_isMicEnabled);
+                          }
                         },
                       ),
                       const SizedBox(width: 24),
@@ -175,11 +191,13 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                         isActive: _isVideoEnabled,
                         onTap: () {
                           setState(() => _isVideoEnabled = !_isVideoEnabled);
-                          if (_isVideoEnabled) {
-                            _engine.enableVideo();
-                            _engine.startPreview();
-                          } else {
-                            _engine.disableVideo();
+                          if (_isEngineReady && _engine != null) {
+                            if (_isVideoEnabled) {
+                              _engine!.enableVideo();
+                              _engine!.startPreview();
+                            } else {
+                              _engine!.disableVideo();
+                            }
                           }
                         },
                       ),
@@ -188,7 +206,9 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                         icon: Icons.flip_camera_ios_rounded,
                         isActive: true,
                         onTap: () {
-                          _engine.switchCamera();
+                          if (_isEngineReady && _engine != null) {
+                            _engine!.switchCamera();
+                          }
                         },
                       ),
                     ],
@@ -198,7 +218,7 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                   SizedBox(
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _startLive,
+                      onPressed: _startLive, // Maintenant ce bouton marchera toujours !
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _C.red,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
