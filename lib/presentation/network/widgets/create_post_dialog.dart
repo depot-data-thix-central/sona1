@@ -1,4 +1,5 @@
 // lib/presentation/network/widgets/create_post_dialog.dart
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:record/record.dart'; // 🌟 IMPORT RECORD
+import 'package:image_picker/image_picker.dart'; // 🌟 IMPORT IMAGE PICKER (pour XFile)
 
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
@@ -94,6 +97,13 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
   String? _errorMessage;
   String? _factCheckStatusLabel;
 
+  // 🌟 GESTION DE L'AUDIO 🌟
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  Timer? _recordTimer;
+  int _recordDuration = 0;
+  bool _isRecording = false;
+  Uint8List? _audioBytes;
+
   List<Map<String, dynamic>> _mentionSuggestions = [];
   bool _showMentions = false;
 
@@ -125,6 +135,8 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
 
   @override
   void dispose() {
+    _recordTimer?.cancel();
+    _audioRecorder.dispose();
     _contentController.removeListener(_onContentChanged);
     _contentController.dispose();
     _contentFocusNode.dispose();
@@ -139,7 +151,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
 
   bool get _hasBgColor => _selectedBgColor != Colors.transparent;
   bool get _canHaveBgColor =>
-      _postTypeMode == 0 && _images.isEmpty && _videos.isEmpty;
+      _postTypeMode == 0 && _images.isEmpty && _videos.isEmpty && _audioBytes == null;
 
   String _colorToHex(Color c) {
     final v = c.toARGB32();
@@ -217,6 +229,50 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
 
   void _resetBgColorIfMediaAdded() {
     if (_hasBgColor) setState(() => _selectedBgColor = Colors.transparent);
+  }
+
+  // 🌟 LOGIQUE D'ENREGISTREMENT AUDIO (2 min max) 🌟
+  Future<void> _startRecording() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        await _audioRecorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
+          path: '', // Chemin vide = fichier temp auto-géré (ou Blob sur Web)
+        );
+        setState(() {
+          _isRecording = true;
+          _recordDuration = 0;
+          _audioBytes = null;
+          _resetBgColorIfMediaAdded();
+        });
+        
+        _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          setState(() => _recordDuration++);
+          if (_recordDuration >= 120) { // Limite 2 minutes !
+            _stopRecording();
+          }
+        });
+      } else {
+        setState(() => _errorMessage = 'Permission microphone refusée.');
+      }
+    } catch (e) {
+      debugPrint('Erreur record: $e');
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    _recordTimer?.cancel();
+    try {
+      final path = await _audioRecorder.stop();
+      setState(() => _isRecording = false);
+      if (path != null) {
+        final file = XFile(path);
+        final bytes = await file.readAsBytes();
+        setState(() => _audioBytes = bytes);
+      }
+    } catch (e) {
+      debugPrint('Erreur stop record: $e');
+    }
   }
 
   Future<void> _pickImages() async {
@@ -373,9 +429,10 @@ Réponds : SAFE ou FAKE: [raison]
     if (_postTypeMode == 0 &&
         textContent.isEmpty &&
         _images.isEmpty &&
-        _videos.isEmpty) {
+        _videos.isEmpty &&
+        _audioBytes == null) {
       setState(() =>
-          _errorMessage = 'Ajoutez du texte ou un média');
+          _errorMessage = 'Ajoutez du texte, un média ou un audio');
       return;
     }
     if (_postTypeMode == 1 && textContent.isEmpty) {
@@ -415,10 +472,17 @@ Réponds : SAFE ou FAKE: [raison]
       final fcSeverity = factCheckResult['severity'];
 
       if (mounted) {
-        setState(() => _factCheckStatusLabel = 'Envoi…');
+        setState(() => _factCheckStatusLabel = 'Envoi des médias…');
       }
 
-      final imageUrls = <String>[];
+      final allMedia = <String>[];
+
+      // 🌟 UPLOAD DE L'AUDIO 🌟
+      if (_audioBytes != null) {
+        final url = await ns.uploadAudioBytes(_audioBytes!);
+        if (url != null && url.isNotEmpty) allMedia.add(url);
+      }
+
       for (final item in _images) {
         final compressed = await compute(compressImageBytes, item.bytes);
         final ext = item.name.split('.').last;
@@ -427,10 +491,9 @@ Réponds : SAFE ou FAKE: [raison]
           fileExtension: ext,
           bucket: 'post_images',
         );
-        if (url != null && url.isNotEmpty) imageUrls.add(url);
+        if (url != null && url.isNotEmpty) allMedia.add(url);
       }
 
-      final videoUrls = <String>[];
       for (final item in _videos) {
         final ext = item.name.split('.').last;
         final url = await ns.uploadImageBytes(
@@ -438,14 +501,12 @@ Réponds : SAFE ou FAKE: [raison]
           fileExtension: ext,
           bucket: 'videos',
         );
-        if (url != null && url.isNotEmpty) videoUrls.add(url);
+        if (url != null && url.isNotEmpty) allMedia.add(url);
       }
 
-      final allMedia = [...imageUrls, ...videoUrls];
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception('Non authentifié');
 
-      // Profil pour affichage immédiat
       String authorName = 'Moi';
       String? authorAvatar;
       String? authorTitle;
@@ -476,6 +537,11 @@ Réponds : SAFE ou FAKE: [raison]
         'community_id': widget.communityId,
         'post_type': 'standard',
       };
+
+      // Si c'est uniquement un post audio (sans images/vidéos), on peut le typer 'audio'
+      if (_postTypeMode == 0 && _audioBytes != null && _images.isEmpty && _videos.isEmpty) {
+        payload['post_type'] = 'audio';
+      }
 
       if (_canHaveBgColor && _hasBgColor) {
         payload['bg_color'] = _colorToHex(_selectedBgColor);
@@ -513,7 +579,6 @@ Réponds : SAFE ou FAKE: [raison]
         };
       }
 
-      // INSERT + récupération ligne
       final inserted = await Supabase.instance.client
           .from('posts')
           .insert(payload)
@@ -552,7 +617,6 @@ Réponds : SAFE ou FAKE: [raison]
         isPublic: true,
       );
 
-      // 🔥 Visible au premier coup d’œil
       try {
         ref.read(feedProvider.notifier).addPostOnTop(newPost);
       } catch (_) {
@@ -572,7 +636,7 @@ Réponds : SAFE ou FAKE: [raison]
           backgroundColor: isMisinfo ? Colors.orange : _C.primary,
         ),
       );
-      Navigator.pop(context, newPost); // ← NetworkPost pour le home
+      Navigator.pop(context, newPost);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -866,6 +930,64 @@ Réponds : SAFE ou FAKE: [raison]
                           ),
                         ),
                       ),
+
+                      // 🌟 BANNIÈRE D'ENREGISTREMENT AUDIO (Actif ou Terminé) 🌟
+                      if (_isRecording)
+                        Container(
+                          margin: const EdgeInsets.only(top: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _C.red.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _C.red.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.mic, color: _C.red),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Enregistrement... ${_recordDuration ~/ 60}:${(_recordDuration % 60).toString().padLeft(2, '0')} / 02:00',
+                                style: const TextStyle(
+                                  color: _C.red,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: _stopRecording,
+                                child: const Icon(Icons.stop_circle_rounded, color: _C.red, size: 32),
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (_audioBytes != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _C.softBlue,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _C.primary.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.audiotrack_rounded, color: _C.primary),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Note vocale prête',
+                                style: TextStyle(
+                                  color: _C.primaryDeep,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: () => setState(() => _audioBytes = null),
+                                child: const Icon(Icons.delete_outline_rounded, color: _C.red, size: 24),
+                              ),
+                            ],
+                          ),
+                        ),
 
                       if (_canHaveBgColor)
                         SingleChildScrollView(
@@ -1180,6 +1302,7 @@ Réponds : SAFE ou FAKE: [raison]
                   ),
                 ),
 
+              // 🌟 BOUTONS D'AJOUT DE MÉDIAS (Audio ajouté ici) 🌟
               Row(
                 children: [
                   _mediaBtn(
@@ -1188,6 +1311,11 @@ Réponds : SAFE ou FAKE: [raison]
                       Icons.videocam_rounded, _pickVideos, _C.red),
                   _mediaBtn(
                       Icons.photo_camera_rounded, _pickCamera, _C.primary),
+                  _mediaBtn(
+                    _isRecording ? Icons.stop_circle_rounded : Icons.mic_rounded,
+                    _isRecording ? _stopRecording : _startRecording,
+                    _C.gold,
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
