@@ -1,5 +1,6 @@
 // lib/presentation/network/live/live_prep_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // 🌟 IMPÉRATIF POUR DÉTECTER LE WEB
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,7 +24,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
   bool _isVideoEnabled = true;
   bool _isMicEnabled = true;
 
-  // 🌟 Changement ici : RtcEngine devient nullable (?) pour éviter le crash
   RtcEngine? _engine;
   bool _isEngineReady = false;
 
@@ -35,39 +35,36 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
 
   Future<void> _initPreviewAgora() async {
     try {
-      // 1. Demander les permissions
-      await [Permission.camera, Permission.microphone].request();
+      // 🌟 1. LE CORRECTIF : On désactive permission_handler sur le Web !
+      // Sur le Web, le navigateur (Chrome/Safari) gère lui-même la pop-up de permission.
+      if (!kIsWeb) {
+        await [Permission.camera, Permission.microphone].request();
+      }
 
-      // 2. Récupérer l'App ID (ATTENTION: Si ta Edge Function n'est pas déployée,
-      // cela va générer une erreur. Assure-toi qu'elle est en ligne).
-      final response = await Supabase.instance.client.functions.invoke(
-        'get-agora-token',
-        body: {'channelName': 'preview_channel', 'uid': 0},
-      );
-      
-      final data = response.data as Map<String, dynamic>;
-      final appId = data['appId'] as String;
+      // 🌟 2. Ton App ID en dur pour le test immédiat
+      String appId = "96ed392d17c74fe684bbb9d4a031ad12"; 
 
-      // 3. Init Agora pour le Preview
+      // 3. Initialisation d'Agora
       _engine = createAgoraRtcEngine();
       await _engine!.initialize(RtcEngineContext(
         appId: appId,
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
+      // 4. Allumage de la vidéo
       await _engine!.enableVideo();
       await _engine!.startPreview();
 
       if (mounted) setState(() => _isEngineReady = true);
+      
     } catch (e) {
       debugPrint('Erreur init preview Agora: $e');
-      // 🌟 Affiche l'erreur à l'écran au lieu de planter silencieusement !
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur Caméra : $e'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 10),
           ),
         );
       }
@@ -79,7 +76,7 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
         ? "Mon Direct" 
         : _titleController.text.trim();
 
-    // 🌟 Sécurité : on arrête le preview uniquement si la caméra a réussi à s'allumer
+    // On arrête le preview proprement avant de basculer sur l'écran principal
     if (_isEngineReady && _engine != null) {
       _engine!.stopPreview();
     }
@@ -99,7 +96,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    // 🌟 Sécurité ici aussi
     if (_isEngineReady && _engine != null) {
       _engine!.release();
     }
@@ -121,7 +117,7 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
       ),
       body: Stack(
         children: [
-          // 🌟 VRAI RETOUR CAMÉRA AGORA EN FOND
+          // ─── RETOUR CAMÉRA AGORA EN FOND ───
           Positioned.fill(
             child: _isEngineReady && _isVideoEnabled && _engine != null
                 ? AgoraVideoView(
@@ -138,6 +134,7 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                   ),
           ),
 
+          // ─── VOILE SOMBRE PROGRESSIF ───
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -154,6 +151,7 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
             ),
           ),
 
+          // ─── CONTENU (Titre + Contrôles + Bouton Lancer) ───
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -218,7 +216,7 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                   SizedBox(
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _startLive, // Maintenant ce bouton marchera toujours !
+                      onPressed: _startLive,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _C.red,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
