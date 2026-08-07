@@ -18,8 +18,8 @@ class NetworkPost {
   // ─── Médias (unifiés) ───
   final List<String> mediaUrls;
 
-  // ─── Nouveaux types (Sondages & Challenges) ───
-  final String postType; // 'standard', 'poll', 'challenge', 'repost'
+  // ─── Nouveaux types (Sondages, Challenges & Audio) ───
+  final String postType; // 'standard', 'poll', 'challenge', 'repost', 'audio'
   final Map<String, dynamic>? pollData;
   final Map<String, dynamic>? challengeData;
 
@@ -27,7 +27,7 @@ class NetworkPost {
   final String status;
   final bool isPublic;
   final String? communityId;
-  final String? repostOfId; // ← AJOUT (post original si c'est un repost)
+  final String? repostOfId; // (post original si c'est un repost)
   
   // ─── Fact-Checking ───
   final bool isFactChecked;
@@ -81,7 +81,7 @@ class NetworkPost {
     this.isPublic = true,
     this.communityId,
     this.views,
-    this.repostOfId, // ← AJOUT
+    this.repostOfId,
   });
 
   static bool _hasExtension(String url, List<String> extensions) {
@@ -91,15 +91,20 @@ class NetworkPost {
 
   static bool _isImage(String url) => _hasExtension(url, ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']);
   static bool _isVideo(String url) => _hasExtension(url, ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v']);
+  // 🌟 AJOUT : Détection des fichiers audio
+  static bool _isAudio(String url) => _hasExtension(url, ['.m4a', '.mp3', '.wav', '.aac', '.ogg', '.flac']); 
 
   List<String> get imageUrls => mediaUrls.where(_isImage).toList();
   List<String> get videoUrls => mediaUrls.where(_isVideo).toList();
+  // 🌟 AJOUT : Liste des URLs audio
+  List<String> get audioUrls => mediaUrls.where(_isAudio).toList(); 
 
   bool get hasImages => imageUrls.isNotEmpty;
   bool get hasVideos => videoUrls.isNotEmpty;
+  // 🌟 AJOUT : Vérification de la présence d'audio
+  bool get hasAudio => audioUrls.isNotEmpty || postType == 'audio'; 
   bool get hasMedia => mediaUrls.isNotEmpty;
 
-  // ← AJOUT : Getter utile
   bool get isRepostCard =>
       postType == 'repost' || (repostOfId != null && repostOfId!.isNotEmpty);
 
@@ -144,12 +149,9 @@ class NetworkPost {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : null,
-      
-      // counts plus sûrs : ← AJOUT
       likesCount: (json['likes_count'] as num?)?.toInt() ?? 0,
       commentsCount: (json['comments_count'] as num?)?.toInt() ?? 0,
       repostsCount: (json['reposts_count'] as num?)?.toInt() ?? 0,
-      
       isLiked: json['is_liked'] == true,
       isSaved: json['is_saved'] == true,
       isReposted: json['is_reposted'] == true,
@@ -158,7 +160,7 @@ class NetworkPost {
       isPublic: json['is_public'] as bool? ?? true,
       communityId: json['community_id'] as String?,
       views: (json['views'] as num?)?.toInt(),
-      repostOfId: json['repost_of_id']?.toString(), // ← AJOUT
+      repostOfId: json['repost_of_id']?.toString(),
     );
   }
 
@@ -192,7 +194,7 @@ class NetworkPost {
       'is_public': isPublic,
       'community_id': communityId,
       'views': views,
-      'repost_of_id': repostOfId, // ← AJOUT
+      'repost_of_id': repostOfId,
     };
   }
 
@@ -225,7 +227,7 @@ class NetworkPost {
     bool? isPublic,
     String? communityId,
     int? views,
-    String? repostOfId, // ← AJOUT
+    String? repostOfId,
   }) {
     return NetworkPost(
       id: id ?? this.id,
@@ -256,7 +258,7 @@ class NetworkPost {
       isPublic: isPublic ?? this.isPublic,
       communityId: communityId ?? this.communityId,
       views: views ?? this.views,
-      repostOfId: repostOfId ?? this.repostOfId, // ← AJOUT
+      repostOfId: repostOfId ?? this.repostOfId,
     );
   }
 
