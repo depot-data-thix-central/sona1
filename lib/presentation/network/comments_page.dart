@@ -31,9 +31,8 @@ class _C {
   static const textDark = Color(0xFF10192E);
   static const textGrey = Color(0xFF65676B);
   static const red = Color(0xFFE5484D);
-  static const orange = Color(0xFFF59E0B); // 🌟 
+  static const orange = Color(0xFFF59E0B);
 }
-
 
 class CommentsPage extends ConsumerStatefulWidget {
   final String postId;
@@ -53,12 +52,15 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   String? _replyingTo;
   String? _replyingToName;
 
+  // 🌟 État pour gérer les réponses déployées (façon Facebook)
+  final Set<String> _expandedComments = {};
+
   // ─── MÉDIAS (Audio & Photo) ───
   Uint8List? _imageBytes;
   Uint8List? _audioBytes;
-  String? _localAudioPath; // 🌟 Pour la pré-écoute
+  String? _localAudioPath;
   
-  // ─── AUDIO RECORDING ───
+  // ─── AUDIO RECORDING (Limite : 30 sec) ───
   final AudioRecorder _audioRecorder = AudioRecorder();
   Timer? _recordTimer;
   int _recordDuration = 0;
@@ -147,7 +149,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     }
   }
 
-  // ─── LOGIQUE AUDIO SÉCURISÉE ───
+  // ─── LOGIQUE AUDIO (Limite de 30 secondes stricte) ───
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
@@ -165,6 +167,10 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
         
         _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
           setState(() => _recordDuration++);
+          // 🌟 Arrêt forcé après 30 secondes exactement
+          if (_recordDuration >= 30) {
+            _stopRecording();
+          }
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permission microphone requise')));
@@ -188,7 +194,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
           final file = XFile(path);
           bytes = await file.readAsBytes();
         }
-        // 🌟 Affiche le lecteur de pré-écoute au lieu d'envoyer direct
         setState(() {
           _audioBytes = bytes;
           _localAudioPath = path;
@@ -244,6 +249,11 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
         imageUrl: imageUrl,
       );
 
+      // Si on répond à un commentaire, on s'assure qu'il est "déployé" pour voir la réponse
+      if (_replyingTo != null) {
+        _expandedComments.add(_replyingTo!);
+      }
+
       ref.invalidate(commentsProvider(widget.postId));
       
       setState(() {
@@ -286,7 +296,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     FocusScope.of(context).unfocus();
     final isOwnComment = comment.userId == currentUserId;
     final isPostOwner = _post?.userId == currentUserId;
-    final canDelete = isOwnComment || isPostOwner; // 🌟 L'auteur du post ET l'auteur du comm peuvent supprimer
+    final canDelete = isOwnComment || isPostOwner;
 
     showModalBottomSheet(
       context: context,
@@ -301,7 +311,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
               ListTile(
                 leading: const Icon(Icons.reply_rounded, color: _C.textDark),
                 title: const Text('Répondre'),
-                onTap: () { Navigator.pop(context); _startReply(comment.userName, comment.id); },
+                onTap: () { Navigator.pop(context); _startReply(comment.userName, comment.parentId ?? comment.id); },
               ),
               ListTile(
                 leading: const Icon(Icons.copy_rounded, color: _C.textDark),
@@ -313,7 +323,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 },
               ),
               
-              if (isOwnComment && (comment.audioUrl == null || comment.audioUrl!.isEmpty)) // Pas de modif pour l'audio
+              if (isOwnComment && (comment.audioUrl == null || comment.audioUrl!.isEmpty))
                 ListTile(
                   leading: const Icon(Icons.edit_rounded, color: _C.textDark),
                   title: const Text('Modifier'),
@@ -452,26 +462,78 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     );
   }
 
-  // ─── THREAD STYLE FACEBOOK (Empilement des réponses sur 1 niveau) ───
+  // ─── THREAD STYLE FACEBOOK (Empilement optimisé) ───
   Widget _buildCommentThread(Comment comment, String? currentUserId) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final hasReplies = comment.replies.isNotEmpty;
+    final isExpanded = _expandedComments.contains(comment.id);
+    final hiddenCount = comment.replies.length - 1; // On laisse la dernière réponse visible
+
+    List<Widget> threadChildren = [
+      _buildSingleCommentBubble(comment, currentUserId, isReply: false, isLastReply: !hasReplies),
+    ];
+
+    if (hasReplies) {
+      if (!isExpanded && comment.replies.length > 1) {
+        // 🌟 STYLE FACEBOOK : Afficher "Voir les X réponses" et la toute dernière réponse
+        threadChildren.add(_buildViewMoreRepliesBtn(comment, hiddenCount));
+        threadChildren.add(_buildSingleCommentBubble(comment.replies.last, currentUserId, isReply: true, isLastReply: true));
+      } else {
+        // Afficher toutes les réponses si déployé ou s'il n'y a qu'une seule réponse
+        for (int i = 0; i < comment.replies.length; i++) {
+          threadChildren.add(
+            _buildSingleCommentBubble(comment.replies[i], currentUserId, isReply: true, isLastReply: i == comment.replies.length - 1)
+          );
+        }
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: threadChildren,
+      ),
+    );
+  }
+
+  // 🌟 BOUTON "Voir les X réponses précédentes"
+  Widget _buildViewMoreRepliesBtn(Comment comment, int hiddenCount) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _buildSingleCommentBubble(comment, currentUserId, isReply: false, isLastReply: false),
-        if (comment.replies.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 8),
-            child: Column(
-              children: List.generate(comment.replies.length, (i) {
-                return _buildSingleCommentBubble(
-                  comment.replies[i], 
-                  currentUserId, 
-                  isReply: true, 
-                  isLastReply: i == comment.replies.length - 1
-                );
-              }),
+        SizedBox(
+          width: 44,
+          height: 36,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 22,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 2, color: Colors.grey.shade300)
+              ),
+              Positioned(
+                left: 22,
+                top: 18,
+                child: Container(width: 14, height: 2, color: Colors.grey.shade300)
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() { _expandedComments.add(comment.id); });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Voir les $hiddenCount réponses précédentes', 
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF10192E))
+              ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -603,7 +665,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     );
   }
 
-  // ─── BARRE DE SAISIE SÉCURISÉE (Avec Pré-écoute) ───
+  // ─── BARRE DE SAISIE SÉCURISÉE (Avec Pré-écoute et Limite 30s) ───
   Widget _buildInputBar() {
     final hasTextOrImage = _controller.text.trim().isNotEmpty || _imageBytes != null;
 
@@ -646,7 +708,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 ),
               ),
 
-            // 🌟 1. MODE ENREGISTREMENT (Bouton Envoyer désactivé)
+            // 🌟 1. MODE ENREGISTREMENT (Bouton Envoyer masqué, chrono limité à 00:30)
             if (_isRecording)
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -657,7 +719,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                     const Icon(Icons.mic, color: Colors.red),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text('Enregistrement... ${(_recordDuration ~/ 60).toString().padLeft(2, '0')}:${(_recordDuration % 60).toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
+                      child: Text('Enregistrement... 00:${_recordDuration.toString().padLeft(2, '0')} / 00:30', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
                     ),
                     GestureDetector(onTap: _stopRecording, child: const Icon(Icons.stop_circle_rounded, color: Colors.red, size: 30)),
                   ],
@@ -747,7 +809,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
 // ─── LECTEUR AUDIO COMPACT POUR LES COMMENTAIRES ───
 class _CommentAudioPlayer extends StatefulWidget {
   final String audioUrl;
-  final bool isLocal; // 🌟 Ajout pour gérer les fichiers locaux (pré-écoute)
+  final bool isLocal;
   const _CommentAudioPlayer({required this.audioUrl, this.isLocal = false});
 
   @override
