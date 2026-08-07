@@ -538,7 +538,8 @@ class NetworkService extends ChangeNotifier {
     String postId,
     String content, {
     String? parentId,
-    String? audioUrl, // 🌟
+    String? audioUrl,
+    String? imageUrl, // 🌟 AJOUT
   }) async {
     final res = await _supabase
         .from('comments')
@@ -547,17 +548,12 @@ class NetworkService extends ChangeNotifier {
           'user_id': currentUserId,
           'content': content.trim(),
           'parent_id': parentId,
-          'audio_url': audioUrl, // 🌟
+          'audio_url': audioUrl,
+          'image_url': imageUrl, // 🌟 AJOUT
         })
         .select('*, profiles!user_id(display_name, avatar_url)')
         .single();
 
-    final owner = await _getPostOwnerId(postId);
-    if (parentId == null && owner != currentUserId) {
-      unawaited(
-        _createNotification(userId: owner, type: 'comment', postId: postId),
-      );
-    }
     notifyListeners();
     return Comment.fromJson(res);
   }
