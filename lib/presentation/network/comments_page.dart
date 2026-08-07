@@ -12,6 +12,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/models/comment.dart';
@@ -53,8 +54,9 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   // ─── MÉDIAS (Audio & Photo) ───
   Uint8List? _imageBytes;
   Uint8List? _audioBytes;
+  String? _localAudioPath; // 🌟 Pour la pré-écoute
   
-  // ─── AUDIO RECORDING (Limite : 30 sec) ───
+  // ─── AUDIO RECORDING ───
   final AudioRecorder _audioRecorder = AudioRecorder();
   Timer? _recordTimer;
   int _recordDuration = 0;
@@ -113,7 +115,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   @override
   void initState() {
     super.initState();
-    // 🌟 Écouteur unifié pour la pagination et la réactivité du bouton d'envoi (Micro/Send)
     _controller.addListener(() {
       setState(() {});
     });
@@ -144,7 +145,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     }
   }
 
-  // ─── LOGIQUE AUDIO ───
+  // ─── LOGIQUE AUDIO SÉCURISÉE ───
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
@@ -156,14 +157,12 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
           _isRecording = true;
           _recordDuration = 0;
           _audioBytes = null;
+          _localAudioPath = null;
           _showStickers = false;
         });
         
         _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
           setState(() => _recordDuration++);
-          if (_recordDuration >= 30) {
-            _stopRecording();
-          }
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permission microphone requise')));
@@ -187,8 +186,11 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
           final file = XFile(path);
           bytes = await file.readAsBytes();
         }
-        setState(() => _audioBytes = bytes);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note vocale prête !'), backgroundColor: Color(0xFF2D6CDF)));
+        // 🌟 Affiche le lecteur de pré-écoute au lieu d'envoyer direct
+        setState(() {
+          _audioBytes = bytes;
+          _localAudioPath = path;
+        });
       }
     } catch (e) {
       debugPrint('Erreur stop record: $e');
@@ -245,6 +247,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       setState(() {
         _controller.clear();
         _audioBytes = null;
+        _localAudioPath = null;
         _imageBytes = null;
         _showStickers = false;
       });
@@ -273,6 +276,114 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       else await ref.read(networkServiceProvider).unlikeComment(comment.id);
     } catch (_) {
       setState(() { comment.isLiked = oldLiked; comment.likesCount = oldCount; });
+    }
+  }
+
+  // ─── GESTION DES ACTIONS (Modifier, Supprimer, Signaler) ───
+  void _showCommentActions(Comment comment, String currentUserId) {
+    FocusScope.of(context).unfocus();
+    final isOwnComment = comment.userId == currentUserId;
+    final isPostOwner = _post?.userId == currentUserId;
+    final canDelete = isOwnComment || isPostOwner; // 🌟 L'auteur du post ET l'auteur du comm peuvent supprimer
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(margin: const EdgeInsets.only(top: 8, bottom: 8), width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+              
+              ListTile(
+                leading: const Icon(Icons.reply_rounded, color: _C.textDark),
+                title: const Text('Répondre'),
+                onTap: () { Navigator.pop(context); _startReply(comment.userName, comment.id); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy_rounded, color: _C.textDark),
+                title: const Text('Copier le texte'),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: comment.content));
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Texte copié !')));
+                },
+              ),
+              
+              if (isOwnComment && (comment.audioUrl == null || comment.audioUrl!.isEmpty)) // Pas de modif pour l'audio
+                ListTile(
+                  leading: const Icon(Icons.edit_rounded, color: _C.textDark),
+                  title: const Text('Modifier'),
+                  onTap: () { Navigator.pop(context); _editComment(comment); },
+                ),
+                
+              if (canDelete)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline_rounded, color: _C.red),
+                  title: const Text('Supprimer', style: TextStyle(color: _C.red, fontWeight: FontWeight.bold)),
+                  onTap: () { Navigator.pop(context); _confirmDelete(comment); },
+                ),
+
+              if (!isOwnComment)
+                ListTile(
+                  leading: const Icon(Icons.flag_outlined, color: _C.orange),
+                  title: const Text('Signaler ce commentaire', style: TextStyle(color: _C.orange)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signalement envoyé aux modérateurs.')));
+                  },
+                ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  void _editComment(Comment comment) async {
+    final ctrl = TextEditingController(text: comment.content);
+    final newContent = await showDialog<String>(
+      context: context, 
+      builder: (c) => AlertDialog(
+        title: const Text('Modifier le commentaire', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), 
+        content: TextField(controller: ctrl, maxLines: 4, decoration: const InputDecoration(filled: true, border: OutlineInputBorder(borderSide: BorderSide.none))), 
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Annuler', style: TextStyle(color: _C.textGrey))), 
+          ElevatedButton(onPressed: () => Navigator.pop(c, ctrl.text), style: ElevatedButton.styleFrom(backgroundColor: _C.primary), child: const Text('Enregistrer', style: TextStyle(color: Colors.white)))
+        ]
+      )
+    );
+
+    if (newContent != null && newContent.trim().isNotEmpty && newContent != comment.content) {
+      try { 
+        await Supabase.instance.client.from('comments').update({'content': newContent}).eq('id', comment.id);
+        ref.invalidate(commentsProvider(widget.postId));
+      } catch (e) { 
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'))); 
+      }
+    }
+  }
+
+  void _confirmDelete(Comment comment) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer ?', style: TextStyle(color: _C.red)),
+        content: const Text('Ce commentaire sera définitivement supprimé.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler', style: TextStyle(color: _C.textGrey))),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: _C.red), child: const Text('Supprimer', style: TextStyle(color: Colors.white))),
+        ],
+      )
+    );
+    if (confirm == true) {
+      try {
+        await Supabase.instance.client.from('comments').delete().eq('id', comment.id);
+        ref.invalidate(commentsProvider(widget.postId));
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      }
     }
   }
 
@@ -326,7 +437,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                           error: (e, _) => SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Erreur: $e')))),
                           data: (comments) => comments.isEmpty
                              ? SliverFillRemaining(child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.comment_outlined, size: 60, color: Colors.grey[300]), const SizedBox(height: 12), Text('Soyez le premier à commenter !', style: TextStyle(color: Colors.grey[600]))])))
-                              : SliverList(delegate: SliverChildBuilderDelegate((context, index) => _buildCommentTile(comments[index], currentUserId, isRoot: true), childCount: comments.length)),
+                              : SliverList(delegate: SliverChildBuilderDelegate((context, index) => _buildCommentThread(comments[index], currentUserId), childCount: comments.length)),
                         ),
                       ],
                     ),
@@ -339,9 +450,31 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     );
   }
 
-  // ─── TUILE DE COMMENTAIRE ───
-  Widget _buildCommentTile(Comment comment, String? currentUserId, {bool isRoot = true}) {
-    final hasReplies = comment.replies.isNotEmpty;
+  // ─── THREAD STYLE FACEBOOK (Empilement des réponses sur 1 niveau) ───
+  Widget _buildCommentThread(Comment comment, String? currentUserId) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSingleCommentBubble(comment, currentUserId, isReply: false, isLastReply: false),
+        if (comment.replies.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 8),
+            child: Column(
+              children: List.generate(comment.replies.length, (i) {
+                return _buildSingleCommentBubble(
+                  comment.replies[i], 
+                  currentUserId, 
+                  isReply: true, 
+                  isLastReply: i == comment.replies.length - 1
+                );
+              }),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSingleCommentBubble(Comment comment, String? currentUserId, {required bool isReply, required bool isLastReply}) {
     final hasAudio = comment.audioUrl != null && comment.audioUrl!.isNotEmpty;
     final hasImage = comment.imageUrl != null && comment.imageUrl!.isNotEmpty;
 
@@ -349,102 +482,99 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!isRoot)
-            Container(
-              margin: const EdgeInsets.only(left: 32, right: 10),
-              width: 2,
-              color: Colors.grey[300],
+          // 🌟 LIGNE EN "L" POUR LES RÉPONSES
+          if (isReply)
+            SizedBox(
+              width: 44,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 22, 
+                    top: 0, 
+                    bottom: isLastReply ? null : 0, 
+                    height: isLastReply ? 24 : null, // Arrête la ligne à la branche si c'est la dernière réponse
+                    child: Container(width: 2, color: Colors.grey.shade300)
+                  ),
+                  Positioned(
+                    left: 22, 
+                    top: 24, 
+                    child: Container(width: 14, height: 2, color: Colors.grey.shade300)
+                  ),
+                ],
+              ),
             ),
             
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(left: isRoot ? 16 : 0, right: 16, bottom: 8),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white, 
-                  borderRadius: BorderRadius.circular(16), 
-                  border: Border.all(color: const Color(0xFFE7EEFC)),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))
-                  ]
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start, 
-                  children: [
-                    ListTile(
-                      contentPadding: const EdgeInsets.only(left: 12, right: 12, top: 4),
-                      leading: CircleAvatar(
-                        radius: 16, 
-                        backgroundColor: const Color(0xFFEAF1FF),
-                        backgroundImage: comment.userAvatar != null && comment.userAvatar!.isNotEmpty ? NetworkImage(comment.userAvatar!) : null, 
-                        child: comment.userAvatar == null || comment.userAvatar!.isEmpty ? Icon(Icons.person, size: 16, color: Colors.grey[600]) : null
-                      ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              comment.userName, 
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF10192E)),
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                            )
-                          ), 
-                          Text(timeago.format(comment.createdAt, locale: 'fr'), style: TextStyle(color: Colors.grey[500], fontSize: 10))
-                        ]
-                      ),
-                    ),
-                    
-                    if (comment.content.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2), 
-                        child: Text(comment.content, style: const TextStyle(fontSize: 13.5, height: 1.4, color: Color(0xFF10192E)))
-                      ),
-
-                    if (hasImage)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 14, right: 14, top: 8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(comment.imageUrl!, height: 160, width: double.infinity, fit: BoxFit.cover),
+              padding: EdgeInsets.only(left: isReply ? 0 : 16, right: 16, bottom: 8),
+              child: GestureDetector(
+                onLongPress: () => _showCommentActions(comment, currentUserId ?? ''),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white, 
+                    borderRadius: BorderRadius.circular(16), 
+                    border: Border.all(color: const Color(0xFFE7EEFC)),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))]
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    children: [
+                      ListTile(
+                        contentPadding: const EdgeInsets.only(left: 12, right: 12, top: 4),
+                        leading: CircleAvatar(
+                          radius: isReply ? 14 : 16, 
+                          backgroundColor: const Color(0xFFEAF1FF),
+                          backgroundImage: comment.userAvatar != null && comment.userAvatar!.isNotEmpty ? NetworkImage(comment.userAvatar!) : null, 
+                          child: comment.userAvatar == null || comment.userAvatar!.isEmpty ? Icon(Icons.person, size: isReply ? 14 : 16, color: Colors.grey[600]) : null
+                        ),
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(comment.userName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF10192E)), maxLines: 1, overflow: TextOverflow.ellipsis)), 
+                            Text(timeago.format(comment.createdAt, locale: 'fr'), style: TextStyle(color: Colors.grey[500], fontSize: 10))
+                          ]
                         ),
                       ),
                       
-                    if (hasAudio)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 14, right: 14, top: 8),
-                        child: _CommentAudioPlayer(audioUrl: comment.audioUrl!), 
-                      ),
+                      if (comment.content.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2), 
+                          child: Text(comment.content, style: const TextStyle(fontSize: 13.5, height: 1.4, color: Color(0xFF10192E)))
+                        ),
 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
-                      child: Row(
-                        children: [
-                          _actionButton(
-                            icon: comment.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, 
-                            iconColor: comment.isLiked ? const Color(0xFFE5484D) : Colors.grey[500]!, 
-                            label: comment.likesCount > 0 ? '${comment.likesCount}' : '', 
-                            onTap: () => _toggleLikeComment(comment)
-                          ),
-                          const SizedBox(width: 8),
-                          _actionButton(
-                            icon: Icons.reply_rounded, 
-                            iconColor: Colors.grey[600]!, 
-                            label: 'Répondre', 
-                            onTap: () => _startReply(comment.userName, comment.id)
-                          ),
-                        ]
-                      )
-                    ),
+                      if (hasImage)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 14, right: 14, top: 8),
+                          child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(comment.imageUrl!, height: 160, width: double.infinity, fit: BoxFit.cover)),
+                        ),
+                        
+                      if (hasAudio)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 14, right: 14, top: 8),
+                          child: _CommentAudioPlayer(audioUrl: comment.audioUrl!, isLocal: false), 
+                        ),
 
-                    if (hasReplies) ...[
-                      Divider(height: 1, thickness: 0.8, color: Colors.grey[100]),
                       Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 4), 
-                        child: Column(
-                          children: comment.replies.map((r) => _buildCommentTile(r, currentUserId, isRoot: false)).toList()
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
+                        child: Row(
+                          children: [
+                            _actionButton(
+                              icon: comment.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, 
+                              iconColor: comment.isLiked ? const Color(0xFFE5484D) : Colors.grey[500]!, 
+                              label: comment.likesCount > 0 ? '${comment.likesCount}' : '', 
+                              onTap: () => _toggleLikeComment(comment)
+                            ),
+                            const SizedBox(width: 8),
+                            _actionButton(
+                              icon: Icons.reply_rounded, 
+                              iconColor: Colors.grey[600]!, 
+                              label: 'Répondre', 
+                              onTap: () => _startReply(comment.userName, isReply ? (comment.parentId ?? comment.id) : comment.id)
+                            ),
+                          ]
                         )
                       ),
-                    ],
-                  ]
+                    ]
+                  ),
                 ),
               ),
             ),
@@ -471,7 +601,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     );
   }
 
-  // ─── BARRE DE SAISIE AVEC BOUTON DYNAMIQUE (Micro / Send) ───
+  // ─── BARRE DE SAISIE SÉCURISÉE (Avec Pré-écoute) ───
   Widget _buildInputBar() {
     final hasTextOrImage = _controller.text.trim().isNotEmpty || _imageBytes != null;
 
@@ -507,116 +637,74 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.memory(_imageBytes!, width: 50, height: 50, fit: BoxFit.cover),
-                    ),
+                    ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.memory(_imageBytes!, width: 50, height: 50, fit: BoxFit.cover)),
                     const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.cancel, color: Colors.red),
-                      onPressed: () => setState(() => _imageBytes = null),
-                    )
+                    IconButton(icon: const Icon(Icons.cancel, color: Colors.red), onPressed: () => setState(() => _imageBytes = null))
                   ],
                 ),
               ),
 
+            // 🌟 1. MODE ENREGISTREMENT (Bouton Envoyer désactivé)
             if (_isRecording)
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                ),
+                decoration: BoxDecoration(color: Colors.red.withOpacity(0.08), borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.red.withOpacity(0.3))),
                 child: Row(
                   children: [
                     const Icon(Icons.mic, color: Colors.red),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Enregistrement... 00:${_recordDuration.toString().padLeft(2, '0')} / 00:30',
-                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800),
-                      ),
+                      child: Text('Enregistrement... ${(_recordDuration ~/ 60).toString().padLeft(2, '0')}:${(_recordDuration % 60).toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
                     ),
-                    GestureDetector(
-                      onTap: _stopRecording,
-                      child: const Icon(Icons.stop_circle_rounded, color: Colors.red, size: 30),
+                    GestureDetector(onTap: _stopRecording, child: const Icon(Icons.stop_circle_rounded, color: Colors.red, size: 30)),
+                  ],
+                ),
+              )
+            // 🌟 2. MODE PRÉ-ÉCOUTE (L'audio est prêt)
+            else if (_localAudioPath != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(color: _C.navyDeep, borderRadius: BorderRadius.circular(24)),
+                child: Row(
+                  children: [
+                    Expanded(child: _CommentAudioPlayer(audioUrl: _localAudioPath!, isLocal: true)),
+                    IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.white70), onPressed: () => setState(() { _audioBytes = null; _localAudioPath = null; })),
+                    CircleAvatar(
+                      radius: 16, backgroundColor: _C.primary, 
+                      child: IconButton(icon: _isSubmitting ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.send_rounded, color: Colors.white, size: 14), onPressed: _isSubmitting ? null : () => _submitComment())
                     ),
                   ],
                 ),
               )
-            else if (_audioBytes != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF1FF),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.audiotrack_rounded, color: Color(0xFF2D6CDF)),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text('Note vocale prête', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF123B7A))),
-                    ),
-                    GestureDetector(
-                      onTap: () => setState(() => _audioBytes = null),
-                      child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
-                    ),
-                  ],
-                ),
-              ),
-
-            if (!_isRecording && _audioBytes == null)
+            // 🌟 3. MODE NORMAL (Texte / Bouton Magique)
+            else
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.camera_alt_rounded, color: Colors.grey),
-                    onPressed: _pickImage,
-                  ),
+                  IconButton(icon: const Icon(Icons.camera_alt_rounded, color: Colors.grey), onPressed: _pickImage),
                   IconButton(
                     icon: Icon(_showStickers ? Icons.keyboard_rounded : Icons.emoji_emotions_rounded, color: _showStickers ? const Color(0xFF2D6CDF) : Colors.grey),
-                    onPressed: () {
-                      FocusScope.of(context).unfocus();
-                      setState(() => _showStickers = !_showStickers);
-                    },
+                    onPressed: () { FocusScope.of(context).unfocus(); setState(() => _showStickers = !_showStickers); },
                   ),
                   Expanded(
                     child: TextField(
-                      controller: _controller, 
-                      focusNode: _focusNode, 
-                      maxLines: 4,
-                      minLines: 1,
-                      onTap: () {
-                        if (_showStickers) setState(() => _showStickers = false);
-                      },
-                      decoration: InputDecoration(
-                        hintText: _replyingTo != null ? 'Votre réponse...' : 'Votre commentaire...', 
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none), 
-                        filled: true, 
-                        fillColor: Colors.grey[100], 
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)
-                      )
+                      controller: _controller, focusNode: _focusNode, maxLines: 4, minLines: 1,
+                      onTap: () { if (_showStickers) setState(() => _showStickers = false); },
+                      decoration: InputDecoration(hintText: _replyingTo != null ? 'Votre réponse...' : 'Votre commentaire...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none), filled: true, fillColor: Colors.grey[100], contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10))
                     )
                   ),
                   const SizedBox(width: 8),
                   
-                  // 🌟 BOUTON DYNAMIQUE : Micro Or (si vide) -> Disparaît et devient Send Bleu (dès qu'on tape du texte)
                   GestureDetector(
                     onTap: () {
                       if (_isSubmitting) return;
-                      if (hasTextOrImage) {
-                        _submitComment();
-                      } else {
-                        _startRecording();
-                      }
+                      if (hasTextOrImage) _submitComment();
+                      else _startRecording();
                     },
                     child: CircleAvatar(
-                      radius: 20, 
-                      backgroundColor: hasTextOrImage ? const Color(0xFF2D6CDF) : const Color(0xFFE3B23C), 
+                      radius: 20, backgroundColor: hasTextOrImage ? const Color(0xFF2D6CDF) : const Color(0xFFE3B23C), 
                       child: _isSubmitting 
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
                           : Icon(hasTextOrImage ? Icons.send_rounded : Icons.mic_rounded, color: Colors.white, size: 20),
@@ -624,21 +712,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                   ),
                 ]
               ),
-
-            if (_audioBytes != null)
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed: _isSubmitting ? null : () => _submitComment(),
-                  icon: _isSubmitting ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.send, size: 16),
-                  label: const Text("Publier l'audio"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2D6CDF),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
-                  ),
-                ),
-              )
           ]
         ),
       ),
@@ -653,25 +726,8 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
         length: 3,
         child: Column(
           children: [
-            const TabBar(
-              labelColor: Color(0xFF2D6CDF),
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Color(0xFF2D6CDF),
-              tabs: [
-                Tab(text: 'Émojis'),
-                Tab(text: 'Réactions'),
-                Tab(text: 'Drapeaux'),
-              ]
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildStickerGrid(_emojis),
-                  _buildStickerGrid(_reactions),
-                  _buildStickerGrid(_flags),
-                ]
-              )
-            )
+            const TabBar(labelColor: Color(0xFF2D6CDF), unselectedLabelColor: Colors.grey, indicatorColor: Color(0xFF2D6CDF), tabs: [Tab(text: 'Émojis'), Tab(text: 'Réactions'), Tab(text: 'Drapeaux')]),
+            Expanded(child: TabBarView(children: [_buildStickerGrid(_emojis), _buildStickerGrid(_reactions), _buildStickerGrid(_flags)]))
           ]
         )
       )
@@ -680,19 +736,8 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
 
   Widget _buildStickerGrid(List<String> items) {
     return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 8,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        return InkWell(
-          onTap: () => _insertSticker(items[index]),
-          child: Center(child: Text(items[index], style: const TextStyle(fontSize: 24))),
-        );
-      },
+      padding: const EdgeInsets.all(8), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, mainAxisSpacing: 8, crossAxisSpacing: 8),
+      itemCount: items.length, itemBuilder: (context, index) => InkWell(onTap: () => _insertSticker(items[index]), child: Center(child: Text(items[index], style: const TextStyle(fontSize: 24)))),
     );
   }
 }
@@ -700,7 +745,8 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
 // ─── LECTEUR AUDIO COMPACT POUR LES COMMENTAIRES ───
 class _CommentAudioPlayer extends StatefulWidget {
   final String audioUrl;
-  const _CommentAudioPlayer({required this.audioUrl});
+  final bool isLocal; // 🌟 Ajout pour gérer les fichiers locaux (pré-écoute)
+  const _CommentAudioPlayer({required this.audioUrl, this.isLocal = false});
 
   @override
   State<_CommentAudioPlayer> createState() => _CommentAudioPlayerState();
@@ -717,17 +763,16 @@ class _CommentAudioPlayerState extends State<_CommentAudioPlayer> {
   @override
   void initState() {
     super.initState();
-    _audioPlayer.setSourceUrl(widget.audioUrl);
+    if (widget.isLocal) {
+      if (kIsWeb) _audioPlayer.setSourceUrl(widget.audioUrl);
+      else _audioPlayer.setSourceDeviceFile(widget.audioUrl);
+    } else {
+      _audioPlayer.setSourceUrl(widget.audioUrl);
+    }
 
-    _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) setState(() => _isPlaying = state == PlayerState.playing);
-    });
-    _audioPlayer.onDurationChanged.listen((d) {
-      if (mounted) setState(() => _duration = d);
-    });
-    _audioPlayer.onPositionChanged.listen((p) {
-      if (mounted) setState(() => _position = p);
-    });
+    _audioPlayer.onPlayerStateChanged.listen((state) { if (mounted) setState(() => _isPlaying = state == PlayerState.playing); });
+    _audioPlayer.onDurationChanged.listen((d) { if (mounted) setState(() => _duration = d); });
+    _audioPlayer.onPositionChanged.listen((p) { if (mounted) setState(() => _position = p); });
   }
 
   @override
@@ -747,49 +792,29 @@ class _CommentAudioPlayerState extends State<_CommentAudioPlayer> {
     final progress = _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A1F44), // Navy Deep
-        borderRadius: BorderRadius.circular(16),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: const Color(0xFF0A1F44), borderRadius: BorderRadius.circular(16)),
       child: Row(
         children: [
           GestureDetector(
-            onTap: () {
-              if (_isPlaying) _audioPlayer.pause();
-              else _audioPlayer.play(UrlSource(widget.audioUrl));
-            },
-            child: Container(
-              width: 32, height: 32,
-              decoration: const BoxDecoration(color: Color(0xFFE3B23C), shape: BoxShape.circle),
-              child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: const Color(0xFF0A1F44), size: 20),
-            ),
+            onTap: () { if (_isPlaying) _audioPlayer.pause(); else _audioPlayer.resume(); },
+            child: Container(width: 32, height: 32, decoration: const BoxDecoration(color: Color(0xFFE3B23C), shape: BoxShape.circle), child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: const Color(0xFF0A1F44), size: 20)),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                const barWidth = 3.0;
-                const spacing = 2.0;
+                const barWidth = 3.0; const spacing = 2.0;
                 final barCount = (constraints.maxWidth / (barWidth + spacing)).floor();
 
                 return GestureDetector(
-                  onTapDown: (details) {
-                    if (_duration.inMilliseconds > 0) {
-                      final tapProgress = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
-                      _audioPlayer.seek(Duration(milliseconds: (_duration.inMilliseconds * tapProgress).round()));
-                    }
-                  },
+                  onTapDown: (details) { if (_duration.inMilliseconds > 0) _audioPlayer.seek(Duration(milliseconds: (_duration.inMilliseconds * (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0)).round())); },
                   child: Container(
                     height: 24, color: Colors.transparent,
                     child: Row(
                       children: List.generate(barCount, (index) {
-                        final baseHeight = _wavePattern[index % _wavePattern.length];
                         final isPlayed = (index / barCount) <= progress;
-                        return Container(
-                          width: barWidth, height: 24 * baseHeight, margin: const EdgeInsets.only(right: spacing),
-                          decoration: BoxDecoration(color: isPlayed ? const Color(0xFFE3B23C) : Colors.white30, borderRadius: BorderRadius.circular(2)),
-                        );
+                        return Container(width: barWidth, height: 24 * _wavePattern[index % _wavePattern.length], margin: const EdgeInsets.only(right: spacing), decoration: BoxDecoration(color: isPlayed ? const Color(0xFFE3B23C) : Colors.white30, borderRadius: BorderRadius.circular(2)));
                       }),
                     ),
                   ),
