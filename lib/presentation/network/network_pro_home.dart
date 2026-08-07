@@ -16,8 +16,7 @@ import 'widgets/create_story_dialog.dart';
 import 'widgets/post_card.dart';
 import 'widgets/story_viewer.dart';
 
-// IMPORTANT : Assure-toi d'importer ton LivePrepScreen si tu as créé le fichier.
-// Sinon, tu peux commenter la ligne d'import et l'action du bouton "Direct" en attendant.
+// Import de l'écran Live
 import 'package:thix_id/presentation/network/live/live_prep_screen.dart'; 
 
 class ThixColors {
@@ -49,7 +48,7 @@ class ThixColors {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SIGNATURE VISUELLE : avatar hexagonal, anneau UNE seule couleur
+// SIGNATURE VISUELLE : avatar hexagonal
 // ─────────────────────────────────────────────────────────────
 
 class _HexClipper extends CustomClipper<Path> {
@@ -290,8 +289,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                 ),
                 SliverToBoxAdapter(child: _buildFilters()),
                 
-                // 🌟 REMPLACEMENT DE LA ZONE "QUOI DE NEUF PRO" PAR L'ESPACE LIVES & SPACES
-                SliverToBoxAdapter(child: _buildLiveAndSpacesSection()),
+                // 🌟 NOUVEAU HUB DIRECTS & ESPACES (Remplace le Quoi de Neuf Pro)
+                SliverToBoxAdapter(child: _buildLiveHub()),
                 
                 if (_suggestions.isNotEmpty)
                   SliverToBoxAdapter(child: _buildSuggestions()),
@@ -625,12 +624,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     );
   }
 
-  // ─────────────────────────── NOUVEL ESPACE LIVES & SPACES ───────────────────────────
+  // ─────────────────────────── NOUVEAU HUB DIRECTS & ESPACES ───────────────────────────
+  // Remplace complètement l'ancienne zone "Quoi de neuf pro"
 
-  Widget _buildLiveAndSpacesSection() {
+  Widget _buildLiveHub() {
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: ThixColors.white,
         borderRadius: BorderRadius.circular(20),
@@ -646,26 +646,73 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Titre de la section
-          const Row(
+          // EN-TÊTE : Avatar + Textes + Bouton Lancer
+          Row(
             children: [
-              Icon(Icons.sensors_rounded, color: Color(0xFFE5484D), size: 18),
-              SizedBox(width: 6),
-              Text(
-                'En direct maintenant',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13.5,
-                  color: ThixColors.textDark,
+              // L'avatar devient le point d'ancrage de cet espace dédié
+              const HexAvatar(size: 44, ringWidth: 2.5),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Directs & Espaces',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        color: ThixColors.textDark,
+                      ),
+                    ),
+                    Text(
+                      'Rejoignez les sessions en cours',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: ThixColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Bouton Lancer un direct
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LivePrepScreen()),
+                  );
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5484D).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.sensors_rounded, color: Color(0xFFE5484D), size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'Lancer',
+                        style: TextStyle(
+                          color: Color(0xFFE5484D),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-
-          // Liste Horizontale des Lives en cours (Données fictives pour l'UI)
+          
+          const SizedBox(height: 18),
+          
+          // LISTE HORIZONTALE DES LIVES EN COURS
           SizedBox(
-            height: 110,
+            height: 120,
             child: ListView(
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
@@ -696,36 +743,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               ],
             ),
           ),
-
-          const SizedBox(height: 14),
-          const Divider(height: 1, color: ThixColors.border),
-          const SizedBox(height: 10),
-
-          // Actions de création de contenu
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _quickAction(Icons.image_rounded, 'Photo', ThixColors.primary),
-              _quickAction(Icons.videocam_rounded, 'Vidéo', ThixColors.gold),
-              _quickAction(
-                Icons.sensors_rounded,
-                'Direct',
-                const Color(0xFFE0453C),
-                onTap: () {
-                  // Navigation vers l'écran de préparation du Live
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LivePrepScreen()),
-                  );
-                },
-              ),
-              _quickAction(
-                Icons.mic_rounded,
-                'Audio',
-                const Color(0xFF1F9D6F),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -740,17 +757,17 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   }) {
     final isVideo = type == 'video';
     return Container(
-      width: 140,
+      width: 145,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [color.withValues(alpha: 0.8), color],
+          colors: [color.withOpacity(0.85), color],
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.3),
+            color: color.withOpacity(0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -764,12 +781,12 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
             bottom: -10,
             child: Icon(
               isVideo ? Icons.videocam_rounded : Icons.mic_rounded,
-              size: 70,
-              color: Colors.white.withValues(alpha: 0.15),
+              size: 75,
+              color: Colors.white.withOpacity(0.15),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -789,11 +806,11 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                     ),
                     Row(
                       children: [
-                        const Icon(Icons.visibility_rounded, color: Colors.white, size: 10),
+                        const Icon(Icons.visibility_rounded, color: Colors.white, size: 12),
                         const SizedBox(width: 3),
                         Text(
                           viewers.toString(),
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -808,16 +825,16 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    height: 1.1,
+                    height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   host,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: Colors.white.withOpacity(0.9),
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
@@ -826,34 +843,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _quickAction(IconData icon, String label, Color color, {VoidCallback? onTap}) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap ?? () => showDialog(
-        context: context,
-        builder: (_) => const CreatePostDialog(),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 17, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: ThixColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -995,7 +984,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   child: Container(
                     height: 62,
                     decoration: BoxDecoration(
-                      color: ThixColors.white.withValues(alpha: 0.86),
+                      color: ThixColors.white.withOpacity(0.86),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(color: ThixColors.border),
                       boxShadow: const [
@@ -1025,6 +1014,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                           false,
                           () => _safePush('/network/discover'),
                         ),
+                        // 🌟 BOUTON DE PUBLICATION PRINCIPAL (Reste dispo depuis la NavBar)
                         _navBtn(
                           Icons.add_circle_outline_rounded,
                           'Publier',
