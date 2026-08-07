@@ -24,13 +24,12 @@ class NetworkService extends ChangeNotifier {
   // FEED (base pour ranking Facebook-like côté FeedRanker)
   // ─────────────────────────────────────────────────────────────
 
-  /// Normalise les clés UI → internes
   String _normalizeFeedType(String feedType) {
     final t = feedType.trim().toLowerCase();
     if (t == 'pour vous' || t == 'pourvous' || t == 'smart') return 'all';
     if (t == 'réseau' || t == 'reseau') return 'network';
     if (t == 'tendance' || t == 'trending') return 'popular';
-    return t; // all | network | popular | recent
+    return t; 
   }
 
   Future<List<NetworkPost>> getFeedPosts({
@@ -46,7 +45,6 @@ class NetworkService extends ChangeNotifier {
 
     final type = _normalizeFeedType(feedType);
 
-    // Posts masqués
     final hiddenRes = await _supabase
         .from('hidden_posts')
         .select('post_id')
@@ -89,7 +87,6 @@ class NetworkService extends ChangeNotifier {
 
       case 'all':
       default:
-        // Batch large : le ranking final est fait par FeedRanker
         res = await _supabase
             .from('posts_view')
             .select()
@@ -108,7 +105,6 @@ class NetworkService extends ChangeNotifier {
   Future<List<NetworkPost>> getPosts({String? feedType}) =>
       getFeedPosts(feedType: feedType ?? 'all');
 
-  /// Public — utilisé par FeedRanker / Feed provider
   Future<Set<String>> getMyConnectionIds() async {
     final uid = currentUserId;
     if (uid.isEmpty) return {};
@@ -130,7 +126,6 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
-  // compat ancien nom privé
   Future<Set<String>> _getConnectionIds() => getMyConnectionIds();
 
   Future<NetworkPost?> getPostById(String postId) async {
@@ -184,13 +179,15 @@ class NetworkService extends ChangeNotifier {
   // POSTS CRUD
   // ─────────────────────────────────────────────────────────────
 
-  Future<String> createPost(String content, List<String> images) async {
+  // 🌟 AJOUT : Paramètre optionnel postType pour supporter l'audio
+  Future<String> createPost(String content, List<String> images, {String postType = 'standard'}) async {
     final res = await _supabase.from('posts').insert({
       'user_id': currentUserId,
       'content': content.trim(),
       'image_urls': images,
       'media_urls': images,
       'media_url': images.isNotEmpty ? images.first : null,
+      'post_type': postType, // 🌟 Utilisé ici
       'is_public': true,
     }).select('id').single();
     notifyListeners();
@@ -286,10 +283,9 @@ class NetworkService extends ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // LIKE / SHARE / REPOST (enterprise)
+  // LIKE / SHARE / REPOST
   // ─────────────────────────────────────────────────────────────
 
-  /// Toggle atomique via RPC si dispo, sinon fallback table
   Future<({bool liked, int likesCount})> togglePostLike(String postId) async {
     if (currentUserId.isEmpty) {
       throw Exception('Non authentifié');
@@ -326,7 +322,6 @@ class NetworkService extends ChangeNotifier {
       return (liked: liked, likesCount: count);
     } catch (e) {
       debugPrint('🔥 togglePostLike RPC fallback: $e');
-      // Fallback client
       final existing = await _supabase
           .from('post_likes')
           .select('post_id')
@@ -439,8 +434,6 @@ class NetworkService extends ChangeNotifier {
         .toList();
   }
 
-  /// Repost avec citation → crée une carte dans le fil (via RPC).
-  /// Retourne le NetworkPost à mettre en tête du feed, ou null.
   Future<NetworkPost?> repostPost(
     String originalPostId, {
     String? quote,
@@ -469,16 +462,12 @@ class NetworkService extends ChangeNotifier {
 
       final feedPostId = row['feed_post_id']?.toString();
       if (feedPostId == null || feedPostId.isEmpty) {
-        // déjà reposté, ou ancienne version RPC sans feed_post_id
         return null;
       }
 
-      // Carte complète (auteur, contenu = quote, repost_of_id)
       return await getPostById(feedPostId);
     } catch (e) {
       debugPrint('rpc_repost fallback: $e');
-
-      // Fallback minimal (pas de carte fil si RPC absente)
       try {
         await _supabase.from('reposts').insert({
           'original_post_id': originalPostId,
@@ -494,7 +483,6 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
-  /// Compat ancien API (PostCard qui appelle encore .repost)
   Future<void> repost(String originalPostId, String? quote) async {
     await repostPost(originalPostId, quote: quote);
   }
@@ -545,10 +533,12 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
+  // 🌟 AJOUT : Paramètre audioUrl ajouté à l'enregistrement du commentaire
   Future<Comment> addComment(
     String postId,
     String content, {
     String? parentId,
+    String? audioUrl, // 🌟
   }) async {
     final res = await _supabase
         .from('comments')
@@ -557,6 +547,7 @@ class NetworkService extends ChangeNotifier {
           'user_id': currentUserId,
           'content': content.trim(),
           'parent_id': parentId,
+          'audio_url': audioUrl, // 🌟
         })
         .select('*, profiles!user_id(display_name, avatar_url)')
         .single();
@@ -742,7 +733,7 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
-      Future<void> createStory(
+  Future<void> createStory(
     String? mediaUrl, {
     String? text,
     String mediaType = 'image',
@@ -751,9 +742,9 @@ class NetworkService extends ChangeNotifier {
     await _supabase.from('stories').insert({
       'user_id': currentUserId,
       'media_url': mediaUrl,
-      'image_url': mediaUrl,      // 🌟 Sécurité : remplit aussi l'ancienne colonne
+      'image_url': mediaUrl,      
       'text_content': text,
-      'content': text,            // 🌟 Sécurité : remplit aussi l'ancienne colonne texte
+      'content': text,            
       'media_type': mediaType,
       'is_active': true,
       'expires_at': DateTime.now()
@@ -762,8 +753,6 @@ class NetworkService extends ChangeNotifier {
     });
     notifyListeners();
   }
-
-
 
   Future<void> deleteStory(String storyId) async {
     await _supabase
@@ -965,7 +954,7 @@ class NetworkService extends ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // MESSAGES (legacy network — le chat THIX est ailleurs)
+  // MESSAGES
   // ─────────────────────────────────────────────────────────────
 
   Future<List<Conversation>> getConversations() async {
@@ -1174,6 +1163,28 @@ class NetworkService extends ChangeNotifier {
       return _supabase.storage.from(bucket).getPublicUrl(path);
     } catch (e) {
       debugPrint('uploadMedia Error: $e');
+      throw Exception(e.toString());
+    }
+  }
+
+  // 🌟 AJOUT : Fonction dédiée à l'upload des fichiers audio
+  Future<String?> uploadAudioBytes(
+    Uint8List bytes, {
+    String bucket = 'audio_uploads',
+  }) async {
+    try {
+      final name = '${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final path = '$currentUserId/$name';
+
+      await _supabase.storage.from(bucket).uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(contentType: 'audio/x-m4a', upsert: true),
+          );
+
+      return _supabase.storage.from(bucket).getPublicUrl(path);
+    } catch (e) {
+      debugPrint('uploadAudio Error: $e');
       throw Exception(e.toString());
     }
   }
