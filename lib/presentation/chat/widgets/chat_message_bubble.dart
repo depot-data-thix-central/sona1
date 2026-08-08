@@ -35,6 +35,13 @@ class ChatMessageBubble extends ConsumerStatefulWidget {
   final bool isEphemeralActive;
   final bool isInternalNote;
   final bool isAgentView;
+  // Groupement "cascade" — à calculer dans la liste parente en comparant
+  // le senderId du message avec celui du message précédent/suivant.
+  // Exemple dans ton ListView.builder :
+  //   final isFirst = i == 0 || messages[i - 1].senderId != m.senderId;
+  //   final isLast = i == messages.length - 1 || messages[i + 1].senderId != m.senderId;
+  final bool isFirstInGroup;
+  final bool isLastInGroup;
 
   const ChatMessageBubble({
     super.key,
@@ -48,6 +55,8 @@ class ChatMessageBubble extends ConsumerStatefulWidget {
     this.isEphemeralActive = false,
     this.isInternalNote = false,
     this.isAgentView = false,
+    this.isFirstInGroup = true,
+    this.isLastInGroup = true,
   });
 
   @override
@@ -85,13 +94,22 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
       return _DeletedBubble(isOwn: widget.isOwn);
     }
 
+    // Cascade : bulles resserrées entre messages consécutifs du même
+    // expéditeur, espace normal seulement avant un changement d'expéditeur.
+    final topSpacing = widget.isFirstInGroup ? 6.0 : 1.5;
+    final bottomSpacing = widget.isLastInGroup ? 6.0 : 1.5;
+
+    // La "pointe" du coin (moins arrondi) n'apparaît que sur le dernier
+    // message du groupe — comme WhatsApp.
+    final tailRadius = widget.isLastInGroup ? 4.0 : 16.0;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: EdgeInsets.only(top: topSpacing, bottom: bottomSpacing),
       child: Column(
         crossAxisAlignment:
             widget.isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!widget.isOwn && m.senderName.isNotEmpty)
+          if (!widget.isOwn && widget.isFirstInGroup && m.senderName.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 12, bottom: 2),
               child: Text(
@@ -152,8 +170,8 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                         borderRadius: BorderRadius.only(
                           topLeft: const Radius.circular(16),
                           topRight: const Radius.circular(16),
-                          bottomLeft: Radius.circular(widget.isOwn ? 16 : 4),
-                          bottomRight: Radius.circular(widget.isOwn ? 4 : 16),
+                          bottomLeft: Radius.circular(widget.isOwn ? 16 : tailRadius),
+                          bottomRight: Radius.circular(widget.isOwn ? tailRadius : 16),
                         ),
                         border: _isNote
                             ? Border.all(color: _C.orange.withValues(alpha: 0.35))
@@ -788,27 +806,54 @@ class _QuickReactions extends StatelessWidget {
 class MessageStatusTicks extends StatelessWidget {
   final bool isDelivered;
   final bool isRead;
-  final Color color; 
+  final Color color; // conservé pour compatibilité, non utilisé désormais
 
   const MessageStatusTicks({
     super.key,
     this.isDelivered = false,
     required this.isRead,
-    this.color = _C.primary, 
+    this.color = _C.primary,
   });
+
+  static const _red = Color(0xFFEF4444);
+  static const _yellow = Color(0xFFF59E0B);
+  static const _green = Color(0xFF22C55E);
 
   @override
   Widget build(BuildContext context) {
-    if (isRead) {
-      return const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFFEF4444)); 
-    }
-    if (isDelivered) {
-      return const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFFF59E0B)); 
-    }
-    return const Icon(Icons.check_rounded, size: 14, color: Color(0xFF22C55E)); 
+    // vert = envoyé · jaune = livré · rouge = lu
+    final activeColor = isRead ? _red : (isDelivered ? _yellow : _green);
+
+    return Container(
+      width: 9,
+      height: 20,
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _dot(_red, activeColor == _red),
+          _dot(_yellow, activeColor == _yellow),
+          _dot(_green, activeColor == _green),
+        ],
+      ),
+    );
+  }
+
+  Widget _dot(Color base, bool active) {
+    return Container(
+      width: 5,
+      height: 5,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: active ? base : base.withOpacity(0.22),
+      ),
+    );
   }
 }
-
 class FullScreenImagePage extends StatelessWidget {
   final String imageUrl;
   final String tag;
