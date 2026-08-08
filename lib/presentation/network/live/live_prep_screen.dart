@@ -1,6 +1,6 @@
 // lib/presentation/network/live/live_prep_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // 🌟 IMPÉRATIF POUR DÉTECTER LE WEB
+import 'package:flutter/foundation.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -26,6 +26,7 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
 
   RtcEngine? _engine;
   bool _isEngineReady = false;
+  bool _isStartingLive = false; // 🌟 État de chargement
 
   @override
   void initState() {
@@ -35,23 +36,18 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
 
   Future<void> _initPreviewAgora() async {
     try {
-      // 🌟 1. LE CORRECTIF : On désactive permission_handler sur le Web !
-      // Sur le Web, le navigateur (Chrome/Safari) gère lui-même la pop-up de permission.
       if (!kIsWeb) {
         await [Permission.camera, Permission.microphone].request();
       }
 
-      // 🌟 2. Ton App ID en dur pour le test immédiat
       String appId = "96ed392d17c74fe684bbb9d4a031ad12"; 
 
-      // 3. Initialisation d'Agora
       _engine = createAgoraRtcEngine();
       await _engine!.initialize(RtcEngineContext(
         appId: appId,
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
-      // 4. Allumage de la vidéo
       await _engine!.enableVideo();
       await _engine!.startPreview();
 
@@ -71,26 +67,66 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
     }
   }
 
-  void _startLive() {
+  Future<void> _startLive() async {
+    if (_isStartingLive) return;
+
     final title = _titleController.text.trim().isEmpty 
         ? "Mon Direct" 
         : _titleController.text.trim();
 
-    // On arrête le preview proprement avant de basculer sur l'écran principal
-    if (_isEngineReady && _engine != null) {
-      _engine!.stopPreview();
-    }
+    setState(() => _isStartingLive = true);
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => LiveBroadcastScreen(
-          title: title,
-          isVideoEnabled: _isVideoEnabled,
-          isMicEnabled: _isMicEnabled,
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) throw Exception("Vous devez être connecté");
+
+      // 1. Générer un nom de canal unique
+      final channelName = 'live_${user.id}_${DateTime.now().millisecondsSinceEpoch}';
+
+      // 2. 🚀 Enregistrer le direct dans Supabase
+      final response = await Supabase.instance.client
+          .from('live_sessions')
+          .insert({
+            'host_id': user.id,
+            'title': title,
+            'channel_name': channelName, 
+            'status': 'live',
+          })
+          .select()
+          .single();
+
+      final liveId = response['id'].toString();
+
+      // 3. Arrêter le preview
+      if (_isEngineReady && _engine != null) {
+        await _engine!.stopPreview();
+      }
+
+      if (!mounted) return;
+
+      // 4. Lancer l'écran de diffusion
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LiveBroadcastScreen(
+            title: title,
+            isVideoEnabled: _isVideoEnabled,
+            isMicEnabled: _isMicEnabled,
+            liveId: liveId,           // 🌟 Passé à l'écran suivant
+            channelName: channelName, // 🌟 Passé à l'écran suivant
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      debugPrint('Erreur création live: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de connexion : $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isStartingLive = false);
+    }
   }
 
   @override
@@ -117,7 +153,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
       ),
       body: Stack(
         children: [
-          // ─── RETOUR CAMÉRA AGORA EN FOND ───
           Positioned.fill(
             child: _isEngineReady && _isVideoEnabled && _engine != null
                 ? AgoraVideoView(
@@ -133,8 +168,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                     ),
                   ),
           ),
-
-          // ─── VOILE SOMBRE PROGRESSIF ───
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -150,8 +183,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
               ),
             ),
           ),
-
-          // ─── CONTENU (Titre + Contrôles + Bouton Lancer) ───
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -169,7 +200,6 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -212,33 +242,29 @@ class _LivePrepScreenState extends State<LivePrepScreen> {
                     ],
                   ),
                   const SizedBox(height: 40),
-
                   SizedBox(
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _startLive,
+                      onPressed: _isStartingLive ? null : _startLive,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _C.red,
+                        backgroundColor: _isStartingLive ? Colors.grey : _C.red,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                         elevation: 8,
                         shadowColor: _C.red.withOpacity(0.5),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.sensors_rounded, color: Colors.white),
-                          SizedBox(width: 10),
-                          Text(
-                            'COMMENCER LE DIRECT',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 1.0,
-                            ),
+                      child: _isStartingLive 
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.sensors_rounded, color: Colors.white),
+                              SizedBox(width: 10),
+                              Text(
+                                'COMMENCER LE DIRECT',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.0),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
