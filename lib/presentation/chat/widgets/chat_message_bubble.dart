@@ -11,11 +11,8 @@ import 'package:thix_id/presentation/chat/widgets/chat_code_snippet.dart';
 import 'package:thix_id/presentation/chat/widgets/chat_ephemeral_timer.dart';
 import 'package:thix_id/presentation/chat/widgets/sentiment_indicator.dart';
 
-// ─────────────────────────────────────────────────────────────
-// CHARTE THIX ENTERPRISE (Fini le vert WhatsApp)
-// ─────────────────────────────────────────────────────────────
 class _C {
-  static const primary = Color(0xFF2D6CDF); // Bleu THIX pour tes bulles
+  static const primary = Color(0xFF2D6CDF);
   static const otherBubble = Colors.white;
   static const noteBubble = Color(0xFFFFFBEB);
   static const searchBg = Color(0xFFF8FAFC);
@@ -187,42 +184,38 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               if (m.isEphemeral || widget.isEphemeralActive) ...[
-  Builder(
-    builder: (context) {
-      // 🌟 On calcule le temps RESTANT exact à partir de deleteAt
-      int remainingSeconds = m.ephemeralDuration ?? 0;
-      
-      // Si on a la date exacte de suppression depuis Supabase
-      if (m.deleteAt != null) {
-        remainingSeconds = m.deleteAt!.difference(DateTime.now()).inSeconds;
-      }
-      
-      // Si le temps est déjà écoulé quand on ouvre la page, on supprime direct
-      if (remainingSeconds <= 0) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          widget.onDelete?.call();
-        });
-        return const SizedBox.shrink(); // On n'affiche plus le chrono
-      }
+                                Builder(
+                                  builder: (context) {
+                                    int remainingSeconds = m.ephemeralDuration ?? 0;
+                                    
+                                    // 🌟 CORRECTION DU DÉCALAGE UTC+3 !
+                                    if (m.deleteAt != null) {
+                                      remainingSeconds = m.deleteAt!.toUtc().difference(DateTime.now().toUtc()).inSeconds;
+                                    }
+                                    
+                                    if (remainingSeconds <= 0) {
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        widget.onDelete?.call();
+                                      });
+                                      return const SizedBox.shrink(); 
+                                    }
 
-      // Sinon, on affiche le chrono avec le temps RESTANT
-      return ChatEphemeralTimer(
-        duration: remainingSeconds,
-        onExpired: () {
-          widget.onDelete?.call();
-        },
-      );
-    }
-  ),
-  const SizedBox(width: 6),
-],
+                                    return ChatEphemeralTimer(
+                                      duration: remainingSeconds,
+                                      onExpired: () {
+                                        widget.onDelete?.call();
+                                      },
+                                    );
+                                  }
+                                ),
+                                const SizedBox(width: 6),
+                              ],
 
                               if (m.sentiment != null && widget.isAgentView) ...[
                                 SentimentIndicator(result: m.sentiment!),
                                 const SizedBox(width: 6),
                               ],
                               Text(
-                                // ✅ Heure locale correcte
                                 DateFormat('HH:mm').format(m.createdAt.toLocal()),
                                 style: TextStyle(
                                   fontSize: 10,
@@ -231,7 +224,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                               ),
                               if (widget.isOwn) ...[
                                 const SizedBox(width: 4),
-                                // ✅ Ticks de statut corrigés
                                 MessageStatusTicks(
                                   isDelivered: m.isDelivered,
                                   isRead: m.isRead,
@@ -271,7 +263,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     );
   }
 
-  // ✅ Méthode _buildBody corrigée avec détection des images et encryption
   Widget _buildBody() {
     if (m.isCodeSnippet && (m.codeContent?.isNotEmpty ?? false)) {
       return ChatCodeSnippet(
@@ -284,7 +275,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
       return AudioPlayerWidget(audioUrl: m.mediaUrl!);
     }
 
-    // Détection robuste d'image
     final isImage = m.mediaType == 'image' ||
         (m.mediaUrl != null &&
             RegExp(r'\.(jpg|jpeg|png|gif|webp)(\?|$)', caseSensitive: false)
@@ -304,7 +294,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     }
 
     final raw = m.content;
-    // Détection de chiffrement ENCv1
     final looksEncrypted = raw.startsWith('ENCv1:') ||
         raw.startsWith('🔒') ||
         (raw.length > 20 &&
@@ -504,10 +493,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────
-// SOUS-WIDGETS
-// ─────────────────────────────────────────────────────────────
 
 class _DeletedBubble extends StatelessWidget {
   final bool isOwn;
@@ -800,7 +785,6 @@ class _QuickReactions extends StatelessWidget {
   }
 }
 
-// ✅ Ticks de statut remplacés
 class MessageStatusTicks extends StatelessWidget {
   final bool isDelivered;
   final bool isRead;
@@ -815,7 +799,6 @@ class MessageStatusTicks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Rouge = lu | Orange = reçu | Vert = parti
     if (isRead) {
       return const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFFEF4444)); 
     }
