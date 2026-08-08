@@ -30,11 +30,11 @@ class _C {
   static const primarySoft = Color(0xFFEFF6FF);
   static const gold = Color(0xFFE3B23C);
   static const goldLight = Color(0xFFF3D999);
-  static const textMain = Color(0xFF111B21); // 🌟 Noir plus doux (style WhatsApp)
-  static const textMuted = Color(0xFF667781); // 🌟 Gris WhatsApp
+  static const textMain = Color(0xFF111B21); 
+  static const textMuted = Color(0xFF667781); 
   static const textSoft = Color(0xFF94A3B8);
   static const red = Color(0xFFEF4444);
-  static const green = Color(0xFF25D366); // 🌟 Vert classique WhatsApp
+  static const green = Color(0xFF25D366); 
 
   static const gradientHeader = LinearGradient(
     begin: Alignment.topLeft,
@@ -332,6 +332,32 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         ),
       ),
     );
+  }
+
+  // 🌟 NOUVEAU : Fonction pour formater proprement l'aperçu du dernier message
+  String _formatPreview(String? raw) {
+    if (raw == null || raw.isEmpty) return 'Nouvelle conversation';
+    
+    // 1. Détection de message protégé chiffré
+    if (raw.startsWith('ENCv1:') || 
+        raw.startsWith('🔒') || 
+        (raw.length > 20 && !raw.contains(' ') && RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(raw.replaceFirst(RegExp(r'^ENCv1:'), '')))) {
+      return '🔒 Message protégé';
+    }
+    
+    // 2. Détection des médias (Noms de fichiers / URL d'images)
+    final lower = raw.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp')) {
+      return '📷 Photo';
+    }
+    if (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.avi')) {
+      return '🎥 Vidéo';
+    }
+    if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.m4a') || raw.contains('Message audio (')) {
+      return '🎤 Message audio';
+    }
+    
+    return raw;
   }
 
   @override
@@ -838,10 +864,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           );
           final isOnline = onlineUserIds.contains(otherUserId);
 
-          // 🌟 SÉCURITÉ ET CORRECTION DU BUG DU NOM :
-          // Si on est dans un chat 1-à-1 et que le nom de la conversation
-          // est exactement TON nom, on le masque. Cela veut dire que ton 
-          // backend/provider renvoie de la mauvaise donnée pour les chats privés.
           String chatName = conv.displayName;
           if (!conv.isGroup && chatName == currentUserName) {
             chatName = 'Contact (ID: ${otherUserId.length > 4 ? otherUserId.substring(0, 4) : ''}...)';
@@ -852,13 +874,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             child: InkWell(
               onTap: () => _openConversation(conv),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // 🌟 Espacements réduits
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   children: [
                     Stack(
                       children: [
                         CircleAvatar(
-                          radius: 24, // 🌟 Avatar plus petit (style standard WhatsApp)
+                          radius: 24, 
                           backgroundColor: _C.searchBg,
                           backgroundImage: conv.displayAvatar != null
                               ? NetworkImage(conv.displayAvatar!)
@@ -905,8 +927,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 16, // 🌟 Taille de texte réduite (16)
-                                    fontWeight: unread ? FontWeight.w700 : FontWeight.w600, // 🌟 Police affinée
+                                    fontSize: 16, 
+                                    fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
                                     color: _C.textMain,
                                   ),
                                 ),
@@ -915,7 +937,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                               Text(
                                 _fmt(t),
                                 style: TextStyle(
-                                  fontSize: 12, // 🌟 Date plus discrète
+                                  fontSize: 12, 
                                   fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
                                   color: unread ? _C.green : _C.textMuted,
                                 ),
@@ -926,12 +948,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           Row(
                             children: [
                               Expanded(
+                                // 🌟 ICI : On utilise _formatPreview pour filtrer l'aperçu !
                                 child: Text(
-                                  last?.content ?? 'Nouvelle conversation',
+                                  _formatPreview(last?.content),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 14, // 🌟 Sous-titre plus petit
+                                    fontSize: 14, 
                                     fontWeight: unread ? FontWeight.w500 : FontWeight.w400,
                                     color: unread ? _C.textMain : _C.textMuted,
                                   ),
@@ -942,7 +965,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                   margin: const EdgeInsets.only(left: 10),
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: const BoxDecoration(
-                                    color: _C.green, // 🌟 Vert WhatsApp
+                                    color: _C.green, 
                                     shape: BoxShape.circle,
                                   ),
                                   alignment: Alignment.center,
