@@ -1,39 +1,136 @@
 // lib/presentation/thix_reservation/bus/pages/agency/agency_qr_scan_page.dart
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:thix_id/core/theme/thix_design_policy.dart';
 import '../../providers/agency_dashboard_provider.dart';
 
-class AgencyQrScanPage extends StatefulWidget {
+class AgencyQrScanPage extends ConsumerStatefulWidget {
   const AgencyQrScanPage({super.key});
+
   @override
-  State<AgencyQrScanPage> createState() => _AgencyQrScanPageState();
+  ConsumerState<AgencyQrScanPage> createState() => _AgencyQrScanPageState();
 }
 
-class _AgencyQrScanPageState extends State<AgencyQrScanPage> {
-  bool _handled = false;
+class _AgencyQrScanPageState extends ConsumerState<AgencyQrScanPage> {
+  bool _isProcessing = false;
+
+  Future<void> _handleScan(String qrCode) async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+
+    try {
+      // 🌟 Utilisation moderne de Riverpod
+      final booking = await ref.read(agencyDashboardProvider.notifier).validateQr(qrCode);
+      
+      if (!mounted) return;
+      if (booking != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Billet validé avec succès !'),
+            backgroundColor: ThixPolicy.success,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ticket invalide ou déjà utilisé'),
+            backgroundColor: ThixPolicy.danger,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: ThixPolicy.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 🌟 Écoute moderne de l'état
+    final state = ref.watch(agencyDashboardProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Scanner billet')),
-      body: Stack(children: [
-        MobileScanner(onDetect: (capture) async {
-          if(_handled) return;
-          final code = capture.barcodes.first.rawValue;
-          if(code==null) return;
-          setState(()=> _handled=true);
-          final provider = context.read<AgencyDashboardProvider>();
-          final booking = await provider.validateQr(code);
-          if(!mounted) return;
-          if(booking!=null){
-            showDialog(context: context, builder: (_)=> AlertDialog(title: const Text('Billet valide ✅'), content: Text('Passager: ${booking.userId}\nSièges: ${booking.seats.join(', ')}\nTotal: ${booking.totalPriceFcfa} FCFA\nStatut mis à: Terminé'), actions: [TextButton(onPressed: (){ Navigator.pop(context); setState(()=> _handled=false); }, child: const Text('Scanner suivant'))]));
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.error??'QR invalide')));
-            setState(()=> _handled=false);
-          }
-        }),
-        Align(alignment: Alignment.bottomCenter, child: Container(margin: const EdgeInsets.all(20), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(12)), child: const Text('Placez le QR du client au centre', style: TextStyle(color: Colors.white)))),
-      ]),
+      backgroundColor: ThixPolicy.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 56,
+        title: const Text(
+          'Scanner un Billet (QR)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: ThixPolicy.textMain),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(ThixPolicy.rXl),
+                border: Border.all(color: ThixPolicy.border),
+                boxShadow: ThixPolicy.shadowCard(),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    size: 80,
+                    color: ThixPolicy.primary,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Pointez la caméra vers le QR Code du passager',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: ThixPolicy.textMain),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'La validation mettra à jour le statut du billet instantanément.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: ThixPolicy.textSecondary),
+                  ),
+                  const SizedBox(height: 24),
+                  if (_isProcessing || state.isLoading)
+                    const CircularProgressIndicator(color: ThixPolicy.primary)
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          // Simulation de test ou déclenchement du scanner physique
+                          _handleScan("TEST-QR-CODE-SIMULATION");
+                        },
+                        icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
+                        label: const Text(
+                          'Activer le scanner',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ThixPolicy.primary,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rLg)),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
