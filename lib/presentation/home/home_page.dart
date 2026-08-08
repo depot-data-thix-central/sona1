@@ -24,48 +24,9 @@ import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/widgets/language_sheet.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 
-// ============================================================================
-// CONSTANTES DE DESIGN
-// ============================================================================
-class AppColors {
-  static const Color primaryBlue = Color(0xFF1877F2);
-  static const Color darkNavy = Color(0xFF111827);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color lightGrayBg = Color(0xFFF0F2F5);
-  static const Color textSecondary = Color(0xFF4B5563);
-  static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color goldBadge = Color(0xFFFBBF24);
-  static const Color successGreen = Color(0xFF059669);
-  static const Color dangerRed = Color(0xFFFF3B30);
-  static const Color darkText = Color(0xFF111827);
-  static const Color shadowLight = Color(0x0F000000);
-  static const Color shadowSecondary = Color(0x0A000000);
-  static const Color premiumSoftStart = Color(0xFFEAF2FF);
-  static const Color premiumSoftEnd = Color(0xFFFFFFFF);
-  static const Color premiumAccent = Color(0xFF0B3B8F);
-  static const Color domainMedia = Color(0xFF7C3AED);
-  static const Color domainMarket = Color(0xFFF97316);
-  static const Color domainLearning = Color(0xFF2563EB);
-  static const Color domainJobs = Color(0xFF16A34A);
-  static const Color domainInfo = Color(0xFF0284C7);
-  static const Color domainOpportunity = Color(0xFFF59E0B);
-  static const Color domainEvents = Color(0xFFEF4444);
-  static const Color domainNetwork = Color(0xFF4F46E5);
-  static const Color domainHealth = Color(0xFFE11D48);
-  static const Color domainMoney = Color(0xFF059669);
-  static const Color domainGov = Color(0xFF334155);
-  static const Color domainReservation = Color(0xFF0D9488);
-}
-class AppSpacing {
-  static const double xs = 4; static const double s = 8; static const double m = 12; static const double l = 16; static const double xl = 20; static const double xxl = 24; static const double xxxl = 28; static const double huge = 32;
-}
-class AppRadius {
-  static const double searchBar = 24; static const double mainCard = 22; static const double serviceCard = 18; static const double button = 14; static const double bottomNav = 30; static const double avatar = 50; static const double qrContainer = 16;
-}
-class AppShadows {
-  static List<BoxShadow> main = [BoxShadow(color: AppColors.shadowLight, blurRadius: 20, offset: const Offset(0, 4))];
-  static List<BoxShadow> secondary = [BoxShadow(color: AppColors.shadowSecondary, blurRadius: 8, offset: const Offset(0, 2))];
-}
+// ✅ Policy unique Web + Mobile
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+import 'package:thix_id/core/theme/app_colors.dart';
 
 // ============================================================================
 // PAGE PRINCIPALE
@@ -270,12 +231,11 @@ class _PremiumHeader extends StatelessWidget {
           Material(color: Colors.white, shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () { HapticFeedback.lightImpact(); showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const LanguageSheet()); }, child: Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: AppColors.cardBorder), boxShadow: AppShadows.secondary), child: Stack(alignment: Alignment.center, children: [const Icon(Icons.language_rounded, size: 20, color: AppColors.premiumAccent), Positioned(right: 2, bottom: 2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1), decoration: BoxDecoration(color: AppColors.premiumAccent, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white, width: 1)), child: Text(localeCode.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900))))])))),
           const SizedBox(width: 8),
           
-          // 🌟 NOUVEAU BOUTON NOTIFICATIONS
+          // BOUTON NOTIFICATIONS
           StreamBuilder<SectionBadgeCounts>(
             stream: badgeCountsStream,
             builder: (context, snap) {
               final c = snap.data ?? SectionBadgeCounts.zero;
-              // Somme de tous les badges de notifications disponibles
               final total = c.messages + c.opportunities + c.jobs + c.events + c.formations + c.info + c.market + c.media + c.network + c.health + c.money + c.monPays + c.reservation;
               
               return Material(
@@ -419,10 +379,11 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
   bool _menuExpanded = false; 
   Timer? _collapseTimer;
   
-  static const double _stageHeight = 360; 
-  static const double _hubRadius = 34; 
-  static const double _hubMenuRadius = 58; 
-  static const double _hubMenuNodeSize = 30;
+  // ✅ Valeurs fixes branchées sur la ThixPolicy
+  static const double _stageHeight = ThixPolicy.constellationStageHeight;
+  static const double _hubRadius = ThixPolicy.constellationHubRadius;
+  static const double _hubMenuRadius = ThixPolicy.constellationHubMenuRadius;
+  static const double _hubMenuNodeSize = ThixPolicy.constellationHubMenuNodeSize;
   
   @override void initState() { super.initState(); _shineController = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200))..repeat(); _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true); }
   @override void dispose() { _shineController.dispose(); _pulseController.dispose(); _collapseTimer?.cancel(); super.dispose(); }
@@ -475,13 +436,19 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
               builder: (context, constraints) { 
                 final w = constraints.maxWidth; 
                 final center = Offset(w / 2, _stageHeight / 2 - 6); 
-                final maxR = math.min(w / 2 - 34, 148.0); 
+                
+                // ✅ Règle unique de la policy
+                final maxR = math.min(
+                  w / 2 - ThixPolicy.constellationOuterPadding,
+                  ThixPolicy.constellationMaxRadius,
+                );
+                
                 final nodeCount = nodes.length; 
                 final positions = <Offset>[]; 
                 
                 for (var i = 0; i < nodeCount; i++) { 
                   final angle = -90.0 + (i * (360.0 / nodeCount)); 
-                  final radius = i.isEven ? maxR : maxR * 0.70; 
+                  final radius = i.isEven ? maxR : maxR * ThixPolicy.constellationInnerFactor; 
                   positions.add(_polar(center, angle, radius)); 
                 } 
                 
@@ -522,8 +489,8 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
                         ), 
                         for (var i = 0; i < nodes.length; i++) 
                           Positioned(
-                            left: positions[i].dx - 35, 
-                            top: positions[i].dy - 35, 
+                            left: positions[i].dx - ThixPolicy.constellationNodeHalf, 
+                            top: positions[i].dy - ThixPolicy.constellationNodeHalf, 
                             child: _ConstellationNode(
                               data: nodes[i], 
                               onTap: () => widget.onServiceTap(nodes[i].key)
@@ -595,6 +562,10 @@ class _ConstellationNodeState extends State<_ConstellationNode> with SingleTicke
   
   @override Widget build(BuildContext context) { 
     final d = widget.data; 
+    final size = ThixPolicy.constellationNodeSize;
+    final iconSize = ThixPolicy.constellationNodeIconSize;
+    final fontSize = ThixPolicy.constellationLabelSize;
+
     return GestureDetector(
       onTapDown: (_) => _controller.forward(), 
       onTapUp: (_) { _controller.reverse(); widget.onTap(); }, 
@@ -610,10 +581,10 @@ class _ConstellationNodeState extends State<_ConstellationNode> with SingleTicke
                 clipBehavior: Clip.none, 
                 children: [
                   Container(
-                    width: 46, height: 46, 
+                    width: size, height: size, 
                     decoration: BoxDecoration(color: AppColors.white, shape: BoxShape.circle, border: Border.all(color: d.color.withValues(alpha: 0.35), width: 1.2), boxShadow: [BoxShadow(color: d.color.withValues(alpha: 0.22), blurRadius: 10, offset: const Offset(0, 4))]), 
                     alignment: Alignment.center, 
-                    child: Icon(d.icon, color: d.color, size: 20)
+                    child: Icon(d.icon, color: d.color, size: iconSize)
                   ), 
                   if (d.badge != null && d.badge! > 0) 
                     Positioned(
@@ -632,7 +603,7 @@ class _ConstellationNodeState extends State<_ConstellationNode> with SingleTicke
                 textAlign: TextAlign.center, 
                 maxLines: 2, 
                 overflow: TextOverflow.ellipsis, 
-                style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: AppColors.darkText, height: 1.1)
+                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700, color: AppColors.darkText, height: 1.1)
               )
             ]
           )
