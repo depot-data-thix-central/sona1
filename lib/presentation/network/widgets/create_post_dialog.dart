@@ -8,9 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:record/record.dart'; // 🌟 IMPORT RECORD
-import 'package:image_picker/image_picker.dart'; // 🌟 IMPORT IMAGE PICKER
-import 'package:audioplayers/audioplayers.dart'; // 🌟 IMPORT AUDIO PLAYERS POUR PRÉ-ÉCOUTE
+import 'package:record/record.dart'; 
+import 'package:image_picker/image_picker.dart'; 
+import 'package:audioplayers/audioplayers.dart'; 
 
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
@@ -38,10 +38,7 @@ class _C {
   );
 }
 
-// 🌟 FIX: Removed `compute` compatibility requirement.
-// The flutter_image_compress package handles its own background threads.
 Future<Uint8List> compressImageBytes(Uint8List bytes) async {
-  // Web fallback: flutter_image_compress can cause issues on web.
   if (kIsWeb) {
     return bytes;
   }
@@ -55,7 +52,7 @@ Future<Uint8List> compressImageBytes(Uint8List bytes) async {
     );
   } catch (e) {
     debugPrint("Erreur de compression: $e");
-    return bytes; // Return original bytes if compression fails
+    return bytes; 
   }
 }
 
@@ -110,13 +107,12 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
   String? _errorMessage;
   String? _factCheckStatusLabel;
 
-  // 🌟 GESTION DE L'AUDIO 🌟
   final AudioRecorder _audioRecorder = AudioRecorder();
   Timer? _recordTimer;
   int _recordDuration = 0;
   bool _isRecording = false;
   Uint8List? _audioBytes;
-  String? _localAudioPath; // Pour la pré-écoute
+  String? _localAudioPath; 
 
   List<Map<String, dynamic>> _mentionSuggestions = [];
   bool _showMentions = false;
@@ -131,6 +127,10 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
     _C.red,
     _C.green,
   ];
+
+  // 🌟 NOUVEAU : Limite stricte pour les fonds colorés
+  static const int _maxCharsForBgColor = 150;
+  int _previousTextLength = 0;
 
   @override
   void initState() {
@@ -164,8 +164,14 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
   }
 
   bool get _hasBgColor => _selectedBgColor != Colors.transparent;
+  
+  // 🌟 MODIFIÉ : Vérifie que le texte ne dépasse pas la limite
   bool get _canHaveBgColor =>
-      _postTypeMode == 0 && _images.isEmpty && _videos.isEmpty && _audioBytes == null;
+      _postTypeMode == 0 && 
+      _images.isEmpty && 
+      _videos.isEmpty && 
+      _audioBytes == null &&
+      _contentController.text.length <= _maxCharsForBgColor;
 
   String _colorToHex(Color c) {
     final v = c.toARGB32();
@@ -174,6 +180,19 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
 
   void _onContentChanged() {
     final text = _contentController.text;
+    final currentLength = text.length;
+
+    // 🌟 NOUVEAU : Si on dépasse 150 caractères, on désactive le fond coloré en temps réel
+    if ((_previousTextLength <= _maxCharsForBgColor && currentLength > _maxCharsForBgColor) ||
+        (_previousTextLength > _maxCharsForBgColor && currentLength <= _maxCharsForBgColor)) {
+      setState(() {
+        if (currentLength > _maxCharsForBgColor && _hasBgColor) {
+          _selectedBgColor = Colors.transparent; // Retire la couleur
+        }
+      });
+    }
+    _previousTextLength = currentLength;
+
     final lastAt = text.lastIndexOf('@');
     if (lastAt == -1) {
       if (_showMentions) setState(() => _showMentions = false);
@@ -244,13 +263,12 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
     if (_hasBgColor) setState(() => _selectedBgColor = Colors.transparent);
   }
 
-  // 🌟 LOGIQUE D'ENREGISTREMENT AUDIO (2 min max) 🌟
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
         await _audioRecorder.start(
           const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
-          path: '', // Chemin vide = fichier temp auto-géré
+          path: '', 
         );
         setState(() {
           _isRecording = true;
@@ -262,7 +280,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
         
         _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
           setState(() => _recordDuration++);
-          if (_recordDuration >= 120) { // Limite 2 minutes
+          if (_recordDuration >= 120) { 
             _stopRecording();
           }
         });
@@ -284,7 +302,7 @@ class _CreatePostDialogState extends ConsumerState<CreatePostDialog>
         final bytes = await file.readAsBytes();
         setState(() {
           _audioBytes = bytes;
-          _localAudioPath = path; // Pour la pré-écoute
+          _localAudioPath = path; 
         });
       }
     } catch (e) {
@@ -460,14 +478,12 @@ Réponds : SAFE ou FAKE: [raison]
 
       final allMedia = <String>[];
 
-      // 🌟 UPLOAD DE L'AUDIO 🌟
       if (_audioBytes != null) {
         final url = await ns.uploadAudioBytes(_audioBytes!);
         if (url != null && url.isNotEmpty) allMedia.add(url);
       }
 
       for (final item in _images) {
-        // 🌟 FIX: direct await, removed `compute()` wrapper.
         final compressed = await compressImageBytes(item.bytes);
         final ext = item.name.split('.').last;
         final url = await ns.uploadImageBytes(compressed, fileExtension: ext, bucket: 'post_images');
@@ -735,7 +751,6 @@ Réponds : SAFE ou FAKE: [raison]
                         ),
                       ),
 
-                      // 🌟 BANNIÈRE D'ENREGISTREMENT AUDIO (Actif ou Pré-écoute) 🌟
                       if (_isRecording)
                         Container(
                           margin: const EdgeInsets.only(top: 12),
@@ -763,6 +778,7 @@ Réponds : SAFE ou FAKE: [raison]
                           ),
                         ),
 
+                      // 🌟 AFFICHAGE DES COULEURS OU DU MESSAGE D'AVERTISSEMENT
                       if (_canHaveBgColor)
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(top: 10),
@@ -778,6 +794,14 @@ Réponds : SAFE ou FAKE: [raison]
                                 ),
                               );
                             }).toList(),
+                          ),
+                        )
+                      else if (_postTypeMode == 0 && _images.isEmpty && _videos.isEmpty && _audioBytes == null && _contentController.text.length > _maxCharsForBgColor)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10, left: 4),
+                          child: Text(
+                            'Texte trop long pour un fond coloré (max $_maxCharsForBgColor caractères).',
+                            style: const TextStyle(fontSize: 12, color: _C.textSecondary, fontStyle: FontStyle.italic),
                           ),
                         ),
 
@@ -800,7 +824,7 @@ Réponds : SAFE ou FAKE: [raison]
                                     ),
                                   ),
                                 ),
-                                if (e.key > 1) // On permet de supprimer à partir de la 3ème option
+                                if (e.key > 1) 
                                   IconButton(
                                     icon: const Icon(Icons.remove_circle_outline, color: _C.red),
                                     onPressed: () {
@@ -937,7 +961,6 @@ Réponds : SAFE ou FAKE: [raison]
                   ),
                 ),
 
-              // 🌟 BOUTONS D'AJOUT DE MÉDIAS 🌟
               Row(
                 children: [
                   _mediaBtn(Icons.photo_rounded, _pickImages, _C.green),
@@ -961,7 +984,7 @@ Réponds : SAFE ou FAKE: [raison]
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: ElevatedButton(
-                    onPressed: (_isUploading || _isRecording) ? null : _publishPost, // 🌟 BLOQUÉ PENDANT L'ENREGISTREMENT
+                    onPressed: (_isUploading || _isRecording) ? null : _publishPost, 
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
@@ -981,7 +1004,6 @@ Réponds : SAFE ou FAKE: [raison]
   }
 }
 
-// 🌟 MINI LECTEUR AUDIO POUR LA PRÉ-ÉCOUTE 🌟
 class _DialogAudioPlayer extends StatefulWidget {
   final String audioPath;
   const _DialogAudioPlayer({required this.audioPath});
