@@ -265,7 +265,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   color: ThixPolicy.tint,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(icon, size: 24, color: ThixPolicy.primary), // Icône
+                child: Icon(icon, size: 24, color: ThixPolicy.primary),
               ),
               const SizedBox(width: 16),
               Expanded(
