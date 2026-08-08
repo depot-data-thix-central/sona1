@@ -17,6 +17,9 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
+// ✅ Import de la Policy de Design
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
 
@@ -33,29 +36,6 @@ import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 
 import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
-
-// ─────────────────────────────────────────────────────────────
-// CHARTE THIX CHAT ENTERPRISE
-// ─────────────────────────────────────────────────────────────
-class _C {
-  static const bg = Color(0xFFEFE6DD); 
-  static const surface = Colors.white;
-  static const surfaceAlt = Color(0xFFF8FAFC);
-  static const border = Color(0xFFE2E8F0);
-  static const primary = Color(0xFF1D4ED8);
-  static const primaryDeep = Color(0xFF123B7A);
-  static const primarySoft = Color(0xFFEFF6FF);
-  static const textMain = Color(0xFF0F172A);
-  static const textMuted = Color(0xFF64748B);
-  static const red = Color(0xFFEF4444);
-  static const green = Color(0xFF22C55E);
-  static const orange = Color(0xFFF59E0B);
-  static const gold = Color(0xFFE3B23C);
-  static const bubbleOwn = Color(0xFFE7FFDB); 
-  static const otherBubble = Colors.white; 
-  static const navyDeep = Color(0xFF0A1F44); 
-}
-
 
 // Messages provider (family)
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
@@ -138,17 +118,13 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
 // ─────────────────────────────────────────────────────────────
 // GROUPEMENT D'IMAGES CONSÉCUTIVES
 // ─────────────────────────────────────────────────────────────
-// Fusionne les messages-images consécutifs du même expéditeur (envoyés à
-// moins de 2 min d'intervalle) en un seul item affiché comme une grille
-// compacte, au lieu d'une bulle géante par photo.
 class _ChatListItem {
-  final List<ChatMessage> messages; // 1 message normal, ou N images groupées
+  final List<ChatMessage> messages; 
   _ChatListItem.single(ChatMessage m) : messages = [m];
   _ChatListItem.group(this.messages);
 }
 
 List<_ChatListItem> _buildChatDisplayItems(List<ChatMessage> messages) {
-  // `messages` est trié du plus récent (index 0) au plus ancien.
   final items = <_ChatListItem>[];
   int i = 0;
   while (i < messages.length) {
@@ -364,16 +340,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     super.dispose();
   }
 
-    Future<void> _markAsRead() async {
-    // 🌟 CORRECTION : On demande au Provider de la liste de faire la mise à jour !
-    // Cela va instantanément mettre le badge à 0 dans l'UI ET appeler la base de données en arrière-plan.
+  Future<void> _markAsRead() async {
     try {
       ref.read(chatListProvider.notifier).markAsRead(widget.conversationId);
     } catch (e) {
       debugPrint('Erreur _markAsRead UI: $e');
     }
   }
-
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
@@ -520,7 +493,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     setState(() => _isSending = true);
 
     try {
-      // 1. Envoi Audio
       if (_audioBytes != null) {
         final msg = await svc.sendAudioMessage(
           conversationId: widget.conversationId,
@@ -532,7 +504,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         );
         ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
       } 
-      // 2. Envoi Fichiers / Images (Groupés)
       else if (_selectedFiles.isNotEmpty) {
         final filesToSend = List<PlatformFile>.from(_selectedFiles);
         setState(() => _selectedFiles.clear());
@@ -608,7 +579,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           }
         }
       } 
-      // 3. Envoi Texte
       else if (text.isNotEmpty) {
         final msg = await svc.sendMessage(
           conversationId: widget.conversationId,
@@ -634,7 +604,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     } catch (e) {
       if (mounted) {
         setState(() => _isSending = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: ThixPolicy.danger));
       }
     }
   }
@@ -660,7 +630,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(width: 40, height: 4, decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(4))),
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: ThixPolicy.border, borderRadius: BorderRadius.circular(4))),
                   const SizedBox(height: 16),
                   const Text('Message éphémère', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   const SizedBox(height: 12),
@@ -676,7 +646,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       final selected = _ephemeralDuration == e.$2;
                       return ListTile(
                         title: Text(e.$1),
-                        trailing: selected ? const Icon(Icons.check_circle, color: _C.primary) : null,
+                        trailing: selected ? const Icon(Icons.check_circle, color: ThixPolicy.primary) : null,
                         onTap: () {
                           setState(() { _ephemeralDuration = e.$2; _isEphemeral = e.$2 != null; });
                           Navigator.pop(ctx);
@@ -684,8 +654,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       );
                     }),
                     ListTile(
-                      title: const Text('Personnalisé...', style: TextStyle(color: _C.primary, fontWeight: FontWeight.w600)),
-                      leading: const Icon(Icons.timer_outlined, color: _C.primary),
+                      title: const Text('Personnalisé...', style: TextStyle(color: ThixPolicy.primary, fontWeight: FontWeight.w600)),
+                      leading: const Icon(Icons.timer_outlined, color: ThixPolicy.primary),
                       onTap: () => setModalState(() => showCustomInput = true),
                     ),
                   ] else ...[
@@ -701,14 +671,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: _C.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16)),
+                            style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16)),
                             onPressed: () {
                               final val = int.tryParse(customTimeCtrl.text.trim());
                               if (val != null && val > 0) {
                                 setState(() { _ephemeralDuration = val; _isEphemeral = true; });
                                 Navigator.pop(ctx);
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nombre invalide.'), backgroundColor: _C.orange));
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nombre invalide.'), backgroundColor: ThixPolicy.warning));
                               }
                             },
                             child: const Text('Valider', style: TextStyle(color: Colors.white)),
@@ -716,7 +686,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         ],
                       ),
                     ),
-                    TextButton(onPressed: () => setModalState(() => showCustomInput = false), child: const Text('Retour', style: TextStyle(color: _C.textMuted)))
+                    TextButton(onPressed: () => setModalState(() => showCustomInput = false), child: const Text('Retour', style: TextStyle(color: ThixPolicy.textSecondary)))
                   ]
                 ],
               ),
@@ -745,7 +715,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _C.primary),
+            style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary),
             onPressed: () async {
               if (msgCtrl.text.isEmpty || passCtrl.text.isEmpty) return;
               final enc = EncryptionService.encryptMessage(msgCtrl.text, passCtrl.text);
@@ -758,7 +728,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 if (mounted) setState(() => _replyToId = '');
                 _scrollToBottom();
               } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: ThixPolicy.danger));
               }
             },
             child: const Text('Envoyer', style: TextStyle(color: Colors.white)),
@@ -775,7 +745,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         setState(() => _selectedFiles.addAll(result.files));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: _C.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: ThixPolicy.danger));
     }
   }
 
@@ -802,7 +772,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   void _toggleInternalNoteMode() {
     setState(() => _isInternalNoteMode = !_isInternalNoteMode);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isInternalNoteMode ? 'Mode note interne ON' : 'Mode note interne OFF'), backgroundColor: _isInternalNoteMode ? _C.orange : _C.textMuted));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isInternalNoteMode ? 'Mode note interne ON' : 'Mode note interne OFF'), backgroundColor: _isInternalNoteMode ? ThixPolicy.warning : ThixPolicy.textSecondary));
   }
 
   String _getPresenceText(UserStatus status) {
@@ -834,7 +804,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final currentUid = ref.read(chatServiceProvider).currentUserId;
 
     return Scaffold(
-      backgroundColor: _C.bg,
+      backgroundColor: const Color(0xFFEFE6DD), // Gardé pour l'aspect papier peint de chat par défaut
       appBar: _buildAppBar(),
       body: Stack(
         children: [
@@ -851,11 +821,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                       itemCount: displayItems.length + (msgNotifier.loadingMore ? 1 : 0),
                       itemBuilder: (ctx, i) {
-                        if (i == displayItems.length) return const Center(child: Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary))));
+                        if (i == displayItems.length) return const Center(child: Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: ThixPolicy.primary))));
 
                         final item = displayItems[i];
 
-                        // Groupe d'images consécutives → grille compacte
                         if (item.messages.length > 1) {
                           final isOwn = item.messages.first.senderId == currentUid;
                           return _ImageGroupBubble(images: item.messages, isOwn: isOwn);
@@ -904,18 +873,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0.8, shadowColor: Colors.black12, titleSpacing: 0,
-      leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: _C.textMain), onPressed: () { _markAsRead(); context.pop(); }),
+      leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: ThixPolicy.textMain), onPressed: () { _markAsRead(); context.pop(); }),
       title: Row(
         children: [
           Stack(
             children: [
               CircleAvatar(
-                radius: 20, backgroundColor: _C.surfaceAlt,
+                radius: 20, backgroundColor: ThixPolicy.tint,
                 child: widget.conversation.isGroup
-                    ? const Icon(Icons.groups_rounded, color: _C.textMuted)
-                    : ClipOval(child: Image.network(widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11', width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: _C.textMuted))),
+                    ? const Icon(Icons.groups_rounded, color: ThixPolicy.textSecondary)
+                    : ClipOval(child: Image.network(widget.conversation.displayAvatar ?? 'https://i.pravatar.cc/150?img=11', width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: ThixPolicy.textSecondary))),
               ),
-              if (!widget.conversation.isGroup && _isOnline) Positioned(right: 0, bottom: 0, child: Container(width: 12, height: 12, decoration: BoxDecoration(color: _C.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))),
+              if (!widget.conversation.isGroup && _isOnline) Positioned(right: 0, bottom: 0, child: Container(width: 12, height: 12, decoration: BoxDecoration(color: ThixPolicy.success, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))),
             ],
           ),
           const SizedBox(width: 12),
@@ -923,21 +892,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.conversation.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _C.textMain), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(widget.conversation.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ThixPolicy.textMain), maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (!widget.conversation.isGroup && _otherParticipant != null)
-                  Text(_getPresenceText(_otherParticipant!), style: TextStyle(fontSize: 12, color: _isOnline ? _C.green : _C.textMuted, fontWeight: _isOnline ? FontWeight.w600 : FontWeight.w400))
+                  Text(_getPresenceText(_otherParticipant!), style: TextStyle(fontSize: 12, color: _isOnline ? ThixPolicy.success : ThixPolicy.textSecondary, fontWeight: _isOnline ? FontWeight.w600 : FontWeight.w400))
                 else if (widget.conversation.isGroup)
-                  Text('${_groupMembers.length} membres', style: const TextStyle(fontSize: 12, color: _C.textMuted)),
+                  Text('${_groupMembers.length} membres', style: const TextStyle(fontSize: 12, color: ThixPolicy.textSecondary)),
               ],
             ),
           ),
         ],
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.videocam_outlined, color: _C.primary, size: 26), onPressed: () => _startCall(CallType.video)),
-        IconButton(icon: const Icon(Icons.call_outlined, color: _C.primary, size: 24), onPressed: () => _startCall(CallType.audio)),
+        IconButton(icon: const Icon(Icons.videocam_outlined, color: ThixPolicy.primary, size: 26), onPressed: () => _startCall(CallType.video)),
+        IconButton(icon: const Icon(Icons.call_outlined, color: ThixPolicy.primary, size: 24), onPressed: () => _startCall(CallType.audio)),
         PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert_rounded, color: _C.textMain),
+          icon: const Icon(Icons.more_vert_rounded, color: ThixPolicy.textMain),
           color: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           onSelected: (v) {
             if (v == 'escalate') _escalateConversation();
@@ -945,9 +914,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             else if (v == 'group') GoRouter.of(context).go('/chat/group/${widget.conversationId}/info');
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(value: 'escalate', child: Row(children: [Icon(Icons.arrow_upward, color: _C.orange, size: 20), SizedBox(width: 10), Text('Escalader')])),
-            const PopupMenuItem(value: 'history', child: Row(children: [Icon(Icons.history, color: _C.primary, size: 20), SizedBox(width: 10), Text('Historique')])),
-            if (widget.conversation.isGroup) const PopupMenuItem(value: 'group', child: Row(children: [Icon(Icons.info_outline, color: _C.textMuted, size: 20), SizedBox(width: 10), Text('Infos groupe')])),
+            const PopupMenuItem(value: 'escalate', child: Row(children: [Icon(Icons.arrow_upward, color: ThixPolicy.warning, size: 20), SizedBox(width: 10), Text('Escalader')])),
+            const PopupMenuItem(value: 'history', child: Row(children: [Icon(Icons.history, color: ThixPolicy.primary, size: 20), SizedBox(width: 10), Text('Historique')])),
+            if (widget.conversation.isGroup) const PopupMenuItem(value: 'group', child: Row(children: [Icon(Icons.info_outline, color: ThixPolicy.textSecondary, size: 20), SizedBox(width: 10), Text('Infos groupe')])),
           ],
         ),
       ],
@@ -991,29 +960,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               child: _localAudioPath != null && !_isRecording
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(color: _C.navyDeep, borderRadius: BorderRadius.circular(24)),
+                    decoration: BoxDecoration(color: ThixPolicy.inkDeep, borderRadius: BorderRadius.circular(24)),
                     child: Row(
                       children: [
                         Expanded(child: _ChatWaveformAudioPlayer(audioUrl: _localAudioPath!, isLocal: true)),
                         IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.white70), onPressed: () => setState(() { _audioBytes = null; _localAudioPath = null; })),
-                        CircleAvatar(radius: 16, backgroundColor: _C.primary, child: IconButton(icon: _isSending ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.send_rounded, color: Colors.white, size: 14), onPressed: _isSending ? null : () => _sendMessage())),
+                        CircleAvatar(radius: 16, backgroundColor: ThixPolicy.primary, child: IconButton(icon: _isSending ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.send_rounded, color: Colors.white, size: 14), onPressed: _isSending ? null : () => _sendMessage())),
                       ],
                     ),
                   )
                 : _isRecording
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(color: _C.red.withOpacity(0.08), borderRadius: BorderRadius.circular(24)),
+                      decoration: BoxDecoration(color: ThixPolicy.danger.withOpacity(0.08), borderRadius: BorderRadius.circular(24)),
                       child: Row(
                         children: [
-                          const Icon(Icons.mic, color: _C.red), const SizedBox(width: 12),
+                          const Icon(Icons.mic, color: ThixPolicy.danger), const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               'Enregistrement... ${(_recordDuration ~/ 60).toString().padLeft(2, '0')}:${(_recordDuration % 60).toString().padLeft(2, '0')}', 
-                              style: const TextStyle(color: _C.red, fontWeight: FontWeight.w800)
+                              style: const TextStyle(color: ThixPolicy.danger, fontWeight: FontWeight.w800)
                             )
                           ),
-                          GestureDetector(onTap: _stopRecording, child: const Icon(Icons.stop_circle_rounded, color: _C.red, size: 30)),
+                          GestureDetector(onTap: _stopRecording, child: const Icon(Icons.stop_circle_rounded, color: ThixPolicy.danger, size: 30)),
                         ],
                       ),
                     )
@@ -1026,7 +995,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                             child: TextField(
                               controller: _inputController, focusNode: _inputFocus, maxLines: 5, minLines: 1, textCapitalization: TextCapitalization.sentences,
                               onTap: () { if (_showStickers) setState(() => _showStickers = false); },
-                              decoration: const InputDecoration(hintText: 'Écrire un message...', hintStyle: TextStyle(color: _C.textMuted), border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                              decoration: const InputDecoration(hintText: 'Écrire un message...', hintStyle: TextStyle(color: ThixPolicy.textSecondary), border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
                             ),
                           ),
                         ),
@@ -1039,10 +1008,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                             else _startRecording();
                           },
                           child: CircleAvatar(
-                            radius: 22, backgroundColor: hasTextOrImage ? _C.primary : _C.gold,
+                            radius: 22, backgroundColor: hasTextOrImage ? ThixPolicy.primary : ThixPolicy.gold,
                             child: _isSending 
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : Icon(hasTextOrImage ? Icons.send_rounded : Icons.mic_rounded, color: hasTextOrImage ? Colors.white : _C.navyDeep, size: 22),
+                              : Icon(hasTextOrImage ? Icons.send_rounded : Icons.mic_rounded, color: hasTextOrImage ? Colors.white : ThixPolicy.inkDeep, size: 22),
                           ),
                         ),
                       ],
@@ -1063,9 +1032,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: isActive ? _C.primary : _C.textMuted),
+            Icon(icon, size: 18, color: isActive ? ThixPolicy.primary : ThixPolicy.textSecondary),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 13, fontWeight: isActive ? FontWeight.w700 : FontWeight.w600, color: isActive ? _C.primary : _C.textMuted)),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: isActive ? FontWeight.w700 : FontWeight.w600, color: isActive ? ThixPolicy.primary : ThixPolicy.textSecondary)),
           ],
         ),
       ),
@@ -1080,8 +1049,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         child: Column(
           children: [
             const TabBar(
-              labelColor: _C.primary,
-              indicatorColor: _C.primary,
+              labelColor: ThixPolicy.primary,
+              indicatorColor: ThixPolicy.primary,
               tabs: [
                 Tab(text: 'Émojis'),
                 Tab(text: 'Réactions'),
@@ -1114,10 +1083,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// BULLE — GRILLE D'IMAGES GROUPÉES
-// ─────────────────────────────────────────────────────────────
-
 class _ImageGroupBubble extends StatelessWidget {
   final List<ChatMessage> images;
   final bool isOwn;
@@ -1125,7 +1090,7 @@ class _ImageGroupBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final last = images.first; // le plus récent du groupe (liste triée récent → ancien)
+    final last = images.first; 
     final crossAxisCount = images.length == 2 ? 2 : (images.length <= 4 ? 2 : 3);
 
     return Padding(
@@ -1138,9 +1103,9 @@ class _ImageGroupBubble extends StatelessWidget {
             margin: EdgeInsets.only(left: isOwn ? 40 : 4, right: isOwn ? 4 : 40),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: isOwn ? _C.primary : _C.otherBubble,
+              color: isOwn ? ThixPolicy.primary : Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _C.border.withOpacity(0.6)),
+              border: Border.all(color: ThixPolicy.border.withOpacity(0.6)),
               boxShadow: [
                 BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2)),
               ],
@@ -1180,18 +1145,18 @@ class _ImageGroupBubble extends StatelessWidget {
                             loadingBuilder: (_, child, progress) {
                               if (progress == null) return child;
                               return Container(
-                                color: _C.surfaceAlt,
+                                color: ThixPolicy.tint,
                                 child: const Center(
                                   child: SizedBox(
                                     width: 18, height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary),
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: ThixPolicy.primary),
                                   ),
                                 ),
                               );
                             },
                             errorBuilder: (_, __, ___) => Container(
-                              color: _C.surfaceAlt,
-                              child: const Icon(Icons.broken_image_outlined, color: _C.textMuted),
+                              color: ThixPolicy.tint,
+                              child: const Icon(Icons.broken_image_outlined, color: ThixPolicy.textSecondary),
                             ),
                           ),
                         ),
@@ -1206,7 +1171,7 @@ class _ImageGroupBubble extends StatelessWidget {
                     children: [
                       Text(
                         DateFormat('HH:mm').format(last.createdAt.toLocal()),
-                        style: TextStyle(fontSize: 10, color: isOwn ? Colors.white70 : _C.textMuted),
+                        style: TextStyle(fontSize: 10, color: isOwn ? Colors.white70 : ThixPolicy.textSecondary),
                       ),
                       if (isOwn) ...[
                         const SizedBox(width: 4),
@@ -1224,10 +1189,6 @@ class _ImageGroupBubble extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// PETITS WIDGETS DESIGN (Pill, Dot, Files)
-// ─────────────────────────────────────────────────────────────
-
 class _TypingPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1238,7 +1199,7 @@ class _TypingPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _Dot(), SizedBox(width: 3), _Dot(delay: 120), SizedBox(width: 3), _Dot(delay: 240), SizedBox(width: 8),
-          Text("écrit…", style: TextStyle(fontSize: 12, color: _C.primary, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500)),
+          Text("écrit…", style: TextStyle(fontSize: 12, color: ThixPolicy.primary, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -1260,7 +1221,7 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
     else _c.forward();
   }
   @override void dispose() { _c.dispose(); super.dispose(); }
-  @override Widget build(BuildContext context) => FadeTransition(opacity: _c, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: _C.primary, shape: BoxShape.circle)));
+  @override Widget build(BuildContext context) => FadeTransition(opacity: _c, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: ThixPolicy.primary, shape: BoxShape.circle)));
 }
 
 class _ReplyBanner extends StatelessWidget {
@@ -1269,12 +1230,12 @@ class _ReplyBanner extends StatelessWidget {
   const _ReplyBanner({required this.text, required this.onClose});
   @override Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: _C.border))),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: ThixPolicy.border))),
       child: Row(
         children: [
-          Container(width: 4, height: 36, decoration: BoxDecoration(color: _C.primary, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 12),
-          Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _C.textMuted, fontSize: 13))),
-          IconButton(icon: const Icon(Icons.close_rounded, size: 20, color: _C.textMuted), onPressed: onClose),
+          Container(width: 4, height: 36, decoration: BoxDecoration(color: ThixPolicy.primary, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 12),
+          Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 13))),
+          IconButton(icon: const Icon(Icons.close_rounded, size: 20, color: ThixPolicy.textSecondary), onPressed: onClose),
         ],
       ),
     );
@@ -1297,8 +1258,8 @@ class _FilesPreview extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 60, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: _C.surfaceAlt, borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.border)), clipBehavior: Clip.hardEdge,
-                child: isImg && f.bytes != null ? Image.memory(f.bytes!, fit: BoxFit.cover) : const Center(child: Icon(Icons.insert_drive_file_rounded, color: _C.primary, size: 24)),
+                width: 60, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: ThixPolicy.tint, borderRadius: BorderRadius.circular(10), border: Border.all(color: ThixPolicy.border)), clipBehavior: Clip.hardEdge,
+                child: isImg && f.bytes != null ? Image.memory(f.bytes!, fit: BoxFit.cover) : const Center(child: Icon(Icons.insert_drive_file_rounded, color: ThixPolicy.primary, size: 24)),
               ),
               Positioned(top: -4, right: 4, child: GestureDetector(onTap: () => onRemove(i), child: const CircleAvatar(radius: 10, backgroundColor: Colors.black87, child: Icon(Icons.close, size: 12, color: Colors.white)))),
             ],
@@ -1344,7 +1305,7 @@ class _ChatWaveformAudioPlayerState extends State<_ChatWaveformAudioPlayer> {
       children: [
         GestureDetector(
           onTap: () { if (_isPlaying) _audioPlayer.pause(); else _audioPlayer.resume(); },
-          child: Container(width: 32, height: 32, decoration: const BoxDecoration(color: _C.gold, shape: BoxShape.circle), child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: _C.navyDeep, size: 20)),
+          child: Container(width: 32, height: 32, decoration: const BoxDecoration(color: ThixPolicy.gold, shape: BoxShape.circle), child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: ThixPolicy.inkDeep, size: 20)),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -1358,7 +1319,7 @@ class _ChatWaveformAudioPlayerState extends State<_ChatWaveformAudioPlayer> {
                   height: 24, color: Colors.transparent,
                   child: Row(children: List.generate(barCount, (index) {
                     final isPlayed = (index / barCount) <= progress;
-                    return Container(width: barWidth, height: 24 * _wavePattern[index % _wavePattern.length], margin: const EdgeInsets.only(right: spacing), decoration: BoxDecoration(color: isPlayed ? _C.gold : Colors.white30, borderRadius: BorderRadius.circular(2)));
+                    return Container(width: barWidth, height: 24 * _wavePattern[index % _wavePattern.length], margin: const EdgeInsets.only(right: spacing), decoration: BoxDecoration(color: isPlayed ? ThixPolicy.gold : Colors.white30, borderRadius: BorderRadius.circular(2)));
                   })),
                 ),
               );
