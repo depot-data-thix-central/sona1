@@ -72,9 +72,6 @@ dependencies:
   mobile_scanner: ^7.4.0
   qr_flutter: ^4.1.0
   barcode_widget: ^2.0.4
-  
-  # OCR & IA
-  google_ml_kit: ^0.22.0
 
   # Notifications & Sharing
   flutter_local_notifications: ^22.2.0
