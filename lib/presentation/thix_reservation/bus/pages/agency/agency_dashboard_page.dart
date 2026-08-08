@@ -24,7 +24,6 @@ class _AgencyDashboardPageState extends ConsumerState<AgencyDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 🌟 Écoute moderne de l'état Riverpod
     final state = ref.watch(agencyDashboardProvider);
     final notifier = ref.read(agencyDashboardProvider.notifier);
 
@@ -63,7 +62,6 @@ class _AgencyDashboardPageState extends ConsumerState<AgencyDashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Statistiques rapides
                     Row(
                       children: [
                         Expanded(child: _StatCard(label: 'Réservations du jour', value: '${state.todayBookingsCount}', icon: Icons.receipt_long_rounded, color: ThixPolicy.primary)),
@@ -102,7 +100,8 @@ class _AgencyDashboardPageState extends ConsumerState<AgencyDashboardPage> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('${trip.from} → ${trip.to}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: ThixPolicy.textMain)),
+                                      // 🌟 Utilisation de departureCity et arrivalCity
+                                      Text('${trip.departureCity} → ${trip.arrivalCity}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: ThixPolicy.textMain)),
                                       const SizedBox(height: 2),
                                       Text('${trip.priceFcfa} FCFA • ${trip.availableSeats} places dispo', style: const TextStyle(fontSize: 11, color: ThixPolicy.textSecondary, fontWeight: FontWeight.w500)),
                                     ],
