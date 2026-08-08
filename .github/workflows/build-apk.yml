@@ -28,10 +28,10 @@ jobs:
         run: flutter pub get
 
       - name: Build release App Bundle
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --no-enable-impeller
 
       - name: Build release APKs (split by ABI)
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --no-enable-impeller
 
       - name: Upload App Bundle artifact
         uses: actions/upload-artifact@v4
