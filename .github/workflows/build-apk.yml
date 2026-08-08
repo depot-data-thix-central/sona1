@@ -27,11 +27,20 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Build release APK
-        run: flutter build apk --release
+      - name: Build release App Bundle
+        run: flutter build appbundle --release
 
-      - name: Upload APK artifact
+      - name: Build release APKs (split by ABI)
+        run: flutter build apk --release --split-per-abi
+
+      - name: Upload App Bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: app-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+
+      - name: Upload split APKs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apks-split
+          path: build/app/outputs/flutter-apk/*.apk
