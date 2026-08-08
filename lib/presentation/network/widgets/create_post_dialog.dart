@@ -38,13 +38,25 @@ class _C {
   );
 }
 
+// 🌟 FIX: Removed `compute` compatibility requirement.
+// The flutter_image_compress package handles its own background threads.
 Future<Uint8List> compressImageBytes(Uint8List bytes) async {
-  return FlutterImageCompress.compressWithList(
-    bytes,
-    minHeight: 1080,
-    minWidth: 1080,
-    quality: 85,
-  );
+  // Web fallback: flutter_image_compress can cause issues on web.
+  if (kIsWeb) {
+    return bytes;
+  }
+  
+  try {
+    return await FlutterImageCompress.compressWithList(
+      bytes,
+      minHeight: 1080,
+      minWidth: 1080,
+      quality: 85,
+    );
+  } catch (e) {
+    debugPrint("Erreur de compression: $e");
+    return bytes; // Return original bytes if compression fails
+  }
 }
 
 class _MediaItem {
@@ -455,7 +467,8 @@ Réponds : SAFE ou FAKE: [raison]
       }
 
       for (final item in _images) {
-        final compressed = await compute(compressImageBytes, item.bytes);
+        // 🌟 FIX: direct await, removed `compute()` wrapper.
+        final compressed = await compressImageBytes(item.bytes);
         final ext = item.name.split('.').last;
         final url = await ns.uploadImageBytes(compressed, fileExtension: ext, bucket: 'post_images');
         if (url != null && url.isNotEmpty) allMedia.add(url);
