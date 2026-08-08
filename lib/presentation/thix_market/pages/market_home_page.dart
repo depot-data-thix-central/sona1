@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ✅ Import de la Policy de Design
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 import '../l10n/market_strings.dart';
@@ -193,8 +192,9 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(children: [
-            Container(
+          Row(
+            children: [
+              Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
@@ -202,36 +202,60 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
                   borderRadius: BorderRadius.circular(ThixPolicy.rSm),
                   border: Border.all(color: ThixPolicy.border),
                 ),
-                child: const Icon(Icons.shopping_bag_rounded, color: ThixPolicy.primary, size: 20)),
-            const SizedBox(width: 9),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              RichText( // 🌟 Le 'const' a été retiré ici
-    text: const TextSpan(children: [ // 🌟 Tu peux le mettre ici par contre !
-  TextSpan(text: 'THIX ', style: TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w900, fontSize: 17)),
-  TextSpan(text: 'MARKET', style: TextStyle(color: ThixPolicy.domainMarket, fontWeight: FontWeight.w900, fontSize: 17)),
-]))
-
-              Text(t.appTagline, style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 10.5)),
-            ]),
-          ]),
-          Row(children: [
-            InkWell(
+                child: const Icon(Icons.shopping_bag_rounded, color: ThixPolicy.primary, size: 20),
+              ),
+              const SizedBox(width: 9),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: const TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'THIX ',
+                          style: TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w900, fontSize: 17),
+                        ),
+                        TextSpan(
+                          text: 'MARKET',
+                          style: TextStyle(color: ThixPolicy.domainMarket, fontWeight: FontWeight.w900, fontSize: 17),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    t.appTagline,
+                    style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 10.5),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              InkWell(
                 onTap: () => context.push('/market/notifications'),
                 child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ThixPolicy.border)),
-                    child: const Icon(Icons.notifications_none_rounded, size: 18, color: ThixPolicy.textMain))),
-            const SizedBox(width: 8),
-            InkWell(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ThixPolicy.border)),
+                  child: const Icon(Icons.notifications_none_rounded, size: 18, color: ThixPolicy.textMain),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
                 onTap: () => context.push('/user/dashboard'),
                 child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                        gradient: ThixPolicy.brandGradient, shape: BoxShape.circle),
-                    child: const Icon(Icons.person_rounded, color: Colors.white, size: 18))),
-          ]),
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    gradient: ThixPolicy.brandGradient,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.person_rounded, color: Colors.white, size: 18),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -249,91 +273,105 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
   }
 
   Widget _buildHeroContent(List<Map<String, dynamic>> products, MarketStrings t) {
-    return Column(children: [
-      SizedBox(
-        height: 210,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: (n) {
-            if (n is ScrollStartNotification) {
-              _bannerTimer?.cancel();
-              _bannerReady = false;
-            } else if (n is ScrollEndNotification) {
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) _startBannerAuto(products.length);
-              });
-            }
-            return false;
-          },
-          child: PageView.builder(
-            controller: _bannerCtrl,
-            itemCount: products.length,
-            onPageChanged: (i) => setState(() => _currentBanner = i),
-            itemBuilder: (_, index) {
-              final p = products[index];
-              final imageUrl = _extractImage(p);
-              final title = (p['title'] ?? '').toString();
-              final subtitle = (p['description'] ?? '').toString();
-              final id = p['id']?.toString() ?? '';
+    return Column(
+      children: [
+        SizedBox(
+          height: 210,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n is ScrollStartNotification) {
+                _bannerTimer?.cancel();
+                _bannerReady = false;
+              } else if (n is ScrollEndNotification) {
+                Future.delayed(const Duration(seconds: 2), () {
+                  if (mounted) _startBannerAuto(products.length);
+                });
+              }
+              return false;
+            },
+            child: PageView.builder(
+              controller: _bannerCtrl,
+              itemCount: products.length,
+              onPageChanged: (i) => setState(() => _currentBanner = i),
+              itemBuilder: (_, index) {
+                final p = products[index];
+                final imageUrl = _extractImage(p);
+                final title = (p['title'] ?? '').toString();
+                final subtitle = (p['description'] ?? '').toString();
+                final id = p['id']?.toString() ?? '';
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: GestureDetector(
-                  onTap: () => context.push('/market/product/$id'),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(ThixPolicy.rLg),
-                      gradient: ThixPolicy.heroGradient,
-                      image: imageUrl != null
-                          ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.55), BlendMode.darken))
-                          : null,
-                      boxShadow: ThixPolicy.shadowCard(),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (index == 0)
-                          Text('${t.greeting}, ${_greetingName(t)} 👋', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 7),
-                        Text(title.isEmpty ? '—' : title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, height: 1.2)),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          SizedBox(width: 210, child: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 11.5))),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: GestureDetector(
+                    onTap: () => context.push('/market/product/$id'),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+                        gradient: ThixPolicy.heroGradient,
+                        image: imageUrl != null
+                            ? DecorationImage(
+                                image: NetworkImage(imageUrl),
+                                fit: BoxFit.cover,
+                                colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.55), BlendMode.darken),
+                              )
+                            : null,
+                        boxShadow: ThixPolicy.shadowCard(),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (index == 0)
+                            Text('${t.greeting}, ${_greetingName(t)} 👋', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 7),
+                          Text(title.isEmpty ? '—' : title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, height: 1.2)),
+                          if (subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            SizedBox(width: 210, child: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 11.5))),
+                          ],
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(gradient: ThixPolicy.goldGradient, borderRadius: BorderRadius.circular(12)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.visibility_rounded, size: 14, color: ThixPolicy.primaryDeep),
+                                const SizedBox(width: 6),
+                                Text(t.viewOffer, style: const TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w800, fontSize: 11.5)),
+                              ],
+                            ),
+                          ),
                         ],
-                        const SizedBox(height: 14),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(gradient: ThixPolicy.goldGradient, borderRadius: BorderRadius.circular(12)),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            const Icon(Icons.visibility_rounded, size: 14, color: ThixPolicy.primaryDeep),
-                            const SizedBox(width: 6),
-                            Text(t.viewOffer, style: const TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w800, fontSize: 11.5)),
-                          ]),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
-      ),
-      const SizedBox(height: 8),
-      Row(
+        const SizedBox(height: 8),
+        Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(products.length, (i) {
-            final a = i == _currentBanner;
-            return AnimatedContainer(
+          children: List.generate(
+            products.length,
+            (i) {
+              final a = i == _currentBanner;
+              return AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 height: 5,
                 width: a ? 16 : 5,
-                decoration: BoxDecoration(color: a ? ThixPolicy.primary : ThixPolicy.border, borderRadius: BorderRadius.circular(10)));
-          })),
-      const SizedBox(height: 4),
-    ]);
+                decoration: BoxDecoration(color: a ? ThixPolicy.primary : ThixPolicy.border, borderRadius: BorderRadius.circular(10)),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 4),
+      ],
+    );
   }
 
   Widget _buildFeaturedStrip(AsyncValue<List<Map<String, dynamic>>> async, MarketStrings t) {
@@ -364,39 +402,50 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
   }
 
   Widget _trustItem(IconData icon, String label) {
-    return Row(children: [
-      Icon(icon, size: 13, color: ThixPolicy.primary),
-      const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: ThixPolicy.textMain)),
-    ]);
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: ThixPolicy.primary),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: ThixPolicy.textMain)),
+      ],
+    );
   }
 
   Widget _buildSearchBar(MarketStrings t) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-      child: Row(children: [
-        Expanded(
+      child: Row(
+        children: [
+          Expanded(
             child: GestureDetector(
-                onTap: () => context.push('/market/search'),
-                child: Container(
-                    height: 44,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(22), border: Border.all(color: ThixPolicy.border, width: 1.2)),
-                    child: Row(children: [
-                      const Icon(Icons.search_rounded, size: 18, color: ThixPolicy.primary),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(t.searchHint, style: const TextStyle(fontSize: 11.5, color: ThixPolicy.textSecondary))),
-                    ])))),
-        const SizedBox(width: 8),
-        InkWell(
+              onTap: () => context.push('/market/search'),
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(22), border: Border.all(color: ThixPolicy.border, width: 1.2)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_rounded, size: 18, color: ThixPolicy.primary),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(t.searchHint, style: const TextStyle(fontSize: 11.5, color: ThixPolicy.textSecondary))),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
             onTap: () => context.push('/market/search'),
             child: Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                decoration: BoxDecoration(gradient: ThixPolicy.brandGradient, borderRadius: BorderRadius.circular(22)),
-                child: Center(child: Text(t.search, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11.5))))),
-      ]),
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(gradient: ThixPolicy.brandGradient, borderRadius: BorderRadius.circular(22)),
+              child: Center(child: Text(t.search, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11.5))),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -404,89 +453,119 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
     final shopsAsync = ref.watch(featuredShopsProvider);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(t.homeSupermarkets, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: ThixPolicy.textMain)),
-          GestureDetector(onTap: () => _safeNavigate('marketShops', '/market/shops'), child: Text(t.seeAll, style: const TextStyle(color: ThixPolicy.primary, fontSize: 11, fontWeight: FontWeight.w800))),
-        ]),
-        const SizedBox(height: 14),
-        shopsAsync.when(
-          loading: () => const SizedBox(height: 58, child: Center(child: CircularProgressIndicator(color: ThixPolicy.primary))),
-          error: (_, __) => const SizedBox.shrink(),
-          data: (shops) {
-            if (shops.isEmpty) return Text(t.noSupermarket, style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 11));
-            return Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(t.homeSupermarkets, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: ThixPolicy.textMain)),
+              GestureDetector(onTap: () => _safeNavigate('marketShops', '/market/shops'), child: Text(t.seeAll, style: const TextStyle(color: ThixPolicy.primary, fontSize: 11, fontWeight: FontWeight.w800))),
+            ],
+          ),
+          const SizedBox(height: 14),
+          shopsAsync.when(
+            loading: () => const SizedBox(height: 58, child: Center(child: CircularProgressIndicator(color: ThixPolicy.primary))),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (shops) {
+              if (shops.isEmpty) return Text(t.noSupermarket, style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 11));
+              return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: shops.take(4).map((s) {
                   return GestureDetector(
-                      onTap: () => context.push('/market/shop/${s['id']}'),
-                      child: Column(children: [
+                    onTap: () => context.push('/market/shop/${s['id']}'),
+                    child: Column(
+                      children: [
                         Container(
-                            height: 56,
-                            width: 56,
-                            decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: ThixPolicy.brandGradient,
-                                image: s['logo_url'] != null ? DecorationImage(image: NetworkImage(s['logo_url']), fit: BoxFit.cover) : null),
-                            child: s['logo_url'] == null ? const Icon(Icons.storefront_rounded, color: Colors.white, size: 24) : null),
+                          height: 56,
+                          width: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: ThixPolicy.brandGradient,
+                            image: s['logo_url'] != null ? DecorationImage(image: NetworkImage(s['logo_url']), fit: BoxFit.cover) : null,
+                          ),
+                          child: s['logo_url'] == null ? const Icon(Icons.storefront_rounded, color: Colors.white, size: 24) : null,
+                        ),
                         const SizedBox(height: 6),
                         Text((s['name'] ?? 'Shop').toString(), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: ThixPolicy.textMain)),
-                      ]));
-                }).toList());
-          },
-        ),
-      ]),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildPromoBannersRow(MarketStrings t) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(children: [
-        Expanded(
+      child: Row(
+        children: [
+          Expanded(
             child: GestureDetector(
-                onTap: () => _safeNavigate('marketFlashSales', '/market/flash-sales'),
-                child: Container(
-                    height: 130,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                        gradient: ThixPolicy.brandGradient,
-                        borderRadius: BorderRadius.circular(ThixPolicy.rMd),
-                        boxShadow: ThixPolicy.shadowCard()),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(t.exclusiveOffers, style: const TextStyle(color: ThixPolicy.gold, fontWeight: FontWeight.w800, fontSize: 9)),
-                      const SizedBox(height: 5),
-                      Text(t.upTo50, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-                      Text(t.onPremiumSelection, style: const TextStyle(color: Colors.white70, fontSize: 9.5)),
-                      const Spacer(),
-                      Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(gradient: ThixPolicy.goldGradient, borderRadius: BorderRadius.circular(8)),
-                          child: Text(t.discover, style: const TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w800, fontSize: 10))),
-                    ])))),
-        const SizedBox(width: 10),
-        Expanded(
+              onTap: () => _safeNavigate('marketFlashSales', '/market/flash-sales'),
+              child: Container(
+                height: 130,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: ThixPolicy.brandGradient,
+                  borderRadius: BorderRadius.circular(ThixPolicy.rMd),
+                  boxShadow: ThixPolicy.shadowCard(),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t.exclusiveOffers, style: const TextStyle(color: ThixPolicy.gold, fontWeight: FontWeight.w800, fontSize: 9)),
+                    const SizedBox(height: 5),
+                    Text(t.upTo50, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                    Text(t.onPremiumSelection, style: const TextStyle(color: Colors.white70, fontSize: 9.5)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(gradient: ThixPolicy.goldGradient, borderRadius: BorderRadius.circular(8)),
+                      child: Text(t.discover, style: const TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w800, fontSize: 10)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
             child: GestureDetector(
-                onTap: () => _safeNavigate('vendorDashboard', '/market/vendor/dashboard'),
-                child: Container(
-                    height: 130,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(ThixPolicy.rMd),
-                        border: Border.all(color: ThixPolicy.border),
-                        boxShadow: ThixPolicy.shadowSoft()),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(t.sellWithThix, style: const TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w800, fontSize: 9)),
-                      const SizedBox(height: 5),
-                      Text(t.growBusiness, style: const TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w900, fontSize: 13, height: 1.15)),
-                      const Spacer(),
-                      Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(gradient: ThixPolicy.brandGradient, borderRadius: BorderRadius.circular(8)),
-                          child: Text(t.start, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 10))),
-                    ])))),
-      ]),
+              onTap: () => _safeNavigate('vendorDashboard', '/market/vendor/dashboard'),
+              child: Container(
+                height: 130,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(ThixPolicy.rMd),
+                  border: Border.all(color: ThixPolicy.border),
+                  boxShadow: ThixPolicy.shadowSoft(),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t.sellWithThix, style: const TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w800, fontSize: 9)),
+                    const SizedBox(height: 5),
+                    Text(t.growBusiness, style: const TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w900, fontSize: 13, height: 1.15)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(gradient: ThixPolicy.brandGradient, borderRadius: BorderRadius.circular(8)),
+                      child: Text(t.start, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 10)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -516,11 +595,19 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
 
   Widget _b2bItem(IconData icon, String label, VoidCallback onTap) {
     return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-            padding: const EdgeInsets.all(3),
-            child: Column(children: [Icon(icon, color: ThixPolicy.primary, size: 21), const SizedBox(height: 5), Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: ThixPolicy.textMain))])));
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Column(
+          children: [
+            Icon(icon, color: ThixPolicy.primary, size: 21),
+            const SizedBox(height: 5),
+            Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: ThixPolicy.textMain)),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildFlashSaleSection(AsyncValue<List<Map<String, dynamic>>> async, MarketStrings t) {
@@ -537,36 +624,40 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
           if (dt != null && (timerEnd == null || dt.isBefore(timerEnd))) timerEnd = dt;
         }
 
-        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (timerEnd != null)
-            Container(
-              decoration: const BoxDecoration(color: ThixPolicy.danger),
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              margin: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12, right: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(7)),
-                      child: FlashSaleTimer(endTime: timerEnd!),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (timerEnd != null)
+              Container(
+                decoration: const BoxDecoration(color: ThixPolicy.danger),
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                margin: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12, right: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(7)),
+                        child: FlashSaleTimer(endTime: timerEnd!),
+                      ),
                     ),
-                  ),
-                  Expanded(child: ClipRect(child: _MarqueeText(text: t.flashSaleBannerText))),
-                ],
+                    Expanded(child: ClipRect(child: _MarqueeText(text: t.flashSaleBannerText))),
+                  ],
+                ),
               ),
-            ),
-          _AutoScrollProductStrip(products: active, badgeType: _StripBadge.flash, title: t.flashOffers, icon: Icons.bolt_rounded, liveLabel: t.live),
-        ]);
+            _AutoScrollProductStrip(products: active, badgeType: _StripBadge.flash, title: t.flashOffers, icon: Icons.bolt_rounded, liveLabel: t.live),
+          ],
+        );
       },
     );
   }
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: ThixPolicy.textMain)));
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: ThixPolicy.textMain)),
+    );
   }
 
   Widget _buildGrid(AsyncValue<List<Map<String, dynamic>>> forYouAsync, List<Map<String, dynamic>> mixedAll, bool hasMore, MarketStrings t) {
@@ -591,7 +682,7 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
       color: Colors.white,
       padding: const EdgeInsets.only(top: 6),
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: ThixPolicy.border))
+        border: Border(top: BorderSide(color: ThixPolicy.border)),
       ),
       child: SafeArea(
         top: false,
@@ -601,27 +692,34 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                _navItem(Icons.home_rounded, t.home, 0),
-                _navItem(Icons.receipt_long_rounded, t.orders, 1),
-                const SizedBox(width: 58),
-                _navItem(Icons.favorite_rounded, t.wishlist, 3),
-                _navItem(Icons.notifications_active_rounded, t.alerts, 4),
-              ]),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _navItem(Icons.home_rounded, t.home, 0),
+                  _navItem(Icons.receipt_long_rounded, t.orders, 1),
+                  const SizedBox(width: 58),
+                  _navItem(Icons.favorite_rounded, t.wishlist, 3),
+                  _navItem(Icons.notifications_active_rounded, t.alerts, 4),
+                ],
+              ),
               Positioned(
-                  top: -18,
-                  child: GestureDetector(
-                      onTap: () => context.push('/market/cart'),
-                      child: Container(
-                          width: 56,
-                          height: 56,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                              gradient: ThixPolicy.brandGradient,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 3.5),
-                              boxShadow: ThixPolicy.shadowCard()),
-                          child: const Icon(Icons.shopping_bag_rounded, color: Colors.white, size: 23)))),
+                top: -18,
+                child: GestureDetector(
+                  onTap: () => context.push('/market/cart'),
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: ThixPolicy.brandGradient,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3.5),
+                      boxShadow: ThixPolicy.shadowCard(),
+                    ),
+                    child: const Icon(Icons.shopping_bag_rounded, color: Colors.white, size: 23),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -641,13 +739,17 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
         if (index == 4) context.push('/market/price-alerts');
       },
       child: Container(
-          width: 62,
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        width: 62,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Icon(icon, color: sel ? ThixPolicy.primary : ThixPolicy.textSecondary, size: 22),
             const SizedBox(height: 2),
             Text(label, maxLines: 1, style: TextStyle(fontSize: 9, color: sel ? ThixPolicy.primary : ThixPolicy.textSecondary, fontWeight: sel ? FontWeight.w800 : FontWeight.w500)),
-          ])),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -723,55 +825,60 @@ class _AutoScrollProductStripState extends State<_AutoScrollProductStrip> {
   @override
   Widget build(BuildContext context) {
     final isFlash = widget.badgeType == _StripBadge.flash;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(children: [
-          Icon(widget.icon, color: isFlash ? ThixPolicy.danger : ThixPolicy.gold, size: 19),
-          const SizedBox(width: 5),
-          Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5, color: ThixPolicy.textMain)),
-          if (_active && widget.liveLabel != null) ...[
-            const SizedBox(width: 7),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-              decoration: BoxDecoration(color: ThixPolicy.danger.withOpacity(0.15), borderRadius: BorderRadius.circular(7)),
-              child: Text(widget.liveLabel!, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: ThixPolicy.danger)),
-            ),
-          ],
-        ]),
-      ),
-      const SizedBox(height: 10),
-      SizedBox(
-        height: 200,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: (n) {
-            if (!_active) return false;
-            if (n is ScrollStartNotification) {
-              _pause();
-            } else if (n is ScrollEndNotification) {
-              _resumeAfterDelay();
-            }
-            return false;
-          },
-          child: ListView.separated(
-            controller: _ctrl,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: widget.products.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (_, i) => ProductCard(
-              product: widget.products[i],
-              variant: ProductCardVariant.horizontal,
-              width: 132,
-              isFlashSale: widget.badgeType == _StripBadge.flash,
-              isFeatured: widget.badgeType == _StripBadge.featured,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(widget.icon, color: isFlash ? ThixPolicy.danger : ThixPolicy.gold, size: 19),
+              const SizedBox(width: 5),
+              Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5, color: ThixPolicy.textMain)),
+              if (_active && widget.liveLabel != null) ...[
+                const SizedBox(width: 7),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(color: ThixPolicy.danger.withOpacity(0.15), borderRadius: BorderRadius.circular(7)),
+                  child: Text(widget.liveLabel!, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: ThixPolicy.danger)),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 200,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (!_active) return false;
+              if (n is ScrollStartNotification) {
+                _pause();
+              } else if (n is ScrollEndNotification) {
+                _resumeAfterDelay();
+              }
+              return false;
+            },
+            child: ListView.separated(
+              controller: _ctrl,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: widget.products.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) => ProductCard(
+                product: widget.products[i],
+                variant: ProductCardVariant.horizontal,
+                width: 132,
+                isFlashSale: widget.badgeType == _StripBadge.flash,
+                isFeatured: widget.badgeType == _StripBadge.featured,
+              ),
             ),
           ),
         ),
-      ),
-      const SizedBox(height: 16),
-    ]);
+        const SizedBox(height: 16),
+      ],
+    );
   }
 }
 
