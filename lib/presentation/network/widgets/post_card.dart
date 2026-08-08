@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:audioplayers/audioplayers.dart'; // 🌟 IMPORT POUR L'AUDIO
+import 'package:audioplayers/audioplayers.dart';
 
 import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
 import 'package:thix_id/models/network_post.dart';
@@ -128,11 +128,10 @@ class PostCard extends ConsumerStatefulWidget {
   final VoidCallback? onShare;
   final VoidCallback? onRefresh;
   final VoidCallback? onPin;
-  final VoidCallback? onEdit; // 🌟 Ajout Modification
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onSave;
   
-  // 🌟 Ajout pour la gestion des abonnements
   final bool isFollowingAuthor;
   final VoidCallback? onFollow;
 
@@ -167,7 +166,6 @@ class _PostCardState extends ConsumerState<PostCard>
   bool _isExpanded = false;
   final _quoteController = TextEditingController();
   
-  // 🌟 Variables locales pour le bouton d'abonnement
   bool _isFollowingLocal = false;
   bool _followBusy = false;
 
@@ -992,7 +990,6 @@ class _PostCardState extends ConsumerState<PostCard>
                                         : null,
                                   ),
                                 ),
-                                // 🌟 BOUTON D'ABONNEMENT (+) 🌟
                                 if (!isOwner && !_isFollowingLocal)
                                   Positioned(
                                     bottom: -2,
@@ -1078,6 +1075,8 @@ class _PostCardState extends ConsumerState<PostCard>
                               ),
                             ),
                           ),
+                          
+                          // 🌟 POPUP MENU SÉCURISÉ (CORRECTION DES DIALOGUES) 🌟
                           PopupMenuButton<String>(
                             icon: const Icon(
                               Icons.more_vert_rounded,
@@ -1089,18 +1088,95 @@ class _PostCardState extends ConsumerState<PostCard>
                             ),
                             onSelected: (v) async {
                               final service = ref.read(networkServiceProvider);
+
                               switch (v) {
                                 case 'edit':
-                                  widget.onEdit?.call(); // 🌟 Action de modification
+                                  // ─── MODIFICATION ───
+                                  final controller = TextEditingController(text: post.content);
+
+                                  final newContent = await showDialog<String>(
+                                    context: context,
+                                    builder: (dialogContext) => AlertDialog(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      title: const Row(
+                                        children: [
+                                          Icon(Icons.edit_rounded, color: _PostColors.primaryDeep),
+                                          SizedBox(width: 8),
+                                          Text('Modifier la publication', style: TextStyle(fontSize: 16)),
+                                        ],
+                                      ),
+                                      content: TextField(
+                                        controller: controller,
+                                        maxLines: 6,
+                                        autofocus: true,
+                                        decoration: InputDecoration(
+                                          hintText: 'Modifier votre texte...',
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            borderSide: const BorderSide(color: _PostColors.primaryDeep, width: 1.5),
+                                          ),
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(dialogContext),
+                                          child: const Text('Annuler', style: TextStyle(color: _PostColors.textSecondary)),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            final text = controller.text.trim();
+                                            if (text.isNotEmpty) {
+                                              Navigator.pop(dialogContext, text);
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _PostColors.primaryDeep,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                          child: const Text('Enregistrer'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (newContent != null && newContent.isNotEmpty && context.mounted) {
+                                    try {
+                                      if (widget.onEdit != null) {
+                                        widget.onEdit!();
+                                      } else {
+                                        await service.updatePost(post.id, newContent);
+                                      }
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Publication modifiée'),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Erreur lors de la modification'),
+                                            backgroundColor: _PostColors.red,
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  }
                                   break;
+
                                 case 'delete':
-                                  // 🌟 BOÎTE DE DIALOGUE DE SUPPRESSION AMÉLIORÉE 🌟
+                                  // ─── SUPPRESSION ───
                                   final ok = await showDialog<bool>(
                                     context: context,
-                                    builder: (_) => AlertDialog(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
+                                    builder: (dialogContext) => AlertDialog(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                       title: const Row(
                                         children: [
                                           Icon(Icons.warning_amber_rounded, color: _PostColors.red),
@@ -1114,51 +1190,72 @@ class _PostCardState extends ConsumerState<PostCard>
                                       ),
                                       actions: [
                                         TextButton(
-                                          onPressed: () => Navigator.pop(context, false),
+                                          onPressed: () => Navigator.pop(dialogContext, false),
                                           child: const Text('Annuler', style: TextStyle(color: _PostColors.textSecondary, fontWeight: FontWeight.w600)),
                                         ),
                                         ElevatedButton(
-                                          onPressed: () => Navigator.pop(context, true),
+                                          onPressed: () => Navigator.pop(dialogContext, true),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: _PostColors.red,
                                             foregroundColor: Colors.white,
                                             elevation: 0,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                           ),
                                           child: const Text('Supprimer', style: TextStyle(fontWeight: FontWeight.bold)),
                                         ),
                                       ],
                                     ),
                                   );
-                                  if (ok == true) {
-                                    if (widget.onDelete != null) {
-                                      widget.onDelete!();
-                                    } else {
-                                      await service.deletePost(post.id);
+
+                                  if (ok == true && context.mounted) {
+                                    try {
+                                      if (widget.onDelete != null) {
+                                        widget.onDelete!();
+                                      } else {
+                                        await service.deletePost(post.id);
+                                      }
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Publication supprimée'),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Erreur lors de la suppression'),
+                                            backgroundColor: _PostColors.red,
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
                                     }
                                   }
                                   break;
+
                                 case 'save':
-                                  await ref
-                                      .read(postItemProvider.notifier)
-                                      .toggleSave();
+                                  await ref.read(postItemProvider.notifier).toggleSave();
                                   widget.onSave?.call();
                                   break;
+
                                 case 'repost':
                                   await _repost(post, ref);
                                   break;
+
                                 case 'hide':
                                   await service.hidePost(post.id);
                                   break;
+
                                 case 'share':
                                   widget.onShare?.call();
                                   break;
                               }
                             },
                             itemBuilder: (_) => [
-                              // 🌟 OPTION MODIFIER POUR LE PROPRIÉTAIRE 🌟
                               if (isOwner)
                                 const PopupMenuItem(
                                   value: 'edit',
