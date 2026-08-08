@@ -6,21 +6,12 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
 
+// ✅ Import de la Policy de Design
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 import '../providers/market_providers.dart';
 import '../checkout/checkout_page.dart';
 import '../cart/cart_provider.dart';
-
-class _MarketColors {
-  static const redDark = Color(0xFF5C0E12);
-  static const red = Color(0xFFD81E2C);
-  static const gold = Color(0xFFF0A93B);
-  static const lightBg = Color(0xFFF7F7FA);
-  static const pureWhite = Color(0xFFFFFFFF);
-  static const darkText = Color(0xFF1A1A1A);
-  static const mutedText = Color(0xFF8A8A8F);
-  static const cardBorder = Color(0xFFE5E7EB);
-  static const successGreen = Color(0xFF00B074);
-}
 
 final productDetailProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, productId) async {
@@ -141,7 +132,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_t(context, 'Rupture de stock', 'Out of stock')),
-            backgroundColor: _MarketColors.red,
+            backgroundColor: ThixPolicy.danger,
           ),
         );
       }
@@ -182,7 +173,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   _t(context, 'Stock limité à $maxStock',
                       'Stock limited to $maxStock'),
                 ),
-                backgroundColor: _MarketColors.red,
+                backgroundColor: ThixPolicy.danger,
               ),
             );
           }
@@ -200,7 +191,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   _t(context, 'Stock limité à $maxStock',
                       'Stock limited to $maxStock'),
                 ),
-                backgroundColor: _MarketColors.red,
+                backgroundColor: ThixPolicy.danger,
               ),
             );
           }
@@ -219,7 +210,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_t(context, 'Ajouté au panier !', 'Added to cart!')),
-            backgroundColor: _MarketColors.successGreen,
+            backgroundColor: ThixPolicy.success,
           ),
         );
       }
@@ -229,7 +220,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
-            backgroundColor: _MarketColors.red,
+            backgroundColor: ThixPolicy.danger,
           ),
         );
       }
@@ -243,6 +234,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_t(context, 'Rupture de stock', 'Out of stock')),
+          backgroundColor: ThixPolicy.danger,
         ),
       );
       return;
@@ -289,9 +281,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
     return detailAsync.when(
       loading: () => const Scaffold(
-        backgroundColor: _MarketColors.pureWhite,
+        backgroundColor: Colors.white,
         body: Center(
-          child: CircularProgressIndicator(color: _MarketColors.red),
+          child: CircularProgressIndicator(color: ThixPolicy.primary),
         ),
       ),
       error: (e, _) => Scaffold(
@@ -336,13 +328,13 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         final shop = product['shop'] as Map<String, dynamic>?;
 
         return Scaffold(
-          backgroundColor: _MarketColors.lightBg,
+          backgroundColor: ThixPolicy.surface,
           body: CustomScrollView(
             slivers: [
               SliverAppBar(
                 expandedHeight: 380,
                 pinned: true,
-                backgroundColor: _MarketColors.pureWhite,
+                backgroundColor: Colors.white,
                 leading: Padding(
                   padding: const EdgeInsets.all(8),
                   child: _circleBtn(
@@ -359,14 +351,14 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           : Icons.favorite_border_rounded,
                       () => _toggleFav(isFav),
                       color:
-                          isFav ? _MarketColors.red : _MarketColors.darkText,
+                          isFav ? ThixPolicy.danger : ThixPolicy.textMain,
                     ),
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     children: [
-                      Container(color: _MarketColors.pureWhite),
+                      Container(color: Colors.white),
                       CarouselSlider(
                         options: CarouselOptions(
                           height: 400,
@@ -385,7 +377,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   if (progress == null) return child;
                                   return const Center(
                                     child: CircularProgressIndicator(
-                                      color: _MarketColors.red,
+                                      color: ThixPolicy.primary,
                                     ),
                                   );
                                 },
@@ -393,7 +385,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   child: Icon(
                                     Icons.broken_image_rounded,
                                     size: 50,
-                                    color: _MarketColors.mutedText,
+                                    color: ThixPolicy.textSecondary,
                                   ),
                                 ),
                               ),
@@ -418,8 +410,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(10),
                                   color: active
-                                      ? _MarketColors.red
-                                      : _MarketColors.cardBorder,
+                                      ? ThixPolicy.primary
+                                      : ThixPolicy.border,
                                 ),
                               );
                             }).toList(),
@@ -435,7 +427,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   children: [
                     // ===== PRIX + TITRE =====
                     Container(
-                      color: _MarketColors.pureWhite,
+                      color: Colors.white,
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -448,7 +440,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w900,
-                                  color: _MarketColors.darkText,
+                                  color: ThixPolicy.textMain,
                                 ),
                               ),
                               if (hasDiscount)
@@ -460,7 +452,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                     style: const TextStyle(
                                       fontSize: 14,
                                       decoration: TextDecoration.lineThrough,
-                                      color: _MarketColors.mutedText,
+                                      color: ThixPolicy.textSecondary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -473,7 +465,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: _MarketColors.darkText,
+                              color: ThixPolicy.textMain,
                               height: 1.3,
                             ),
                           ),
@@ -486,7 +478,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: _MarketColors.red.withOpacity(0.1),
+                                color: ThixPolicy.danger.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -495,14 +487,14 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   const Icon(
                                     Icons.remove_shopping_cart_rounded,
                                     size: 16,
-                                    color: _MarketColors.red,
+                                    color: ThixPolicy.danger,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     _t(context, 'Rupture de stock',
                                         'Out of stock'),
                                     style: const TextStyle(
-                                      color: _MarketColors.red,
+                                      color: ThixPolicy.danger,
                                       fontWeight: FontWeight.w800,
                                       fontSize: 13,
                                     ),
@@ -525,7 +517,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 ignoreGestures: true,
                                 itemBuilder: (_, __) => const Icon(
                                   Icons.star_rounded,
-                                  color: _MarketColors.gold,
+                                  color: ThixPolicy.gold,
                                 ),
                                 onRatingUpdate: (_) {},
                               ),
@@ -535,7 +527,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 12,
-                                  color: _MarketColors.mutedText,
+                                  color: ThixPolicy.textSecondary,
                                 ),
                               ),
                             ],
@@ -548,7 +540,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     // ===== VARIANTES + QUANTITÉ =====
                     Container(
-                      color: _MarketColors.pureWhite,
+                      color: Colors.white,
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,16 +558,16 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: _MarketColors.darkText,
+                                  color: ThixPolicy.textMain,
                                 ),
                               ),
                               const Spacer(),
                               Container(
                                 decoration: BoxDecoration(
-                                  color: _MarketColors.lightBg,
+                                  color: ThixPolicy.surface,
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: _MarketColors.cardBorder,
+                                    color: ThixPolicy.border,
                                   ),
                                 ),
                                 child: Row(
@@ -591,7 +583,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                           '$_qty',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w900,
-                                            color: _MarketColors.darkText,
+                                            color: ThixPolicy.textMain,
                                           ),
                                         ),
                                       ),
@@ -615,7 +607,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                     // ===== BOUTIQUE =====
                     if (shop != null && shop.isNotEmpty)
                       Container(
-                        color: _MarketColors.pureWhite,
+                        color: Colors.white,
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,19 +618,19 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   width: 50,
                                   height: 50,
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(ThixPolicy.rSm),
                                     border: Border.all(
-                                      color: _MarketColors.cardBorder,
+                                      color: ThixPolicy.border,
                                     ),
                                   ),
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(ThixPolicy.rSm),
                                     child: Image.network(
                                       shop['logo_url']?.toString() ?? '',
                                       fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) => const Icon(
                                         Icons.storefront_rounded,
-                                        color: _MarketColors.mutedText,
+                                        color: ThixPolicy.textSecondary,
                                       ),
                                     ),
                                   ),
@@ -656,14 +648,14 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w900,
                                           fontSize: 16,
-                                          color: _MarketColors.darkText,
+                                          color: ThixPolicy.textMain,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         '${_t(context, 'Partenaire vérifié', 'Verified Partner')} • ${shop['city'] ?? ''}',
                                         style: const TextStyle(
-                                          color: _MarketColors.mutedText,
+                                          color: ThixPolicy.textSecondary,
                                           fontSize: 12,
                                         ),
                                       ),
@@ -680,9 +672,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                     onPressed: () =>
                                         context.push('/market/shop/$shopId'),
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: _MarketColors.darkText,
+                                      foregroundColor: ThixPolicy.textMain,
                                       side: const BorderSide(
-                                        color: _MarketColors.darkText,
+                                        color: ThixPolicy.border,
                                       ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(20),
@@ -700,9 +692,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                     onPressed: () =>
                                         context.push('/market/shop/$shopId'),
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: _MarketColors.darkText,
+                                      foregroundColor: ThixPolicy.textMain,
                                       side: const BorderSide(
-                                        color: _MarketColors.darkText,
+                                        color: ThixPolicy.border,
                                       ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(20),
@@ -724,7 +716,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
                     // ===== DÉTAILS + AVIS =====
                     Container(
-                      color: _MarketColors.pureWhite,
+                      color: Colors.white,
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,7 +726,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
-                              color: _MarketColors.darkText,
+                              color: ThixPolicy.textMain,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -742,12 +734,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                             product['description']?.toString() ?? '',
                             style: const TextStyle(
                               height: 1.5,
-                              color: _MarketColors.mutedText,
+                              color: ThixPolicy.textSecondary,
                               fontSize: 13,
                             ),
                           ),
                           const SizedBox(height: 24),
-                          const Divider(color: _MarketColors.cardBorder),
+                          const Divider(color: ThixPolicy.border),
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -757,7 +749,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w900,
-                                  color: _MarketColors.darkText,
+                                  color: ThixPolicy.textMain,
                                 ),
                               ),
                               if (reviews.isNotEmpty)
@@ -766,7 +758,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   child: Text(
                                     _t(context, 'Voir tout', 'See all'),
                                     style: const TextStyle(
-                                      color: _MarketColors.red,
+                                      color: ThixPolicy.primary,
                                       fontWeight: FontWeight.w800,
                                       fontSize: 13,
                                     ),
@@ -780,7 +772,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                               _t(context, 'Aucun avis pour le moment.',
                                   'No reviews yet.'),
                               style: const TextStyle(
-                                color: _MarketColors.mutedText,
+                                color: ThixPolicy.textSecondary,
                                 fontSize: 13,
                               ),
                             )
@@ -800,14 +792,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           bottomNavigationBar: Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             decoration: BoxDecoration(
-              color: _MarketColors.pureWhite,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, -5),
-                ),
-              ],
+              color: Colors.white,
+              boxShadow: ThixPolicy.shadowCard(),
             ),
             child: SafeArea(
               top: false,
@@ -819,7 +805,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.storefront_rounded,
-                            color: _MarketColors.darkText, size: 22),
+                            color: ThixPolicy.textMain, size: 22),
                         SizedBox(height: 2),
                         Text(
                           'Store',
@@ -838,13 +824,13 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                       onPressed: () => _openChat(product),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(
-                          color: _MarketColors.darkText,
+                          color: ThixPolicy.border,
                           width: 1.5,
                         ),
-                        foregroundColor: _MarketColors.darkText,
+                        foregroundColor: ThixPolicy.textMain,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(ThixPolicy.rXl),
                         ),
                       ),
                       child: const Text(
@@ -861,12 +847,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           available && !_adding ? () => _buyNow(stock) : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor:
-                            available ? const Color(0xFFD0391A) : Colors.grey,
+                            available ? ThixPolicy.primary : Colors.grey,
                         disabledBackgroundColor: Colors.grey.shade400,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(ThixPolicy.rXl),
                         ),
                       ),
                       child: _adding
@@ -900,7 +886,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   }
 
   Widget _circleBtn(IconData icon, VoidCallback onTap,
-      {Color color = _MarketColors.darkText}) {
+      {Color color = ThixPolicy.textMain}) {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -909,7 +895,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _MarketColors.pureWhite.withOpacity(0.9),
+          color: Colors.white.withOpacity(0.9),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4),
@@ -928,7 +914,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         width: 36,
         height: 36,
         alignment: Alignment.center,
-        child: Icon(icon, size: 18, color: _MarketColors.darkText),
+        child: Icon(icon, size: 18, color: ThixPolicy.textMain),
       ),
     );
   }
@@ -941,7 +927,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           _t(context, 'Taille / Modèle', 'Size / Model'),
           style: const TextStyle(
             fontWeight: FontWeight.w600,
-            color: _MarketColors.darkText,
+            color: ThixPolicy.textMain,
             fontSize: 14,
           ),
         ),
@@ -967,7 +953,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           _t(context, 'Couleurs', 'Colors'),
           style: const TextStyle(
             fontWeight: FontWeight.w600,
-            color: _MarketColors.darkText,
+            color: ThixPolicy.textMain,
             fontSize: 14,
           ),
         ),
@@ -993,10 +979,10 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: sel ? _MarketColors.red.withOpacity(0.1) : _MarketColors.lightBg,
+          color: sel ? ThixPolicy.primary.withOpacity(0.1) : ThixPolicy.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: sel ? _MarketColors.red : _MarketColors.cardBorder,
+            color: sel ? ThixPolicy.primary : ThixPolicy.border,
           ),
         ),
         child: Text(
@@ -1004,7 +990,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           style: TextStyle(
             fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
             fontSize: 13,
-            color: sel ? _MarketColors.red : _MarketColors.darkText,
+            color: sel ? ThixPolicy.primary : ThixPolicy.textMain,
           ),
         ),
       ),
@@ -1033,7 +1019,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _MarketColors.lightBg,
+        color: ThixPolicy.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1043,12 +1029,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: _MarketColors.cardBorder,
+                backgroundColor: ThixPolicy.border,
                 backgroundImage:
                     avatar != null ? NetworkImage(avatar) : null,
                 child: avatar == null
                     ? const Icon(Icons.person_rounded,
-                        size: 16, color: _MarketColors.mutedText)
+                        size: 16, color: ThixPolicy.textSecondary)
                     : null,
               ),
               const SizedBox(width: 10),
@@ -1061,7 +1047,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
-                        color: _MarketColors.darkText,
+                        color: ThixPolicy.textMain,
                       ),
                     ),
                     RatingBar.builder(
@@ -1073,7 +1059,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                       itemSize: 10,
                       ignoreGestures: true,
                       itemBuilder: (context, _) =>
-                          const Icon(Icons.star_rounded, color: _MarketColors.gold),
+                          const Icon(Icons.star_rounded, color: ThixPolicy.gold),
                       onRatingUpdate: (_) {},
                     ),
                   ],
@@ -1083,7 +1069,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                 date,
                 style: const TextStyle(
                   fontSize: 11,
-                  color: _MarketColors.mutedText,
+                  color: ThixPolicy.textSecondary,
                 ),
               ),
             ],
@@ -1096,7 +1082,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                 style: const TextStyle(
                   height: 1.4,
                   fontSize: 13,
-                  color: _MarketColors.darkText,
+                  color: ThixPolicy.textMain,
                 ),
               ),
             ),
@@ -1112,7 +1098,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         decoration: const BoxDecoration(
-          color: _MarketColors.pureWhite,
+          color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: EdgeInsets.only(
@@ -1135,7 +1121,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          color: _MarketColors.darkText,
+                          color: ThixPolicy.textMain,
                         ),
                       ),
                       const Spacer(),
@@ -1145,13 +1131,13 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: const BoxDecoration(
-                            color: _MarketColors.lightBg,
+                            color: ThixPolicy.surface,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.close_rounded,
                             size: 18,
-                            color: _MarketColors.darkText,
+                            color: ThixPolicy.textMain,
                           ),
                         ),
                       ),
