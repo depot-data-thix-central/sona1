@@ -15,30 +15,30 @@ const Color kWeedingPrimary = Color(0xFFE25A6A);
 const Color kWeedingLight = Color(0xFFFF8A9B);
 
 // ============================================================
-// PROVIDERS CLASSIQUES (Sans riverpod_generator pour éviter les erreurs .g.dart)
+// PROVIDERS CLASSIQUES STABLES
 // ============================================================
 final homePromoSlidesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 250));
   return [
-    {'tag': 'PROMO FLASH', 'title': "Jusqu'à -40%", 'subtitle': 'Sur les salles de réception & traiteurs', 'detail': "Valable jusqu'au 30 Septembre 2026", 'cta': 'Profiter maintenant', 'imageUrl': 'https://picsum.photos/seed/wedding-venue/900/600'},
-    {'tag': 'NOUVEAU', 'title': 'Créez votre site', 'subtitle': "De mariage en 5 minutes", 'detail': 'ID unique + invitations digitales', 'cta': 'Commencer', 'imageUrl': 'https://picsum.photos/seed/wedding-couple/900/600'},
-    {'tag': 'PARTENAIRES', 'title': '+300 prestataires', 'subtitle': 'Vérifiés partout en RDC', 'detail': 'Avis authentiques & prix transparents', 'cta': 'Découvrir', 'imageUrl': 'https://picsum.photos/seed/wedding-deco/900/600'},
+    <String, dynamic>{'tag': 'PROMO FLASH', 'title': "Jusqu'à -40%", 'subtitle': 'Sur les salles de réception & traiteurs', 'detail': "Valable jusqu'au 30 Septembre 2026", 'cta': 'Profiter maintenant', 'imageUrl': 'https://picsum.photos/seed/wedding-venue/900/600'},
+    <String, dynamic>{'tag': 'NOUVEAU', 'title': 'Créez votre site', 'subtitle': "De mariage en 5 minutes", 'detail': 'ID unique + invitations digitales', 'cta': 'Commencer', 'imageUrl': 'https://picsum.photos/seed/wedding-couple/900/600'},
+    <String, dynamic>{'tag': 'PARTENAIRES', 'title': '+300 prestataires', 'subtitle': 'Vérifiés partout en RDC', 'detail': 'Avis authentiques & prix transparents', 'cta': 'Découvrir', 'imageUrl': 'https://picsum.photos/seed/wedding-deco/900/600'},
   ];
 });
 
 final homeCategoriesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 150));
   return [
-    {'label': 'Salles', 'icon': Icons.villa_outlined},
-    {'label': 'Traiteurs', 'icon': Icons.restaurant_outlined},
-    {'label': 'Cérémonie', 'icon': Icons.mic_none_outlined},
-    {'label': 'Décoration', 'icon': Icons.local_florist_outlined},
-    {'label': 'Photos', 'icon': Icons.camera_alt_outlined},
-    {'label': 'Vidéos', 'icon': Icons.videocam_outlined},
-    {'label': 'DJ & Son', 'icon': Icons.music_note_outlined},
-    {'label': 'Robes', 'icon': Icons.checkroom_outlined},
-    {'label': 'Costumes', 'icon': Icons.checkroom_outlined},
-    {'label': 'Plus', 'icon': Icons.grid_view_rounded},
+    <String, dynamic>{'label': 'Salles', 'icon': Icons.villa_outlined},
+    <String, dynamic>{'label': 'Traiteurs', 'icon': Icons.restaurant_outlined},
+    <String, dynamic>{'label': 'Cérémonie', 'icon': Icons.mic_none_outlined},
+    <String, dynamic>{'label': 'Décoration', 'icon': Icons.local_florist_outlined},
+    <String, dynamic>{'label': 'Photos', 'icon': Icons.camera_alt_outlined},
+    <String, dynamic>{'label': 'Vidéos', 'icon': Icons.videocam_outlined},
+    <String, dynamic>{'label': 'DJ & Son', 'icon': Icons.music_note_outlined},
+    <String, dynamic>{'label': 'Robes', 'icon': Icons.checkroom_outlined},
+    <String, dynamic>{'label': 'Costumes', 'icon': Icons.checkroom_outlined},
+    <String, dynamic>{'label': 'Plus', 'icon': Icons.grid_view_rounded},
   ];
 });
 
@@ -50,29 +50,29 @@ final homeStatsProvider = FutureProvider<Map<String, int>>((ref) async {
 final homeOffersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 250));
   return [
-    {'title': 'Salles de fête', 'subtitle': 'Réservez votre salle idéale', 'discount': '-30%', 'icon': Icons.villa_outlined, 'color': kWeedingPrimary},
-    {'title': 'Traiteurs', 'subtitle': 'Menus spéciaux mariage', 'discount': '-20%', 'icon': Icons.restaurant_outlined, 'color': ThixPolicy.gold},
-    {'title': 'Photographe', 'subtitle': 'Package complet', 'discount': 'OFFERT', 'icon': Icons.camera_alt_outlined, 'color': ThixPolicy.primaryDeep},
-    {'title': 'Décoration', 'subtitle': 'Ambiances inoubliables', 'discount': '-15%', 'icon': Icons.local_florist_outlined, 'color': ThixPolicy.primary},
+    <String, dynamic>{'title': 'Salles de fête', 'subtitle': 'Réservez votre salle idéale', 'discount': '-30%', 'icon': Icons.villa_outlined, 'color': kWeedingPrimary},
+    <String, dynamic>{'title': 'Traiteurs', 'subtitle': 'Menus spéciaux mariage', 'discount': '-20%', 'icon': Icons.restaurant_outlined, 'color': ThixPolicy.gold},
+    <String, dynamic>{'title': 'Photographe', 'subtitle': 'Package complet', 'discount': 'OFFERT', 'icon': Icons.camera_alt_outlined, 'color': ThixPolicy.primaryDeep},
+    <String, dynamic>{'title': 'Décoration', 'subtitle': 'Ambiances inoubliables', 'discount': '-15%', 'icon': Icons.local_florist_outlined, 'color': ThixPolicy.primary},
   ];
 });
 
 final homeProvidersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 300));
   return [
-    {'name': 'Palais des Congrès', 'category': 'Salle de fête', 'zone': 'Kinshasa', 'rating': 4.8, 'reviews': 128, 'price': 'Dès 600$'},
-    {'name': "Saveurs d'Afrique", 'category': 'Traiteur', 'zone': 'Goma', 'rating': 4.9, 'reviews': 96, 'price': 'Dès 450$'},
-    {'name': 'Lens Prod', 'category': 'Photographe', 'zone': 'Lubumbashi', 'rating': 4.9, 'reviews': 215, 'price': 'Dès 300$'},
-    {'name': 'Dream Décor', 'category': 'Décoration', 'zone': 'Kinshasa', 'rating': 4.7, 'reviews': 78, 'price': 'Dès 250$'},
+    <String, dynamic>{'name': 'Palais des Congrès', 'category': 'Salle de fête', 'zone': 'Kinshasa', 'rating': 4.8, 'reviews': 128, 'price': 'Dès 600$'},
+    <String, dynamic>{'name': "Saveurs d'Afrique", 'category': 'Traiteur', 'zone': 'Goma', 'rating': 4.9, 'reviews': 96, 'price': 'Dès 450$'},
+    <String, dynamic>{'name': 'Lens Prod', 'category': 'Photographe', 'zone': 'Lubumbashi', 'rating': 4.9, 'reviews': 215, 'price': 'Dès 300$'},
+    <String, dynamic>{'name': 'Dream Décor', 'category': 'Décoration', 'zone': 'Kinshasa', 'rating': 4.7, 'reviews': 78, 'price': 'Dès 250$'},
   ];
 });
 
 final homeAnnouncementsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 200));
   return [
-    {'tag': 'À VENDRE', 'title': 'Robe de mariée T38', 'subtitle': '450$', 'icon': Icons.checkroom_outlined},
-    {'tag': 'À LOUER', 'title': 'Salle 200 places', 'subtitle': '800$ / jour', 'icon': Icons.villa_outlined},
-    {'tag': 'SERVICE', 'title': 'Coiffure & maquillage', 'subtitle': "Dès 30$", 'icon': Icons.face_retouching_natural_outlined},
+    <String, dynamic>{'tag': 'À VENDRE', 'title': 'Robe de mariée T38', 'subtitle': '450$', 'icon': Icons.checkroom_outlined},
+    <String, dynamic>{'tag': 'À LOUER', 'title': 'Salle 200 places', 'subtitle': '800$ / jour', 'icon': Icons.villa_outlined},
+    <String, dynamic>{'tag': 'SERVICE', 'title': 'Coiffure & maquillage', 'subtitle': "Dès 30$", 'icon': Icons.face_retouching_natural_outlined},
   ];
 });
 
