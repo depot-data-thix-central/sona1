@@ -621,6 +621,31 @@ class _ReceptionPanel extends StatelessWidget {
           context.pop();
           context.push(AppRoutes.thixMarket);
           return;
+        // 🌟 NOUVEAUX CAS AJOUTÉS POUR CORRIGER L'ERREUR DART2JS
+        case ThixSection.health:
+          context.pop();
+          context.push(AppRoutes.thixSante);
+          return;
+        case ThixSection.money:
+          context.pop();
+          context.push(AppRoutes.thixMoney);
+          return;
+        case ThixSection.monPays:
+          context.pop();
+          context.push(AppRoutes.monPays);
+          return;
+        case ThixSection.reservation:
+          context.pop();
+          context.push(AppRoutes.reservation);
+          return;
+        case ThixSection.media:
+          context.pop();
+          context.push(AppRoutes.thixMedia);
+          return;
+        // SÉCURITÉ : Capture tous les autres cas futurs
+        default:
+          context.pop();
+          return;
       }
     } catch (e) {
       debugPrint('NotificationsSheet: synthetic tap failed section=$section err=$e');
@@ -859,6 +884,18 @@ class _SyntheticNotificationRow extends StatelessWidget {
         return Icons.newspaper_rounded;
       case 'market':
         return Icons.storefront_rounded;
+      case 'health':
+        return Icons.local_hospital_rounded;
+      case 'money':
+        return Icons.account_balance_wallet_rounded;
+      case 'monPays':
+        return Icons.flag_rounded;
+      case 'reservation':
+        return Icons.confirmation_number_rounded;
+      case 'media':
+        return Icons.play_circle_filled_rounded;
+      case 'network':
+        return Icons.groups_rounded;
       default:
         return Icons.notifications_rounded;
     }
