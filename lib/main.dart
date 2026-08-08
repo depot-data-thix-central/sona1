@@ -68,11 +68,15 @@ class _MyAppState extends ConsumerState<MyApp> {
           GlobalWidgetsLocalizations.delegate, 
           GlobalCupertinoLocalizations.delegate
         ],
-        // Le correctif est ajouté ici : il force l'échelle de texte à 1.0
+        // Fige l'apparence de l'app indépendamment des réglages du téléphone
+        // (taille de police ET taille d'affichage/zoom d'écran Android),
+        // pour un rendu identique sur tous les appareils.
         builder: (context, child) {
+          final mq = MediaQuery.of(context);
           return MediaQuery(
-            data: MediaQuery.of(context).copyWith(
+            data: mq.copyWith(
               textScaler: const TextScaler.linear(1.0),
+              devicePixelRatio: 2.75,
             ),
             child: child!,
           );
