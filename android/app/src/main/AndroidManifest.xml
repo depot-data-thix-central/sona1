@@ -39,6 +39,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Désactive Impeller pour revenir au moteur de rendu Skia
+             et corriger le dédoublement/ghosting du texte observé en release -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
     </application>
     
     <!-- Required to query activities that can process text, see:
