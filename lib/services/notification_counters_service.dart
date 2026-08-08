@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 
 // ============================================================================
-// ENUM ThixSection
+// ENUM ThixSection (tous les modules)
 // ============================================================================
 enum ThixSection {
   messages,
@@ -14,6 +14,13 @@ enum ThixSection {
   formations,
   opportunities,
   jobs,
+  market,
+  network,
+  health,
+  money,
+  monPays,
+  reservation,
+  media, // TDIA
 }
 
 // ============================================================================
@@ -26,6 +33,13 @@ class SectionBadgeCounts {
   final int formations;
   final int opportunities;
   final int jobs;
+  final int market;
+  final int network;
+  final int health;
+  final int money;
+  final int monPays;
+  final int reservation;
+  final int media;
 
   const SectionBadgeCounts({
     this.messages = 0,
@@ -34,20 +48,16 @@ class SectionBadgeCounts {
     this.formations = 0,
     this.opportunities = 0,
     this.jobs = 0,
+    this.market = 0,
+    this.network = 0,
+    this.health = 0,
+    this.money = 0,
+    this.monPays = 0,
+    this.reservation = 0,
+    this.media = 0,
   });
 
   static const zero = SectionBadgeCounts();
-
-  factory SectionBadgeCounts.fromMap(Map<String, dynamic> map) {
-    return SectionBadgeCounts(
-      messages: (map['messages'] as num?)?.toInt() ?? 0,
-      info: (map['info'] as num?)?.toInt() ?? 0,
-      events: (map['events'] as num?)?.toInt() ?? 0,
-      formations: (map['formations'] as num?)?.toInt() ?? 0,
-      opportunities: (map['opportunities'] as num?)?.toInt() ?? 0,
-      jobs: (map['jobs'] as num?)?.toInt() ?? 0,
-    );
-  }
 
   @override
   bool operator ==(Object other) {
@@ -58,7 +68,14 @@ class SectionBadgeCounts {
         other.events == events &&
         other.formations == formations &&
         other.opportunities == opportunities &&
-        other.jobs == jobs;
+        other.jobs == jobs &&
+        other.market == market &&
+        other.network == network &&
+        other.health == health &&
+        other.money == money &&
+        other.monPays == monPays &&
+        other.reservation == reservation &&
+        other.media == media;
   }
 
   @override
@@ -69,6 +86,13 @@ class SectionBadgeCounts {
         formations,
         opportunities,
         jobs,
+        market,
+        network,
+        health,
+        money,
+        monPays,
+        reservation,
+        media,
       );
 }
 
@@ -81,16 +105,26 @@ class NotificationCountersService {
 
   final SupabaseClient _client;
 
-  static const _pollingInterval = Duration(seconds: 30);
+  // Polling toutes les 3 minutes
+  static const _pollingInterval = Duration(seconds: 180);
+
+  // Tables (adapte les noms si besoin selon ta base)
   static const _infoTable = 'info_articles';
   static const _eventsTable = 'events';
   static const _opportunitiesTable = 'opportunities';
   static const _jobsTable = 'jobs';
   static const _formationsTable = 'formations';
-  static const _messagesTable = 'messages'; // ✅ Table des messages
+  static const _messagesTable = 'messages';
+  static const _marketTable = 'market_products';      // à adapter
+  static const _networkTable = 'network_posts';       // à adapter
+  static const _healthTable = 'health_items';         // à adapter
+  static const _moneyTable = 'money_transactions';    // à adapter
+  static const _monPaysTable = 'mon_pays_items';      // à adapter
+  static const _reservationTable = 'reservations';    // à adapter
+  static const _mediaTable = 'reels';                 // TDIA / Media
 
   String _prefKey(String uid, ThixSection section) =>
-      'last_seen_${uid}_${section.name}';
+      'last_seen_\( {uid}_ \){section.name}';
 
   Future<DateTime?> _getLastSeen(String uid, ThixSection section) async {
     try {
@@ -99,7 +133,6 @@ class NotificationCountersService {
       if (ms == null) return null;
       return DateTime.fromMillisecondsSinceEpoch(ms);
     } catch (e) {
-      debugPrint('getLastSeen error: $e');
       return null;
     }
   }
@@ -112,14 +145,11 @@ class NotificationCountersService {
         DateTime.now().millisecondsSinceEpoch,
       );
     } catch (e) {
-      debugPrint('setLastSeen error: $e');
+      debugPrint('_setLastSeen error: $e');
     }
   }
 
-  Future<int> _countSince({
-    required String table,
-    required DateTime? since,
-  }) async {
+  Future<int> _countSince({required String table, DateTime? since}) async {
     try {
       var query = _client.from(table).select('id');
       if (since != null) {
@@ -128,48 +158,44 @@ class NotificationCountersService {
       final response = await query;
       return response is List ? response.length : 0;
     } catch (e) {
-      debugPrint('countSince error for $table: $e');
+      // Table peut ne pas exister encore → on renvoie 0
       return 0;
     }
   }
 
-  /// Compte les messages non lus reçus par l'utilisateur depuis la date donnée.
-  /// Utilise la colonne `receiver_id` (ou `to_uid` selon votre schéma).
   Future<int> _countMessagesSince(String uid, DateTime? since) async {
     try {
-      // 🔥 On utilise _client et la table 'messages'
       var query = _client
           .from(_messagesTable)
           .select('id')
-          .eq('receiver_id', uid)  // Ajuste selon ton schéma (peut être 'to_uid')
+          .eq('receiver_id', uid)
           .eq('is_read', false);
+
       if (since != null) {
         query = query.gt('created_at', since.toIso8601String());
       }
       final response = await query;
       return response is List ? response.length : 0;
     } catch (e) {
-      debugPrint('countMessagesSince error: $e');
       return 0;
     }
   }
 
   Future<SectionBadgeCounts> _computeCounts(String uid) async {
-    // 🔥 Récupération des dernières dates de lecture
-    final messagesSince = await _getLastSeen(uid, ThixSection.messages);
-    final infoSince = await _getLastSeen(uid, ThixSection.info);
-    final eventsSince = await _getLastSeen(uid, ThixSection.events);
-    final formationsSince = await _getLastSeen(uid, ThixSection.formations);
-    final opportunitiesSince = await _getLastSeen(uid, ThixSection.opportunities);
-    final jobsSince = await _getLastSeen(uid, ThixSection.jobs);
-
     final results = await Future.wait([
-      _countMessagesSince(uid, messagesSince),
-      _countSince(table: _infoTable, since: infoSince),
-      _countSince(table: _eventsTable, since: eventsSince),
-      _countSince(table: _formationsTable, since: formationsSince),
-      _countSince(table: _opportunitiesTable, since: opportunitiesSince),
-      _countSince(table: _jobsTable, since: jobsSince),
+      _countMessagesSince(uid, await _getLastSeen(uid, ThixSection.messages)),
+      _countSince(table: _infoTable, since: await _getLastSeen(uid, ThixSection.info)),
+      _countSince(table: _eventsTable, since: await _getLastSeen(uid, ThixSection.events)),
+      _countSince(table: _formationsTable, since: await _getLastSeen(uid, ThixSection.formations)),
+      _countSince(table: _opportunitiesTable, since: await _getLastSeen(uid, ThixSection.opportunities)),
+      _countSince(table: _jobsTable, since: await _getLastSeen(uid, ThixSection.jobs)),
+      _countSince(table: _marketTable, since: await _getLastSeen(uid, ThixSection.market)),
+      _countSince(table: _networkTable, since: await _getLastSeen(uid, ThixSection.network)),
+      _countSince(table: _healthTable, since: await _getLastSeen(uid, ThixSection.health)),
+      _countSince(table: _moneyTable, since: await _getLastSeen(uid, ThixSection.money)),
+      _countSince(table: _monPaysTable, since: await _getLastSeen(uid, ThixSection.monPays)),
+      _countSince(table: _reservationTable, since: await _getLastSeen(uid, ThixSection.reservation)),
+      _countSince(table: _mediaTable, since: await _getLastSeen(uid, ThixSection.media)),
     ]);
 
     return SectionBadgeCounts(
@@ -179,12 +205,15 @@ class NotificationCountersService {
       formations: results[3],
       opportunities: results[4],
       jobs: results[5],
+      market: results[6],
+      network: results[7],
+      health: results[8],
+      money: results[9],
+      monPays: results[10],
+      reservation: results[11],
+      media: results[12],
     );
   }
-
-  // ==========================================================================
-  // MÉTHODES PUBLIQUES
-  // ==========================================================================
 
   Future<void> markSectionSeen({
     required String uid,
@@ -196,7 +225,6 @@ class NotificationCountersService {
   Stream<SectionBadgeCounts> streamCounts(String uid) {
     final controller = StreamController<SectionBadgeCounts>.broadcast();
     Timer? pollTimer;
-    bool isCancelled = false;
 
     Future<void> emit() async {
       if (controller.isClosed) return;
@@ -205,13 +233,11 @@ class NotificationCountersService {
     }
 
     controller.onListen = () {
-      isCancelled = false;
       unawaited(emit());
       pollTimer = Timer.periodic(_pollingInterval, (_) => unawaited(emit()));
     };
 
     controller.onCancel = () {
-      isCancelled = true;
       pollTimer?.cancel();
       controller.close();
     };
