@@ -122,7 +122,8 @@ class ChatService {
 
       final List data = response as List;
 
-      return data.map((row) {
+      // 1. On parse les conversations retournées par le RPC
+      List<ChatConversation> conversations = data.map((row) {
         final map = Map<String, dynamic>.from(row as Map);
 
         ChatMessage? lastMessage;
@@ -160,6 +161,69 @@ class ChatService {
           isPinned: map['is_pinned'] ?? false,
         );
       }).toList();
+
+      // 🌟 2. CORRECTIF DU BUG "MON NOM APPARAÎT PARTOUT" 🌟
+      // Le RPC se trompe sur "other_display_name". On va récupérer manuellement
+      // les vrais profils des interlocuteurs pour remplacer la mauvaise donnée.
+      
+      final otherUserIds = <String>{};
+      for (final conv in conversations) {
+        if (!conv.isGroup) {
+          final otherId = conv.participantIds.firstWhere(
+            (id) => id != currentUserId,
+            orElse: () => '',
+          );
+          if (otherId.isNotEmpty) {
+            otherUserIds.add(otherId);
+          }
+        }
+      }
+
+      if (otherUserIds.isNotEmpty) {
+        try {
+          // On fait une seule requête pour tous les profils (très rapide)
+          final profilesResponse = await _supabase
+              .from('profiles')
+              .select('id, display_name, full_name, avatar_url')
+              .inFilter('id', otherUserIds.toList());
+
+          final profilesMap = {
+            for (var p in (profilesResponse as List)) p['id'].toString(): p
+          };
+
+          // On remplace les faux noms par les vrais !
+          conversations = conversations.map((conv) {
+            if (!conv.isGroup) {
+              final otherId = conv.participantIds.firstWhere(
+                (id) => id != currentUserId,
+                orElse: () => '',
+              );
+              final correctProfile = profilesMap[otherId];
+              
+              if (correctProfile != null) {
+                return ChatConversation(
+                  id: conv.id,
+                  isGroup: conv.isGroup,
+                  groupName: conv.groupName,
+                  groupAvatar: conv.groupAvatar,
+                  participantIds: conv.participantIds,
+                  otherParticipantName: _resolveDisplayName(correctProfile), // ✅ VRAI NOM
+                  otherParticipantAvatar: correctProfile['avatar_url'] as String?, // ✅ VRAIE PHOTO
+                  lastMessage: conv.lastMessage,
+                  unreadCount: conv.unreadCount,
+                  updatedAt: conv.updatedAt,
+                  isPinned: conv.isPinned,
+                );
+              }
+            }
+            return conv;
+          }).toList();
+        } catch (e) {
+          debugPrint('❌ Erreur de correction des profils: $e');
+        }
+      }
+
+      return conversations;
     } catch (e, st) {
       debugPrint('❌ getConversations (RPC): $e');
       debugPrint('$st');
@@ -414,7 +478,6 @@ class ChatService {
     return ChatMessage.fromJson(response);
   }
 
-  // 🌟 NOUVEAU: Mettre à jour un message (Edit)
   Future<void> updateMessage(String messageId, String newContent) async {
     try {
       await _supabase.from('messages').update({
@@ -493,12 +556,10 @@ class ChatService {
   // ALIAS + GROUPES + PRESENCE STREAM + DELETE + UPLOAD
   // ============================================================
 
-  /// Alias utilisé par chat_screen
   Future<void> markAsRead(String conversationId) {
     return markConversationAsRead(conversationId);
   }
 
-  /// Membres d'un groupe → List<GroupMember>
   Future<List<GroupMember>> getGroupMembers(String conversationId) async {
     try {
       final response = await _supabase
@@ -535,7 +596,6 @@ class ChatService {
     }
   }
 
-  /// Stream de présence
   Stream<List<UserStatus>> subscribeToPresence(List<String> userIds) {
     final controller = StreamController<List<UserStatus>>();
 
@@ -564,7 +624,6 @@ class ChatService {
     return controller.stream;
   }
 
-  /// Soft delete
   Future<void> deleteMessage(String messageId) async {
     try {
       await _supabase.from('messages').update({
@@ -577,7 +636,6 @@ class ChatService {
     }
   }
 
-  /// Upload (signature positionnelle attendue par chat_screen)
   Future<String?> uploadFileWithUniqueName(
     String bucket,
     String folder,
@@ -595,7 +653,6 @@ class ChatService {
     }
   }
 
-  /// Audio avec ephemeral
   Future<ChatMessage> sendAudioMessage({
     required String conversationId,
     required Uint8List audioData,
@@ -609,7 +666,6 @@ class ChatService {
     final uniqueName = '${const Uuid().v4()}.$extension';
     final path = 'messages/$conversationId/$uniqueName';
 
-    // 🌟 CORRECTION: Le bucket doit être audio_uploads comme dans le Network !
     await _supabase.storage.from('audio_uploads').uploadBinary(path, audioData);
     final audioUrl = _supabase.storage.from('audio_uploads').getPublicUrl(path);
 
