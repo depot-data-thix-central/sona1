@@ -53,9 +53,8 @@ class _C {
   static const gold = Color(0xFFE3B23C);
   static const bubbleOwn = Color(0xFFE7FFDB); 
   static const bubbleOther = Colors.white;
-  static const navyDeep = Color(0xFF0A1F44); // <-- AJOUTE CETTE LIGNE
+  static const navyDeep = Color(0xFF0A1F44); 
 }
-
 
 // Messages provider (family)
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
@@ -167,7 +166,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _otherUserTyping = false;
   bool _isSending = false;
 
-  // ─── AUDIO RECORDING (Directement intégré) ───
   final AudioRecorder _audioRecorder = AudioRecorder();
   Timer? _recordTimer;
   int _recordDuration = 0;
@@ -184,9 +182,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   StreamSubscription<List<ChatMessage>>? _messageSub;
   StreamSubscription<List<UserStatus>>? _presenceSub;
 
-  // ── Stickers organisés ──
   bool _showStickers = false;
-    static const List<String> _emojis = [
+  static const List<String> _emojis = [
     '😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹',
     '😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗',
     '😙','😚','🤩','🥳','🤗','🤔','🤭','🤫','🤥','😏',
@@ -233,13 +230,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     '🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼',
   ];
 
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // 🌟 Écouteur pour rendre le bouton Micro/Send réactif
     _inputController.addListener(() => setState(() {})); 
 
     ref.read(chatServiceProvider).startPresenceHeartbeat();
@@ -333,7 +328,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
   }
 
-  // ─── PRESENCE ET REALTIME ───
   void _subscribeToPresence() {
     if (widget.conversation.isGroup) return;
     final svc = ref.read(chatServiceProvider);
@@ -414,7 +408,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPage()));
   }
 
-    // ─── GESTION AUDIO (ILLIMITÉ DANS LE CHAT) ───
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
@@ -429,8 +422,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         
         _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
           setState(() => _recordDuration++);
-          // 🌟 J'ai retiré la limite "if (_recordDuration >= 120) _stopRecording();"
-          // L'audio continuera de s'enregistrer jusqu'à ce que l'utilisateur appuie sur STOP.
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permission microphone requise')));
@@ -439,7 +430,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       debugPrint('Erreur record: $e');
     }
   }
-
 
   Future<void> _stopRecording() async {
     _recordTimer?.cancel();
@@ -465,7 +455,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
   }
 
-  // ─── SOUMISSION GLOBALE (Texte, Fichiers, Audio) ───
+  // ✅ LOGIQUE D'ENVOI CORRIGÉE (Groupement Images en Rafale)
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty && _selectedFiles.isEmpty && _audioBytes == null) return;
@@ -490,17 +480,68 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         );
         ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
       } 
-      // 2. Envoi Fichiers / Images
+      // 2. Envoi Fichiers / Images (Groupés)
       else if (_selectedFiles.isNotEmpty) {
         final filesToSend = List<PlatformFile>.from(_selectedFiles);
         setState(() => _selectedFiles.clear());
 
-        await Future.wait(filesToSend.map((f) async {
-          final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
-          if (bytes == null) return;
-          final ext = f.extension ?? 'jpg';
-          final url = await svc.uploadFileWithUniqueName('chat-media', 'messages/${widget.conversationId}', Uint8List.fromList(bytes), ext);
+        final imageFiles = <PlatformFile>[];
+        final otherFiles = <PlatformFile>[];
 
+        for (final f in filesToSend) {
+          final ext = (f.extension ?? '').toLowerCase();
+          if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
+            imageFiles.add(f);
+          } else {
+            otherFiles.add(f);
+          }
+        }
+
+        // ✅ Envoi groupé des IMAGES
+        if (imageFiles.isNotEmpty) {
+          final urls = <String>[];
+          for (final f in imageFiles) {
+            final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
+            if (bytes == null) continue;
+            final ext = f.extension ?? 'jpg';
+            final url = await svc.uploadFileWithUniqueName(
+              'chat-media',
+              'messages/${widget.conversationId}',
+              Uint8List.fromList(bytes),
+              ext,
+            );
+            if (url != null) urls.add(url);
+          }
+
+          if (urls.isNotEmpty) {
+            for (var i = 0; i < urls.length; i++) {
+              final msg = await svc.sendMessage(
+                conversationId: widget.conversationId,
+                content: text.isNotEmpty && i == 0 ? text : (imageFiles[i].name),
+                mediaUrl: urls[i],
+                mediaType: 'image',
+                mediaName: imageFiles[i].name,
+                mediaSize: imageFiles[i].size,
+                isEphemeral: _isEphemeral,
+                ephemeralDuration: _ephemeralDuration,
+                replyToId: i == 0 && _replyToId.isNotEmpty ? _replyToId : null,
+              );
+              ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
+            }
+          }
+        }
+
+        // Envoi des autres fichiers (non-images)
+        for (final f in otherFiles) {
+          final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
+          if (bytes == null) continue;
+          final ext = f.extension ?? 'bin';
+          final url = await svc.uploadFileWithUniqueName(
+            'chat-media',
+            'messages/${widget.conversationId}',
+            Uint8List.fromList(bytes),
+            ext,
+          );
           if (url != null) {
             final msg = await svc.sendMessage(
               conversationId: widget.conversationId,
@@ -515,7 +556,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             );
             ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
           }
-        }));
+        }
       } 
       // 3. Envoi Texte
       else if (text.isNotEmpty) {
@@ -548,7 +589,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
   }
 
-  // ─── OPTIONS ENTREPRISE ───
   void _showEphemeralTimerDialog() {
     bool showCustomInput = false;
     final customTimeCtrl = TextEditingController();
@@ -746,7 +786,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       appBar: _buildAppBar(),
       body: Stack(
         children: [
-          // 🌟 NOUVEAU FOND THIX CHAT WATERMARK
           Positioned.fill(child: CustomPaint(painter: _ThixChatBackgroundPainter())),
           
           Column(
@@ -791,7 +830,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 onClose: () => setState(() => _replyToId = ''),
               ),
 
-              // Barre de saisie intelligente
               _buildInputBar(),
 
               if (_showStickers) _buildStickerPicker(),
@@ -856,7 +894,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     );
   }
 
-  // ─── BARRE DE SAISIE UNIFIÉE THIX PRO (Avec Row Options) ───
   Widget _buildInputBar() {
     final hasTextOrImage = _inputController.text.trim().isNotEmpty || _selectedFiles.isNotEmpty;
 
@@ -869,7 +906,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 1. Barre d'options (Fichier, Sticker, Éphémère, Protégé)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
@@ -888,14 +924,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               ),
             ),
 
-            // 2. Fichiers sélectionnés
             if (_selectedFiles.isNotEmpty) _FilesPreview(files: _selectedFiles, onRemove: _removeFile),
 
-            // 3. Zone de saisie principale
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: _localAudioPath != null && !_isRecording
-                // Mode Pré-écoute Audio
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(color: _C.navyDeep, borderRadius: BorderRadius.circular(24)),
@@ -907,7 +940,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       ],
                     ),
                   )
-                // Mode Enregistrement en cours
                 : _isRecording
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -916,17 +948,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         children: [
                           const Icon(Icons.mic, color: _C.red), const SizedBox(width: 12),
                           Expanded(
-  child: Text(
-    'Enregistrement... ${(_recordDuration ~/ 60).toString().padLeft(2, '0')}:${(_recordDuration % 60).toString().padLeft(2, '0')}', 
-    style: const TextStyle(color: _C.red, fontWeight: FontWeight.w800)
-  )
-),
-
+                            child: Text(
+                              'Enregistrement... ${(_recordDuration ~/ 60).toString().padLeft(2, '0')}:${(_recordDuration % 60).toString().padLeft(2, '0')}', 
+                              style: const TextStyle(color: _C.red, fontWeight: FontWeight.w800)
+                            )
+                          ),
                           GestureDetector(onTap: _stopRecording, child: const Icon(Icons.stop_circle_rounded, color: _C.red, size: 30)),
                         ],
                       ),
                     )
-                  // Mode Normal (Saisie Texte)
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -942,7 +972,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         ),
                         const SizedBox(width: 10),
                         
-                        // Bouton Magique (Micro Doré -> Send Bleu)
                         GestureDetector(
                           onTap: () {
                             if (_isSending) return;
@@ -983,12 +1012,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     );
   }
 
-  // ─── STICKERS ───
-    Widget _buildStickerPicker() {
+  Widget _buildStickerPicker() {
     return SizedBox(
       height: 250,
       child: DefaultTabController(
-        length: 3, // 🌟 On met 3 onglets
+        length: 3, 
         child: Column(
           children: [
             const TabBar(
@@ -1005,7 +1033,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 children: [
                   _buildStickerGrid(_emojis),
                   _buildStickerGrid(_reactions),
-                  _buildStickerGrid(_flags), // 🌟 Les drapeaux sont de retour !
+                  _buildStickerGrid(_flags), 
                 ]
               )
             )
@@ -1014,7 +1042,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       )
     );
   }
-
 
   Widget _buildStickerGrid(List<String> items) {
     return GridView.builder(
@@ -1112,7 +1139,6 @@ class _FilesPreview extends StatelessWidget {
   }
 }
 
-// ─── LECTEUR AUDIO COMMENTAIRE INTÉGRÉ ───
 class _ChatWaveformAudioPlayer extends StatefulWidget {
   final String audioUrl;
   final bool isLocal;
@@ -1176,14 +1202,11 @@ class _ChatWaveformAudioPlayerState extends State<_ChatWaveformAudioPlayer> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 🌟 BACKGROUND THIX CHAT (Filigrane Premium)
-// ─────────────────────────────────────────────────────────────
 class _ThixChatBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final textStyle = TextStyle(
-      color: const Color(0xFFD3C7B5).withOpacity(0.20), // Doux et subtil
+      color: const Color(0xFFD3C7B5).withOpacity(0.20), 
       fontSize: 18,
       fontWeight: FontWeight.w900,
       letterSpacing: 2.0,
