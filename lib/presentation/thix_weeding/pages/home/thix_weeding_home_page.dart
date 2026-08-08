@@ -11,6 +11,8 @@ import '../../core/failure.dart';
 import '../../data/repositories/wedding_repository_impl.dart';
 import '../../domain/entities/wedding_entity.dart';
 
+// ⚠️ AUCUN "part 'thix_weeding_home_page.g.dart';" ici pour éviter tout blocage du build
+
 const Color kWeedingPrimary = Color(0xFFE25A6A);
 const Color kWeedingLight = Color(0xFFFF8A9B);
 
