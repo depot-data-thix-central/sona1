@@ -487,7 +487,7 @@ class _ReceptionPanel extends StatelessWidget {
     );
   }
 
-  List<Map<String, dynamic>> _syntheticNotificationsFromCounts(SectionBadgeCounts counts) {
+    List<Map<String, dynamic>> _syntheticNotificationsFromCounts(SectionBadgeCounts counts) {
     Map<String, dynamic> mk({required String section, required String type, required String title, required String body, required int count}) {
       return {
         '__synthetic': true,
@@ -554,9 +554,18 @@ class _ReceptionPanel extends StatelessWidget {
         count: counts.info,
       ));
     }
+    // 🌟 AJOUT DE LA SECTION MARKET ICI
+    if (counts.market > 0) {
+      out.add(mk(
+        section: ThixSection.market.name,
+        type: 'market',
+        title: 'THIX Market',
+        body: '${counts.market} mise(s) à jour sur le marché.',
+        count: counts.market,
+      ));
+    }
     return out;
   }
-
   Future<void> _handleSyntheticTap({required BuildContext context, required String section}) async {
     try {
       final s = ThixSection.values.firstWhere((e) => e.name == section, orElse: () => ThixSection.messages);
@@ -596,6 +605,11 @@ class _ReceptionPanel extends StatelessWidget {
         case ThixSection.jobs:
           context.push(AppRoutes.jobs);
           return;
+        // 🌟 AJOUT DU CAS MARKET MANQUANT QUI PROVOQUAit L'ERREUR
+        case ThixSection.market:
+          context.pop();
+          context.push(AppRoutes.thixMarket); // Remplace par ta route exacte du market si besoin
+          return;
       }
     } catch (e) {
       debugPrint('NotificationsSheet: synthetic tap failed section=$section err=$e');
@@ -623,6 +637,7 @@ class _ReceptionPanel extends StatelessWidget {
     return lines.where((l) => l.trim().isNotEmpty).join('\n');
   }
 }
+
 
 class _IncomingAccessRequestCard extends StatelessWidget {
   final String requestId;
