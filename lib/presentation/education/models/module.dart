@@ -23,11 +23,12 @@ class Module {
   });
 
   factory Module.fromJson(Map<String, dynamic> json) => Module(
-        id: json['id'],
-        formationId: json['formation_id'],
-        title: json['title'],
-        description: json['description'],
-        order: json['order'] ?? 0,
+        // 🌟 FIX : Sécurisation des types avec des valeurs de secours
+        id: json['id'] as String? ?? '',
+        formationId: json['formation_id'] as String? ?? '',
+        title: json['title'] as String? ?? 'Module sans titre',
+        description: json['description'] as String?,
+        order: json['order'] as int? ?? 0,
         createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
         lessons: json['lessons'] != null
             ? (json['lessons'] as List).map((l) => Lesson.fromJson(l)).toList()
