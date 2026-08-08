@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ✅ Import de la Policy de Design
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 import '../../core/failure.dart';
@@ -15,15 +14,14 @@ import '../../domain/entities/wedding_entity.dart';
 
 part 'thix_weeding_home_page.g.dart';
 
-// 🌟 Couleur d'accent spécifique au module Mariage
 const Color kWeedingPrimary = Color(0xFFE25A6A);
 const Color kWeedingLight = Color(0xFFFF8A9B);
 
 // ============================================================
-// PROVIDERS
+// PROVIDERS (Corrigés sans syntaxe invalide)
 // ============================================================
 @riverpod
-Future<List<Map<String, dynamic>>> homePromoSlides(HomePromoSlidesRef ref) async {
+Future<List<Map<String, dynamic>>> homePromoSlides(Ref ref) async {
   await Future.delayed(const Duration(milliseconds: 250));
   return [
     {'tag': 'PROMO FLASH', 'title': "Jusqu'à -40%", 'subtitle': 'Sur les salles de réception & traiteurs', 'detail': "Valable jusqu'au 30 Septembre 2026", 'cta': 'Profiter maintenant', 'imageUrl': 'https://picsum.photos/seed/wedding-venue/900/600'},
@@ -33,7 +31,7 @@ Future<List<Map<String, dynamic>>> homePromoSlides(HomePromoSlidesRef ref) async
 }
 
 @riverpod
-Future<List<Map<String, dynamic>>> homeCategories(HomeCategoriesRef ref) async {
+Future<List<Map<String, dynamic>>> homeCategories(Ref ref) async {
   await Future.delayed(const Duration(milliseconds: 150));
   return [
     {'label': 'Salles', 'icon': Icons.villa_outlined},
@@ -50,13 +48,13 @@ Future<List<Map<String, dynamic>>> homeCategories(HomeCategoriesRef ref) async {
 }
 
 @riverpod
-Future<Map<String, int>> homeStats(HomeStatsRef ref) async {
+Future<Map<String, int>> homeStats(Ref ref) async {
   await Future.delayed(const Duration(milliseconds: 200));
   return {'Prestataires': 312, 'Avis vérifiés': 1840, 'Offres actives': 26, 'Événements': 97};
 }
 
 @riverpod
-Future<List<Map<String, dynamic>>> homeOffers(HomeOffersRef ref) async {
+Future<List<Map<String, dynamic>>> homeOffers(Ref ref) async {
   await Future.delayed(const Duration(milliseconds: 250));
   return [
     {'title': 'Salles de fête', 'subtitle': 'Réservez votre salle idéale', 'discount': '-30%', 'icon': Icons.villa_outlined, 'color': kWeedingPrimary},
@@ -67,7 +65,7 @@ Future<List<Map<String, dynamic>>> homeOffers(HomeOffersRef ref) async {
 }
 
 @riverpod
-Future<List<Map<String, dynamic>>> homeProviders(HomeProvidersRef ref) async {
+Future<List<Map<String, dynamic>>> homeProviders(Ref ref) async {
   await Future.delayed(const Duration(milliseconds: 300));
   return [
     {'name': 'Palais des Congrès', 'category': 'Salle de fête', 'zone': 'Kinshasa', 'rating': 4.8, 'reviews': 128, 'price': 'Dès 600$'},
@@ -78,7 +76,7 @@ Future<List<Map<String, dynamic>>> homeProviders(HomeProvidersRef ref) async {
 }
 
 @riverpod
-Future<List<Map<String, dynamic>>> homeAnnouncements(HomeAnnouncementsRef ref) async {
+Future<List<Map<String, dynamic>>> homeAnnouncements(Ref ref) async {
   await Future.delayed(const Duration(milliseconds: 200));
   return [
     {'tag': 'À VENDRE', 'title': 'Robe de mariée T38', 'subtitle': '450$', 'icon': Icons.checkroom_outlined},
@@ -191,11 +189,11 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        toolbarHeight: 56, // 🌟 Compacité
+        toolbarHeight: 56,
         title: Row(
           children: [
             Container(
-              width: 32, height: 32, // 🌟 Réduit
+              width: 32, height: 32,
               decoration: BoxDecoration(color: kWeedingPrimary, borderRadius: BorderRadius.circular(8)),
               child: const Center(child: Icon(Icons.favorite_rounded, color: Colors.white, size: 18)),
             ),
@@ -284,7 +282,7 @@ class _ThixWeedingHomePageState extends ConsumerState<ThixWeedingHomePage> {
 }
 
 // ============================================================
-// HERO SECTION — RECHERCHE COMPACTE ET LARGE
+// HERO SECTION
 // ============================================================
 class _HeroSearchSection extends StatelessWidget {
   final TextEditingController controller;
@@ -306,7 +304,7 @@ class _HeroSearchSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Container(
-        height: 160, // 🌟 Hauteur compacte
+        height: 160,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(ThixPolicy.rLg),
           gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [kWeedingPrimary, kWeedingLight]),
@@ -332,8 +330,6 @@ class _HeroSearchSection extends StatelessWidget {
                   const SizedBox(height: 4),
                   const Text('Entrez l\'ID unique ou scannez le QR Code.', style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500)),
                   const Spacer(),
-                  
-                  // 🌟 Barre de recherche large et compacte
                   Row(
                     children: [
                       Expanded(
@@ -376,7 +372,6 @@ class _HeroSearchSection extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // 🌟 Bouton QR Code
                       InkWell(
                         onTap: onScanQr,
                         borderRadius: BorderRadius.circular(ThixPolicy.rFull),
@@ -444,10 +439,10 @@ class _CategoryGrid extends StatelessWidget {
               mainAxisSize: MainAxisSize.min, 
               children: [
                 Container(
-                  width: ThixPolicy.constellationNodeSize, // 🌟 46.0
+                  width: ThixPolicy.constellationNodeSize,
                   height: ThixPolicy.constellationNodeSize, 
                   decoration: BoxDecoration(color: ThixPolicy.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: ThixPolicy.border)), 
-                  child: Icon(c['icon'] as IconData, size: ThixPolicy.constellationNodeIconSize, color: kWeedingPrimary) // 🌟 20.0
+                  child: Icon(c['icon'] as IconData, size: ThixPolicy.constellationNodeIconSize, color: kWeedingPrimary)
                 ), 
                 const SizedBox(height: 6), 
                 Text(c['label'] as String, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: ThixPolicy.textMain))
@@ -468,7 +463,7 @@ class _OffersRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 100, // 🌟 Hauteur réduite
+      height: 100,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -578,7 +573,7 @@ class _AnnouncementsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 120, // 🌟 Hauteur réduite
+      height: 120,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
