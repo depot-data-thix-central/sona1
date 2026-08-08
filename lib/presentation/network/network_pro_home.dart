@@ -8,6 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// ✅ Import de la Policy de Design
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 import 'package:thix_id/models/network_story.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
 import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
@@ -23,48 +26,18 @@ import 'package:thix_id/presentation/network/live/live_prep_screen.dart';
 // ============================================================================
 // PROVIDER — SESSIONS LIVE ACTIVES
 // ============================================================================
-// ⚠️ HYPOTHÈSE DE SCHÉMA À VÉRIFIER / AJUSTER :
-// Table Supabase "live_sessions" avec colonnes :
-//   id (text/uuid), host_id (text), host_name (text), host_avatar_url (text?),
-//   title (text), session_type ('video' | 'audio'), viewer_count (int),
-//   is_active (bool, true tant que le direct est en cours)
-// Adapte le nom de la table et des colonnes à ton schéma réel
-// (celui utilisé par live_stream_service.dart / live_broadcast_screen.dart).
 final activeLiveSessionsProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   try {
     return Supabase.instance.client
         .from('live_sessions')
         .stream(primaryKey: ['id'])
-        .eq('status', 'live') // 🌟 CORRECTION ICI (au lieu de 'is_active', true)
+        .eq('status', 'live')
         .limit(10);
   } catch (_) {
     return Stream.value(const <Map<String, dynamic>>[]);
   }
 });
-
-
-class ThixColors {
-  static const background = Color(0xFFF6F7FB);
-  static const white = Color(0xFFFFFFFF);
-  static const primary = Color(0xFF2D6CDF);
-  static const primaryDeep = Color(0xFF123B7A);
-  static const navyDeep = Color(0xFF0A1F44);
-  static const softBlue = Color(0xFFEAF1FF);
-  static const steel = Color(0xFF64748B);
-  static const textDark = Color(0xFF10192E);
-  static const textSecondary = Color(0xFF7386A8);
-  static const border = Color(0xFFE7EEFC);
-  static const shadow = Color(0x142D6CDF);
-  static const shadowDeep = Color(0x260A1F44);
-  static const liveRed = Color(0xFFE5484D);
-
-  static const gradientPrimary = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [navyDeep, primaryDeep, primary],
-  );
-}
 
 // ─────────────────────────────────────────────────────────────
 // SIGNATURE VISUELLE : avatar rond avec anneau + indicateur LIVE
@@ -82,7 +55,7 @@ class RoundAvatar extends StatelessWidget {
     super.key,
     required this.size,
     this.imageUrl,
-    this.ringColor = ThixColors.primary,
+    this.ringColor = ThixPolicy.primary,
     this.fallbackIcon = Icons.person,
     this.ringWidth = 2.5,
     this.isLive = false,
@@ -90,7 +63,7 @@ class RoundAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveRingColor = isLive ? ThixColors.liveRed : ringColor;
+    final effectiveRingColor = isLive ? ThixPolicy.danger : ringColor;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -104,7 +77,7 @@ class RoundAvatar extends StatelessWidget {
           ),
           child: ClipOval(
             child: Container(
-              color: ThixColors.softBlue,
+              color: ThixPolicy.tint,
               child: (imageUrl != null && imageUrl!.isNotEmpty)
                   ? Image.network(
                       imageUrl!,
@@ -112,13 +85,13 @@ class RoundAvatar extends StatelessWidget {
                       errorBuilder: (_, __, ___) => Icon(
                         fallbackIcon,
                         size: size * 0.45,
-                        color: ThixColors.primaryDeep,
+                        color: ThixPolicy.primaryDeep,
                       ),
                     )
                   : Icon(
                       fallbackIcon,
                       size: size * 0.45,
-                      color: ThixColors.primaryDeep,
+                      color: ThixPolicy.primaryDeep,
                     ),
             ),
           ),
@@ -132,9 +105,9 @@ class RoundAvatar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: ThixColors.liveRed,
+                  color: ThixPolicy.danger,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: ThixColors.white, width: 1.2),
+                  border: Border.all(color: Colors.white, width: 1.2),
                 ),
                 child: const Text(
                   'LIVE',
@@ -277,26 +250,19 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     _safePush('/network/comments/$postId');
   }
 
-    void _joinLive([Map<String, dynamic>? session]) {
+  void _joinLive([Map<String, dynamic>? session]) {
     if (session == null) {
-      // Cas 1 : On clique sur le bouton "Lancer" -> On va préparer son propre direct
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const LivePrepScreen()),
       );
     } else {
-      // Cas 2 : On clique sur la carte d'un direct en cours -> On rejoint en tant que Spectateur
       final channelName = session['channel_name'] as String?;
-      final liveId = session['id'].toString();
-      
       if (channelName != null) {
-        // 🌟 À FAIRE : Naviguer vers un écran LiveViewerScreen (Spectateur)
-        // en lui passant le channelName pour qu'Agora s'y connecte sans allumer la caméra
         debugPrint("Rejoindre le canal Agora : $channelName");
       }
     }
   }
-
 
   @override
   void dispose() {
@@ -319,25 +285,24 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
 
     if (currentUser == null) {
       return const Scaffold(
-        backgroundColor: ThixColors.background,
+        backgroundColor: ThixPolicy.surface,
         body: Center(
-          child: CircularProgressIndicator(color: ThixColors.primary),
+          child: CircularProgressIndicator(color: ThixPolicy.primary),
         ),
       );
     }
 
-    // Immunise cette page contre les réglages de taille de police système.
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(
         textScaler: const TextScaler.linear(1.0),
       ),
       child: Scaffold(
-        backgroundColor: ThixColors.background,
+        backgroundColor: ThixPolicy.surface,
         body: Stack(
           children: [
             RefreshIndicator(
-              color: ThixColors.primary,
-              backgroundColor: ThixColors.white,
+              color: ThixPolicy.primary,
+              backgroundColor: Colors.white,
               onRefresh: _onRefresh,
               child: CustomScrollView(
                 controller: _scrollController,
@@ -350,10 +315,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                     child: _buildStoriesFacebook(currentUser.id, liveHostIds),
                   ),
                   SliverToBoxAdapter(child: _buildFilters()),
-
-                  // HUB DIRECTS & ESPACES — connecté aux vrais directs
                   SliverToBoxAdapter(child: _buildLiveHub(liveSessionsAsync)),
-
                   if (_suggestions.isNotEmpty)
                     SliverToBoxAdapter(child: _buildSuggestions(liveHostIds)),
                   feedAsync.when(
@@ -366,7 +328,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                           child: Text(
                             'Erreur: $e',
                             style: const TextStyle(
-                              color: ThixColors.textSecondary,
+                              color: ThixPolicy.textSecondary,
                             ),
                           ),
                         ),
@@ -419,16 +381,16 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
 
   Widget _buildSliverAppBar({required bool isLive}) {
     return SliverAppBar(
-      backgroundColor: ThixColors.white,
+      backgroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 3,
-      shadowColor: ThixColors.shadowDeep,
+      shadowColor: ThixPolicy.inkDeep.withOpacity(0.15),
       floating: true,
       snap: true,
       toolbarHeight: 58,
       titleSpacing: 16,
       title: ShaderMask(
-        shaderCallback: (b) => ThixColors.gradientPrimary.createShader(b),
+        shaderCallback: (b) => ThixPolicy.brandGradient.createShader(b),
         child: const Text(
           'THIX PRO',
           style: TextStyle(
@@ -460,7 +422,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: ThixColors.border),
+        child: Container(height: 1, color: ThixPolicy.border),
       ),
     );
   }
@@ -476,13 +438,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         width: 38,
         height: 38,
         decoration: const BoxDecoration(
-          color: ThixColors.softBlue,
+          color: ThixPolicy.tint,
           shape: BoxShape.circle,
         ),
         child: Stack(
           alignment: Alignment.center,
           children: [
-            Icon(icon, size: 19, color: ThixColors.primaryDeep),
+            Icon(icon, size: 19, color: ThixPolicy.primaryDeep),
             if (badge != null)
               Positioned(
                 top: 5,
@@ -491,9 +453,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: ThixColors.liveRed,
+                    color: ThixPolicy.danger,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: ThixColors.white, width: 1.5),
+                    border: Border.all(color: Colors.white, width: 1.5),
                   ),
                   child: Text(
                     badge,
@@ -516,12 +478,12 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
   Widget _buildStoriesFacebook(String currentUserId, Set<String> liveHostIds) {
     if (_loadingStories) {
       return Container(
-        color: ThixColors.white,
+        color: Colors.white,
         height: 168,
         alignment: Alignment.center,
         child: const SizedBox(
           width: 22, height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2.2, color: ThixColors.primary),
+          child: CircularProgressIndicator(strokeWidth: 2.2, color: ThixPolicy.primary),
         ),
       );
     }
@@ -537,7 +499,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     final otherUsersList = groupedOtherStories.keys.toList();
 
     return Container(
-      color: ThixColors.white,
+      color: Colors.white,
       padding: const EdgeInsets.only(top: 12, bottom: 14),
       child: SizedBox(
         height: 152,
@@ -602,7 +564,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     };
 
     return Container(
-      color: ThixColors.white,
+      color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -629,10 +591,10 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                       const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
                   decoration: BoxDecoration(
                     color:
-                        sel ? ThixColors.softBlue : ThixColors.background,
+                        sel ? ThixPolicy.tint : ThixPolicy.surface,
                     borderRadius: BorderRadius.circular(30),
                     border: Border.all(
-                      color: sel ? ThixColors.primary : ThixColors.border,
+                      color: sel ? ThixPolicy.primary : ThixPolicy.border,
                       width: sel ? 1.4 : 1,
                     ),
                   ),
@@ -642,8 +604,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                         e.value.$2,
                         size: 16,
                         color: sel
-                            ? ThixColors.primaryDeep
-                            : ThixColors.textSecondary,
+                            ? ThixPolicy.primaryDeep
+                            : ThixPolicy.textSecondary,
                       ),
                       const SizedBox(width: 7),
                       Text(
@@ -652,8 +614,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                           color: sel
-                              ? ThixColors.primaryDeep
-                              : ThixColors.textDark,
+                              ? ThixPolicy.primaryDeep
+                              : ThixPolicy.textMain,
                         ),
                       ),
                     ],
@@ -677,16 +639,10 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       margin: const EdgeInsets.fromLTRB(14, 4, 14, 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ThixColors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ThixColors.border),
-        boxShadow: const [
-          BoxShadow(
-            color: ThixColors.shadow,
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: ThixPolicy.border),
+        boxShadow: ThixPolicy.shadowCard(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,7 +665,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                             style: TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 15,
-                              color: ThixColors.textDark,
+                              color: ThixPolicy.textMain,
                             ),
                           ),
                         ),
@@ -718,7 +674,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: ThixColors.liveRed,
+                              color: ThixPolicy.danger,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -741,7 +697,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 11.5,
-                        color: ThixColors.textSecondary,
+                        color: ThixPolicy.textSecondary,
                       ),
                     ),
                   ],
@@ -754,7 +710,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: ThixColors.liveRed,
+                    color: ThixPolicy.danger,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
@@ -784,13 +740,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               loading: () => const Center(
                 child: SizedBox(
                   width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: ThixColors.primary),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: ThixPolicy.primary),
                 ),
               ),
               error: (_, __) => const Center(
                 child: Text(
                   'Impossible de charger les directs',
-                  style: TextStyle(fontSize: 12, color: ThixColors.textSecondary),
+                  style: TextStyle(fontSize: 12, color: ThixPolicy.textSecondary),
                 ),
               ),
               data: (list) {
@@ -799,11 +755,11 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sensors_off_rounded, size: 26, color: ThixColors.textSecondary.withOpacity(0.5)),
+                        Icon(Icons.sensors_off_rounded, size: 26, color: ThixPolicy.textSecondary.withOpacity(0.5)),
                         const SizedBox(height: 6),
                         const Text(
                           'Aucun direct en cours',
-                          style: TextStyle(fontSize: 12, color: ThixColors.textSecondary, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 12, color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -822,7 +778,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                       host: (s['host_name'] as String?) ?? 'THIX',
                       type: type,
                       viewers: (s['viewer_count'] as int?) ?? 0,
-                      color: type == 'video' ? ThixColors.primary : ThixColors.navyDeep,
+                      color: type == 'video' ? ThixPolicy.primary : ThixPolicy.inkDeep,
                       onTap: () => _joinLive(s),
                     );
                   },
@@ -885,7 +841,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: ThixColors.liveRed,
+                          color: ThixPolicy.danger,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
@@ -943,7 +899,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     return Container(
       margin: const EdgeInsets.fromLTRB(0, 0, 0, 14),
       padding: const EdgeInsets.symmetric(vertical: 16),
-      color: ThixColors.white,
+      color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -957,11 +913,11 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 14.5,
-                    color: ThixColors.textDark,
+                    color: ThixPolicy.textMain,
                   ),
                 ),
                 Icon(Icons.groups_2_rounded,
-                    size: 18, color: ThixColors.primary),
+                    size: 18, color: ThixPolicy.primary),
               ],
             ),
           ),
@@ -979,9 +935,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   width: 132,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: ThixColors.background,
+                    color: ThixPolicy.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: ThixColors.border),
+                    border: Border.all(color: ThixPolicy.border),
                   ),
                   child: Column(
                     children: [
@@ -999,7 +955,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: ThixColors.textDark,
+                          color: ThixPolicy.textMain,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1009,7 +965,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 10,
-                          color: ThixColors.textSecondary,
+                          color: ThixPolicy.textSecondary,
                         ),
                       ),
                       const Spacer(),
@@ -1018,7 +974,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                         height: 30,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            gradient: ThixColors.gradientPrimary,
+                            gradient: ThixPolicy.brandGradient,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: TextButton(
@@ -1079,14 +1035,14 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   child: Container(
                     height: 62,
                     decoration: BoxDecoration(
-                      color: ThixColors.white.withOpacity(0.86),
+                      color: Colors.white.withOpacity(0.86),
                       borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: ThixColors.border),
-                      boxShadow: const [
+                      border: Border.all(color: ThixPolicy.border),
+                      boxShadow: [
                         BoxShadow(
-                          color: ThixColors.shadowDeep,
+                          color: ThixPolicy.inkDeep.withOpacity(0.15),
                           blurRadius: 20,
-                          offset: Offset(0, 8),
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
@@ -1159,7 +1115,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
             Icon(
               ic,
               size: 20,
-              color: active ? ThixColors.primary : ThixColors.textSecondary,
+              color: active ? ThixPolicy.primary : ThixPolicy.textSecondary,
             ),
             const SizedBox(height: 2),
             Text(
@@ -1168,7 +1124,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
-                color: active ? ThixColors.primary : ThixColors.textSecondary,
+                color: active ? ThixPolicy.primary : ThixPolicy.textSecondary,
               ),
             ),
             if (active)
@@ -1178,7 +1134,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                 height: 4,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: ThixColors.primary,
+                  color: ThixPolicy.primary,
                 ),
               ),
           ],
@@ -1195,9 +1151,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
           margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           height: 190,
           decoration: BoxDecoration(
-            color: ThixColors.white,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: ThixColors.border),
+            border: Border.all(color: ThixPolicy.border),
           ),
         ),
       ),
@@ -1212,27 +1168,27 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
-              color: ThixColors.softBlue,
+              color: ThixPolicy.tint,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.feed_outlined,
               size: 40,
-              color: ThixColors.primaryDeep,
+              color: ThixPolicy.primaryDeep,
             ),
           ),
           const SizedBox(height: 16),
           const Text(
             'Aucune publication pour ce filtre',
             style: TextStyle(
-              color: ThixColors.textSecondary,
+              color: ThixPolicy.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 18),
           Container(
             decoration: BoxDecoration(
-              gradient: ThixColors.gradientPrimary,
+              gradient: ThixPolicy.brandGradient,
               borderRadius: BorderRadius.circular(30),
             ),
             child: TextButton(
@@ -1267,7 +1223,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
         child: Container(
           margin: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: ThixColors.white,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -1278,13 +1234,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: ThixColors.border,
+                  color: ThixPolicy.border,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
               ListTile(
                 leading:
-                    const Icon(Icons.link, color: ThixColors.primary),
+                    const Icon(Icons.link, color: ThixPolicy.primary),
                 title: const Text('Copier le lien'),
                 onTap: () async {
                   await Clipboard.setData(ClipboardData(text: link));
@@ -1301,7 +1257,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
               ),
               ListTile(
                 leading:
-                    const Icon(Icons.close, color: ThixColors.textSecondary),
+                    const Icon(Icons.close, color: ThixPolicy.textSecondary),
                 title: const Text('Fermer'),
                 onTap: () => Navigator.pop(context),
               ),
@@ -1347,17 +1303,17 @@ class _FbStoryCard extends StatelessWidget {
         width: 92,
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: ThixColors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isLive ? ThixColors.liveRed : ThixColors.border,
+            color: isLive ? ThixPolicy.danger : ThixPolicy.border,
             width: isLive ? 1.4 : 1,
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: ThixColors.shadow,
+              color: ThixPolicy.primary.withOpacity(0.08),
               blurRadius: 8,
-              offset: Offset(0, 3),
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -1376,9 +1332,9 @@ class _FbStoryCard extends StatelessWidget {
                             coverUrl!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) =>
-                                Container(color: ThixColors.softBlue),
+                                Container(color: ThixPolicy.tint),
                           )
-                        : Container(color: ThixColors.softBlue),
+                        : Container(color: ThixPolicy.tint),
                   ),
                 ),
                 Positioned(
@@ -1388,8 +1344,8 @@ class _FbStoryCard extends StatelessWidget {
                     size: 26,
                     imageUrl: avatarUrl,
                     ringColor: hasStory || isMe
-                        ? ThixColors.primary
-                        : ThixColors.border,
+                        ? ThixPolicy.primary
+                        : ThixPolicy.border,
                     ringWidth: 2,
                     isLive: isLive,
                   ),
@@ -1405,8 +1361,8 @@ class _FbStoryCard extends StatelessWidget {
                         height: 22,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: ThixColors.primary,
-                          border: Border.all(color: ThixColors.white, width: 2),
+                          color: ThixPolicy.primary,
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
                         child: const Icon(Icons.add_rounded,
                             size: 14, color: Colors.white),
@@ -1422,7 +1378,7 @@ class _FbStoryCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: ThixColors.liveRed,
+                          color: ThixPolicy.danger,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
@@ -1446,7 +1402,7 @@ class _FbStoryCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: ThixColors.textDark,
+                color: ThixPolicy.textMain,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
