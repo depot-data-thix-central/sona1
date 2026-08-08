@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:thix_id/models/network_post.dart';
-import 'package:thix_id/presentation/network/widgets/post_card.dart'; // ✅ Import corrigé
+import 'package:thix_id/presentation/network/widgets/post_card.dart';
 import 'package:thix_id/presentation/network/widgets/create_post_dialog.dart';
 import 'package:thix_id/services/network_service.dart';
 
@@ -25,7 +25,6 @@ class _FeedPageState extends State<FeedPage> {
 
   bool _loading = false;
   bool _hasMore = true;
-
   int _page = 0;
 
   static const int _pageSize = 20;
@@ -35,9 +34,8 @@ class _FeedPageState extends State<FeedPage> {
   @override
   void initState() {
     super.initState();
-
     _loadInitial();
-    _startRealtime();
+    _startAutoRefresh();
   }
 
   @override
@@ -46,9 +44,11 @@ class _FeedPageState extends State<FeedPage> {
     super.dispose();
   }
 
-  void _startRealtime() {
+  /// Rafraîchissement automatique toutes les 90 secondes
+  /// (au lieu de 10 secondes → forte réduction de la consommation data)
+  void _startAutoRefresh() {
     _refreshTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 90),
       (_) {
         if (mounted && !_loading) {
           _loadInitial();
@@ -78,15 +78,11 @@ class _FeedPageState extends State<FeedPage> {
         _posts
           ..clear()
           ..addAll(items);
-
         _page = 1;
-
         _hasMore = items.length >= _pageSize;
       });
     } catch (e) {
-      debugPrint(
-        'FeedPage _loadInitial error: $e',
-      );
+      debugPrint('FeedPage _loadInitial error: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -115,15 +111,11 @@ class _FeedPageState extends State<FeedPage> {
 
       setState(() {
         _posts.addAll(items);
-
         _page++;
-
         _hasMore = items.length >= _pageSize;
       });
     } catch (e) {
-      debugPrint(
-        'FeedPage _loadMore error: $e',
-      );
+      debugPrint('FeedPage _loadMore error: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -133,17 +125,12 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
-  bool _onScroll(
-    ScrollNotification notification,
-  ) {
-    if (_loading || !_hasMore) {
-      return false;
-    }
+  bool _onScroll(ScrollNotification notification) {
+    if (_loading || !_hasMore) return false;
 
     final metrics = notification.metrics;
 
-    if (metrics.pixels >=
-        metrics.maxScrollExtent - 200) {
+    if (metrics.pixels >= metrics.maxScrollExtent - 200) {
       _loadMore();
     }
 
@@ -154,17 +141,13 @@ class _FeedPageState extends State<FeedPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Fil d\'actualité',
-        ),
+        title: const Text('Fil d\'actualité'),
       ),
-      floatingActionButton:
-          FloatingActionButton(
+      floatingActionButton: FloatingActionButton(
         onPressed: () {
           showDialog(
             context: context,
-            builder: (_) =>
-                const CreatePostDialog(),
+            builder: (_) => const CreatePostDialog(),
           ).then((_) {
             if (mounted) {
               _loadInitial();
@@ -175,29 +158,20 @@ class _FeedPageState extends State<FeedPage> {
       ),
       body: RefreshIndicator(
         onRefresh: _loadInitial,
-        child: NotificationListener<
-                ScrollNotification>(
+        child: NotificationListener<ScrollNotification>(
           onNotification: _onScroll,
           child: ListView.builder(
             padding: const EdgeInsets.all(12),
             itemCount: _posts.length + 1,
-            itemBuilder: (
-              context,
-              index,
-            ) {
+            itemBuilder: (context, index) {
               if (index >= _posts.length) {
                 return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(
-                    vertical: 24,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Center(
                     child: _loading
                         ? const CircularProgressIndicator()
                         : !_hasMore
-                            ? const Text(
-                                'Fin du fil',
-                              )
+                            ? const Text('Fin du fil')
                             : const SizedBox.shrink(),
                   ),
                 );
@@ -208,8 +182,6 @@ class _FeedPageState extends State<FeedPage> {
               return PostCard(
                 post: post,
                 currentProfileId: widget.profileId,
-                // Les autres callbacks sont optionnels
-                // On peut les laisser vides ou les implémenter plus tard
               );
             },
           ),
