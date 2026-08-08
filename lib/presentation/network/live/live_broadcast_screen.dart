@@ -1,6 +1,6 @@
 // lib/presentation/network/live/live_broadcast_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // 🌟 IMPÉRATIF POUR DÉTECTER LE WEB
+import 'package:flutter/foundation.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,12 +15,18 @@ class LiveBroadcastScreen extends StatefulWidget {
   final String title;
   final bool isVideoEnabled;
   final bool isMicEnabled;
+  
+  // 🌟 NOUVEAU : Identifiants reçus depuis l'écran de préparation
+  final String liveId;
+  final String channelName;
 
   const LiveBroadcastScreen({
     super.key,
     required this.title,
     required this.isVideoEnabled,
     required this.isMicEnabled,
+    required this.liveId,
+    required this.channelName,
   });
 
   @override
@@ -32,6 +38,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   bool _isInitialized = false;
   bool _isMuted = false;
   bool _isVideoOff = false;
+  bool _isEnding = false; // Sécurité pour ne pas supprimer 2 fois
 
   final List<String> _comments = [
     "Nathan Lumina : Super initiative !",
@@ -48,14 +55,13 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
 
   Future<void> _initAgora() async {
     try {
-      // 1. Gérer les permissions (Chrome/Safari Web gèrent ça nativement)
+      // 1. Gérer les permissions
       if (!kIsWeb) {
         await [Permission.camera, Permission.microphone].request();
       }
 
-      // 2. Préparation du nom de canal sans caractères spéciaux
-      String safeChannelName = widget.title.replaceAll(' ', '_').replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
-      if (safeChannelName.isEmpty) safeChannelName = "ThixLive";
+      // 🌟 NOUVEAU : On utilise le nom de canal unique passé par le lanceur
+      final safeChannelName = widget.channelName;
 
       // 3. Appel sécurisé à Supabase pour le Token
       final response = await Supabase.instance.client.functions.invoke(
@@ -112,100 +118,142 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
     }
   }
 
+  // 🌟 NOUVEAU : Fonction de nettoyage pour la base de données et Agora
+  Future<void> _endBroadcast() async {
+    if (_isEnding) return;
+    setState(() => _isEnding = true);
+
+    try {
+      // 1. On supprime le direct de Supabase pour qu'il disparaisse chez les autres
+      await Supabase.instance.client
+          .from('live_sessions')
+          .delete()
+          .eq('id', widget.liveId);
+          
+      // 2. On quitte Agora proprement
+      if (_isInitialized) {
+        await _engine.leaveChannel();
+        await _engine.release();
+      }
+    } catch (e) {
+      debugPrint('Erreur suppression live Supabase: $e');
+    }
+
+    if (mounted) {
+      Navigator.pop(context); // On retourne à la page précédente
+    }
+  }
+
   @override
   void dispose() {
-    if (_isInitialized) {
-      _engine.leaveChannel();
-      _engine.release();
+    // Si l'utilisateur a quitté l'écran d'une autre façon (bouton retour du téléphone)
+    if (!_isEnding) {
+      _endBroadcast(); 
     }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _C.bgDark,
-      body: Stack(
-        children: [
-          // ─── AFFICHAGE VIDÉO CORRIGÉ POUR LE WEB ───
-          Positioned.fill(
-            child: _isInitialized && !_isVideoOff
-                ? SizedBox.expand(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: MediaQuery.of(context).size.width,
-                        height: MediaQuery.of(context).size.height,
-                        child: AgoraVideoView(
-                          controller: VideoViewController(
-                            rtcEngine: _engine,
-                            canvas: const VideoCanvas(uid: 0),
-                            useFlutterTexture: kIsWeb, // 🌟 Clé pour le rendu Web
+    // 🌟 NOUVEAU : PopScope empêche le bouton "Retour" physique d'Android de casser le système
+    // Il force l'appel à notre fonction de nettoyage _endBroadcast
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        await _endBroadcast();
+      },
+      child: Scaffold(
+        backgroundColor: _C.bgDark,
+        body: Stack(
+          children: [
+            // ─── AFFICHAGE VIDÉO CORRIGÉ POUR LE WEB ───
+            Positioned.fill(
+              child: _isInitialized && !_isVideoOff
+                  ? SizedBox.expand(
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width,
+                          height: MediaQuery.of(context).size.height,
+                          child: AgoraVideoView(
+                            controller: VideoViewController(
+                              rtcEngine: _engine,
+                              canvas: const VideoCanvas(uid: 0),
+                              useFlutterTexture: kIsWeb,
+                            ),
                           ),
                         ),
                       ),
+                    )
+                  : Container(
+                      color: Colors.black,
+                      child: const Center(
+                        child: Icon(Icons.mic_rounded, size: 80, color: Colors.white24),
+                      ),
                     ),
-                  )
-                : Container(
-                    color: Colors.black,
-                    child: const Center(
-                      child: Icon(Icons.mic_rounded, size: 80, color: Colors.white24),
-                    ),
+            ),
+      
+            // UI par-dessus
+            Positioned(
+              top: 50, left: 16, right: 16,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: _C.red, borderRadius: BorderRadius.circular(20)),
+                    child: const Text('EN DIRECT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
                   ),
-          ),
-
-          // UI UI par-dessus
-          Positioned(
-            top: 50, left: 16, right: 16,
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: _C.red, borderRadius: BorderRadius.circular(20)),
-                  child: const Text('EN DIRECT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
-                ),
-                const Spacer(),
-                IconButton(icon: const Icon(Icons.close_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
-              ],
+                  const Spacer(),
+                  // 🌟 BOUTON FERMER HAUT
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white), 
+                    onPressed: _endBroadcast,
+                  ),
+                ],
+              ),
             ),
-          ),
-
-          Positioned(
-            bottom: 20, left: 16, right: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                // Contrôles
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white),
-                      onPressed: () {
-                        setState(() => _isMuted = !_isMuted);
-                        if (_isInitialized) _engine.muteLocalAudioStream(_isMuted);
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(_isVideoOff ? Icons.videocam_off : Icons.videocam, color: Colors.white),
-                      onPressed: () {
-                        setState(() => _isVideoOff = !_isVideoOff);
-                        if (_isInitialized) _engine.muteLocalVideoStream(_isVideoOff);
-                      },
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: _C.red),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Quitter', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-              ],
+      
+            Positioned(
+              bottom: 20, left: 16, right: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  // Contrôles
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white),
+                        onPressed: () {
+                          setState(() => _isMuted = !_isMuted);
+                          if (_isInitialized) _engine.muteLocalAudioStream(_isMuted);
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(_isVideoOff ? Icons.videocam_off : Icons.videocam, color: Colors.white),
+                        onPressed: () {
+                          setState(() => _isVideoOff = !_isVideoOff);
+                          if (_isInitialized) _engine.muteLocalVideoStream(_isVideoOff);
+                        },
+                      ),
+                      // 🌟 BOUTON QUITTER BAS
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: _C.red),
+                        onPressed: _endBroadcast,
+                        child: _isEnding 
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text('Quitter', style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
