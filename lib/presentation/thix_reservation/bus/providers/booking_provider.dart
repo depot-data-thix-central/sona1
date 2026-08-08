@@ -1,27 +1,84 @@
 // lib/presentation/thix_reservation/bus/providers/booking_provider.dart
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../data/models/booking_model.dart';
 import '../data/services/bus_public_service.dart';
 
-class BookingProvider extends ChangeNotifier {
+// ─────────────────────────────────────────────────────────────
+// ÉTAT IMMUABLE DES RÉSERVATIONS
+// ─────────────────────────────────────────────────────────────
+class BookingState {
+  final List<BookingModel> myBookings;
+  final bool isLoading;
+  final bool isPaying;
+  final String? error;
+  final BookingModel? lastBooking;
+
+  const BookingState({
+    this.myBookings = const [],
+    this.isLoading = false,
+    this.isPaying = false,
+    this.error,
+    this.lastBooking,
+  });
+
+  BookingState copyWith({
+    List<BookingModel>? myBookings,
+    bool? isLoading,
+    bool? isPaying,
+    String? error,
+    bool clearError = false,
+    BookingModel? lastBooking,
+    bool clearLastBooking = false,
+  }) {
+    return BookingState(
+      myBookings: myBookings ?? this.myBookings,
+      isLoading: isLoading ?? this.isLoading,
+      isPaying: isPaying ?? this.isPaying,
+      error: clearError ? null : (error ?? this.error),
+      lastBooking: clearLastBooking ? null : (lastBooking ?? this.lastBooking),
+    );
+  }
+
+  // --- Getters filtrés ---
+  List<BookingModel> get upcoming => myBookings
+      .where((b) => b.status == 'confirmed' || b.status == 'pending_payment')
+      .toList();
+      
+  List<BookingModel> get completed => myBookings
+      .where((b) => b.status == 'completed')
+      .toList();
+      
+  List<BookingModel> get cancelled => myBookings
+      .where((b) => b.status == 'cancelled')
+      .toList();
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTIFIER (Logique Métier)
+// ─────────────────────────────────────────────────────────────
+class BookingNotifier extends Notifier<BookingState> {
   final BusPublicService _service = BusPublicService();
 
-  List<BookingModel> myBookings = [];
-  bool isLoading = false;
-  bool isPaying = false;
-  String? error;
-  BookingModel? lastBooking;
+  @override
+  BookingState build() {
+    return const BookingState();
+  }
 
   Future<void> loadMyBookings() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    
     try {
-      isLoading = true;
-      notifyListeners();
-      myBookings = await _service.getMyBookings();
+      final bookings = await _service.getMyBookings();
+      state = state.copyWith(
+        myBookings: bookings,
+        isLoading: false,
+      );
     } catch (e) {
-      error = e.toString();
-    } finally {
-      isLoading = false;
-      notifyListeners();
+      state = state.copyWith(
+        error: e.toString(),
+        isLoading: false,
+      );
     }
   }
 
@@ -32,11 +89,9 @@ class BookingProvider extends ChangeNotifier {
     required int basePrice,
     required int vipSupplement,
   }) async {
-    try {
-      isPaying = true;
-      error = null;
-      notifyListeners();
+    state = state.copyWith(isPaying: true, clearError: true);
 
+    try {
       const serviceFee = 300;
       final total = (basePrice * seats.length) + vipSupplement + serviceFee;
 
@@ -53,19 +108,27 @@ class BookingProvider extends ChangeNotifier {
       // Pour l'instant on simule succès et on confirme côté DB via RPC
       // await _service.confirmPayment(booking.id);
 
-      lastBooking = booking;
-      myBookings.insert(0, booking);
+      // On ajoute la nouvelle réservation au début de la liste
+      state = state.copyWith(
+        lastBooking: booking,
+        myBookings: [booking, ...state.myBookings],
+        isPaying: false,
+      );
+      
       return booking;
     } catch (e) {
-      error = 'Paiement échoué: $e';
+      state = state.copyWith(
+        error: 'Paiement échoué: $e',
+        isPaying: false,
+      );
       rethrow;
-    } finally {
-      isPaying = false;
-      notifyListeners();
     }
   }
-
-  List<BookingModel> get upcoming => myBookings.where((b) => b.status == 'confirmed' || b.status == 'pending_payment').toList();
-  List<BookingModel> get completed => myBookings.where((b) => b.status == 'completed').toList();
-  List<BookingModel> get cancelled => myBookings.where((b) => b.status == 'cancelled').toList();
 }
+
+// ─────────────────────────────────────────────────────────────
+// PROVIDER GLOBAL
+// ─────────────────────────────────────────────────────────────
+final bookingProvider = NotifierProvider<BookingNotifier, BookingState>(() {
+  return BookingNotifier();
+});
