@@ -26,7 +26,6 @@ import 'package:thix_id/l10n/locale_controller.dart';
 
 // ✅ Policy unique Web + Mobile
 import 'package:thix_id/core/theme/thix_design_policy.dart';
-import 'package:thix_id/core/theme/app_colors.dart';
 
 // ============================================================================
 // PAGE PRINCIPALE
@@ -153,7 +152,7 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     final badgeCountsStream = auth.currentUser == null ? Stream.value(SectionBadgeCounts.zero) : _counters.streamCounts(auth.currentUser!.id);
     
     return Scaffold(
-      backgroundColor: AppColors.lightGrayBg,
+      backgroundColor: ThixPolicy.surface,
       body: Stack(children: [
         const _HomeSoftBackground(),
         CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [
@@ -169,21 +168,21 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
               onAccountRequest: () => _handleRequestAccount(context)
             )
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl), child: _SearchBarOverlay(controller: _searchController, isSearching: _searching, onVerify: _handleHomeSearchVerify))),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl), child: _HeadlinesCarousel(controller: _headlinesController, uid: auth.currentUser?.id, onThixInfoTap: () => context.push(AppRoutes.thixInfo), onOpportunityTap: () => context.push(AppRoutes.opportunities)))),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl), child: _QuickActionsRow(onScanTap: _openThixAi, onDocumentTap: _openDocumentVault, onChatTap: _openThixChat, onSecurityTap: _openEmergency))),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s)),
+          const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s12)),
+          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20), child: _SearchBarOverlay(controller: _searchController, isSearching: _searching, onVerify: _handleHomeSearchVerify))),
+          const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s12)),
+          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20), child: _HeadlinesCarousel(controller: _headlinesController, uid: auth.currentUser?.id, onThixInfoTap: () => context.push(AppRoutes.thixInfo), onOpportunityTap: () => context.push(AppRoutes.opportunities)))),
+          const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s12)),
+          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20), child: _QuickActionsRow(onScanTap: _openThixAi, onDocumentTap: _openDocumentVault, onChatTap: _openThixChat, onSecurityTap: _openEmergency))),
+          const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s8)),
           SliverToBoxAdapter(child: StreamBuilder<SectionBadgeCounts>(stream: badgeCountsStream, builder: (context, snap) { final counts = snap.data ?? SectionBadgeCounts.zero; return _ServicesConstellation(counts: counts, onServiceTap: _handleServiceTap, onHomeTap: () => context.go(AppRoutes.home), onMiniAppsTap: _openMiniApps, onDocumentsTap: _openDocumentVault, onProfileTap: _onProfileTap, onScanTap: _openScanQr); })),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.s)),
-          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl), child: _PremiumStatusCard())),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.m)),
-          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl), child: _PersonalisedSection())),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl + 24)),
+          const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s8)),
+          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20), child: _PremiumStatusCard())),
+          const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s12)),
+          SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20), child: _PersonalisedSection())),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ]),
-        if (_searching) Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.4), child: const Center(child: CircularProgressIndicator(color: AppColors.primaryBlue)))),
+        if (_searching) Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.4), child: const Center(child: CircularProgressIndicator(color: ThixPolicy.primary)))),
       ]),
     );
   }
@@ -197,12 +196,12 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   _PinnedHeaderDelegate({required this.safeTop, required this.displayName, required this.photoUrl, required this.isAuthenticated, required this.badgeCountsStream, required this.onProfileTap, required this.onAccountRequest});
   double _headerExtent() => safeTop + 92; @override double get maxExtent => _headerExtent(); @override double get minExtent => _headerExtent();
   
-  @override Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) { return Container(decoration: BoxDecoration(color: AppColors.lightGrayBg, boxShadow: overlapsContent ? [const BoxShadow(color: AppColors.shadowSecondary, blurRadius: 14, offset: Offset(0, 8))] : null), child: _PremiumHeader(safeTop: safeTop, displayName: displayName, photoUrl: photoUrl, isAuthenticated: isAuthenticated, badgeCountsStream: badgeCountsStream, onProfileTap: onProfileTap, onAccountRequest: onAccountRequest)); }
+  @override Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) { return Container(decoration: BoxDecoration(color: ThixPolicy.surface, boxShadow: overlapsContent ? [BoxShadow(color: ThixPolicy.inkDeep.withOpacity(0.06), blurRadius: 14, offset: const Offset(0, 8))] : null), child: _PremiumHeader(safeTop: safeTop, displayName: displayName, photoUrl: photoUrl, isAuthenticated: isAuthenticated, badgeCountsStream: badgeCountsStream, onProfileTap: onProfileTap, onAccountRequest: onAccountRequest)); }
   @override bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) { return safeTop != oldDelegate.safeTop || displayName != oldDelegate.displayName || photoUrl != oldDelegate.photoUrl || isAuthenticated != oldDelegate.isAuthenticated; }
 }
 
 // BACKGROUND
-class _HomeSoftBackground extends StatelessWidget { const _HomeSoftBackground(); @override Widget build(BuildContext context) { return IgnorePointer(child: RepaintBoundary(child: Stack(children: [Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7F9FF), AppColors.lightGrayBg])))), Positioned(top: -220, right: -180, child: _SoftBlob(size: 420, colors: const [Color(0x2A003BFF), Color(0x1400214F)])), Positioned(top: -120, left: -220, child: _SoftBlob(size: 360, colors: const [Color(0x1F003BFF), Color(0x1200214F)]))]))); } }
+class _HomeSoftBackground extends StatelessWidget { const _HomeSoftBackground(); @override Widget build(BuildContext context) { return IgnorePointer(child: RepaintBoundary(child: Stack(children: [Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7F9FF), ThixPolicy.surface])))), Positioned(top: -220, right: -180, child: _SoftBlob(size: 420, colors: const [Color(0x2A003BFF), Color(0x1400214F)])), Positioned(top: -120, left: -220, child: _SoftBlob(size: 360, colors: const [Color(0x1F003BFF), Color(0x1200214F)]))]))); } }
 class _SoftBlob extends StatelessWidget { final double size; final List<Color> colors; const _SoftBlob({required this.size, required this.colors}); @override Widget build(BuildContext context) { return ClipOval(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18), child: Container(width: size, height: size, decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors))))); } }
 
 // HEADER
@@ -218,17 +217,17 @@ class _PremiumHeader extends StatelessWidget {
     final localeCode = context.select<LocaleController, String>((c) => c.locale.languageCode);
     
     return Padding(
-      padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + 10, AppSpacing.xl, 10),
+      padding: EdgeInsets.fromLTRB(ThixPolicy.s20, safeTop + 10, ThixPolicy.s20, 10),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
             const _RotatingGreeting(),
-            Row(children: [Flexible(child: Text(displayName, style: const TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: -0.3), overflow: TextOverflow.ellipsis))])
+            Row(children: [Flexible(child: Text(displayName, style: const TextStyle(color: ThixPolicy.textMain, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: -0.3), overflow: TextOverflow.ellipsis))])
           ]),
         ),
         Row(children: [
           // BOUTON LANGUE
-          Material(color: Colors.white, shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () { HapticFeedback.lightImpact(); showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const LanguageSheet()); }, child: Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: AppColors.cardBorder), boxShadow: AppShadows.secondary), child: Stack(alignment: Alignment.center, children: [const Icon(Icons.language_rounded, size: 20, color: AppColors.premiumAccent), Positioned(right: 2, bottom: 2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1), decoration: BoxDecoration(color: AppColors.premiumAccent, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white, width: 1)), child: Text(localeCode.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900))))])))),
+          Material(color: Colors.white, shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () { HapticFeedback.lightImpact(); showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const LanguageSheet()); }, child: Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: ThixPolicy.border), boxShadow: ThixPolicy.shadowSoft()), child: Stack(alignment: Alignment.center, children: [const Icon(Icons.language_rounded, size: 20, color: ThixPolicy.primaryDeep), Positioned(right: 2, bottom: 2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1), decoration: BoxDecoration(color: ThixPolicy.primaryDeep, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white, width: 1)), child: Text(localeCode.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900))))])))),
           const SizedBox(width: 8),
           
           // BOUTON NOTIFICATIONS
@@ -256,21 +255,21 @@ class _PremiumHeader extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white,
-                      border: Border.all(color: AppColors.cardBorder),
-                      boxShadow: AppShadows.secondary,
+                      border: Border.all(color: ThixPolicy.border),
+                      boxShadow: ThixPolicy.shadowSoft(),
                     ),
                     child: Stack(
                       alignment: Alignment.center,
                       clipBehavior: Clip.none,
                       children: [
-                        const Icon(Icons.notifications_none_rounded, size: 20, color: AppColors.premiumAccent),
+                        const Icon(Icons.notifications_none_rounded, size: 20, color: ThixPolicy.primaryDeep),
                         if (total > 0)
                           Positioned(
                             right: 0, top: 0,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.dangerRed,
+                                color: ThixPolicy.danger,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: Colors.white, width: 1.2),
                               ),
@@ -298,15 +297,15 @@ class _PremiumHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle, 
                 color: Colors.white, 
-                border: Border.all(color: AppColors.primaryBlue, width: 2), 
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3))]
+                border: Border.all(color: ThixPolicy.primary, width: 2), 
+                boxShadow: ThixPolicy.shadowSoft()
               ), 
               child: ClipOval(
                 child: trimmedPhoto.isNotEmpty 
-                  ? Image.network(trimmedPhoto, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: AppColors.lightGrayBg, child: const Icon(Icons.person_rounded))) 
+                  ? Image.network(trimmedPhoto, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: ThixPolicy.surface, child: const Icon(Icons.person_rounded))) 
                   : Container(
-                      color: AppColors.primaryBlue.withValues(alpha: 0.1), 
-                      child: const Icon(Icons.person_rounded, color: AppColors.primaryBlue)
+                      color: ThixPolicy.tint, 
+                      child: const Icon(Icons.person_rounded, color: ThixPolicy.primary)
                     )
               )
             ),
@@ -318,27 +317,43 @@ class _PremiumHeader extends StatelessWidget {
 }
 
 class _RotatingGreeting extends StatefulWidget { const _RotatingGreeting(); @override State<_RotatingGreeting> createState() => _RotatingGreetingState(); }
-class _RotatingGreetingState extends State<_RotatingGreeting> { static const List<Map<String, String>> _greetings = [{'lang': 'Lingala', 'text': 'Mbote'}, {'lang': 'Kiswahili', 'text': 'Jambo'}, {'lang': 'Tshiluba', 'text': 'Moyo'}, {'lang': 'Kikongo', 'text': 'Mbote'}]; int _index = 0; Timer? _timer; @override void initState() { super.initState(); _timer = Timer.periodic(const Duration(seconds: 3), (_) { if (!mounted) return; setState(() => _index = (_index + 1) % _greetings.length); }); } @override void dispose() { _timer?.cancel(); super.dispose(); } @override Widget build(BuildContext context) { final g = _greetings[_index]; return SizedBox(height: 15, child: AnimatedSwitcher(duration: const Duration(milliseconds: 380), transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: SlideTransition(position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim), child: child)), child: Row(key: ValueKey(g['lang']), mainAxisSize: MainAxisSize.min, children: [Text(g['text']!, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w800)), const SizedBox(width: 5), Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1), decoration: BoxDecoration(color: AppColors.goldBadge.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(6)), child: Text(g['lang']!, style: const TextStyle(color: AppColors.premiumAccent, fontSize: 8, fontWeight: FontWeight.w900)))]))); } }
+class _RotatingGreetingState extends State<_RotatingGreeting> { static const List<Map<String, String>> _greetings = [{'lang': 'Lingala', 'text': 'Mbote'}, {'lang': 'Kiswahili', 'text': 'Jambo'}, {'lang': 'Tshiluba', 'text': 'Moyo'}, {'lang': 'Kikongo', 'text': 'Mbote'}]; int _index = 0; Timer? _timer; @override void initState() { super.initState(); _timer = Timer.periodic(const Duration(seconds: 3), (_) { if (!mounted) return; setState(() => _index = (_index + 1) % _greetings.length); }); } @override void dispose() { _timer?.cancel(); super.dispose(); } @override Widget build(BuildContext context) { final g = _greetings[_index]; return SizedBox(height: 15, child: AnimatedSwitcher(duration: const Duration(milliseconds: 380), transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: SlideTransition(position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(anim), child: child)), child: Row(key: ValueKey(g['lang']), mainAxisSize: MainAxisSize.min, children: [Text(g['text']!, style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 11, fontWeight: FontWeight.w800)), const SizedBox(width: 5), Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1), decoration: BoxDecoration(color: ThixPolicy.gold.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(6)), child: Text(g['lang']!, style: const TextStyle(color: ThixPolicy.primaryDeep, fontSize: 8, fontWeight: FontWeight.w900)))]))); } }
 
-// SEARCH BAR 
+// SEARCH BAR — 🌟 RÉDUITE
 class _SearchBarOverlay extends StatefulWidget { final TextEditingController controller; final bool isSearching; final VoidCallback onVerify; const _SearchBarOverlay({required this.controller, required this.isSearching, required this.onVerify}); @override State<_SearchBarOverlay> createState() => _SearchBarOverlayState(); }
 class _SearchBarOverlayState extends State<_SearchBarOverlay> {
   @override Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Container(
-      height: 58, padding: const EdgeInsets.only(left: 16, right: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: AppShadows.secondary),
+      height: 48, // 🌟 RÉDUIT de 58 à 48 pour être plus compact
+      padding: const EdgeInsets.only(left: 16, right: 6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: ThixPolicy.shadowSoft()),
       child: Row(children: [
-        const Icon(Icons.search_rounded, size: 22, color: AppColors.textSecondary), const SizedBox(width: 10),
-        Expanded(child: TextField(controller: widget.controller, enabled: !widget.isSearching, textAlignVertical: TextAlignVertical.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.darkText), decoration: InputDecoration(isDense: true, border: InputBorder.none, hintText: 'THIX ID...', hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14), contentPadding: EdgeInsets.zero))),
+        const Icon(Icons.search_rounded, size: 20, color: ThixPolicy.textSecondary), const SizedBox(width: 8),
+        Expanded(child: TextField(controller: widget.controller, enabled: !widget.isSearching, textAlignVertical: TextAlignVertical.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ThixPolicy.textMain), decoration: InputDecoration(isDense: true, border: InputBorder.none, hintText: 'THIX ID...', hintStyle: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 13), contentPadding: EdgeInsets.zero))),
         const SizedBox(width: 8),
-        GestureDetector(onTap: widget.isSearching ? null : widget.onVerify, child: Container(height: 40, padding: const EdgeInsets.symmetric(horizontal: 18), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1877F2), Color(0xFF0B3B8F)]), borderRadius: BorderRadius.circular(20)), alignment: Alignment.center, child: Text(l10n.t('home_verify_btn'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)))),
-        IconButton(onPressed: () {}, icon: const Icon(Icons.tune_rounded, size: 22, color: AppColors.textSecondary)),
+        GestureDetector(
+          onTap: widget.isSearching ? null : widget.onVerify, 
+          child: Container(
+            height: 36, // 🌟 RÉDUIT le bouton de vérification (40 -> 36)
+            padding: const EdgeInsets.symmetric(horizontal: 16), 
+            decoration: BoxDecoration(gradient: ThixPolicy.brandGradient, borderRadius: BorderRadius.circular(18)), 
+            alignment: Alignment.center, 
+            child: Text(l10n.t('home_verify_btn'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12))
+          )
+        ),
+        IconButton(
+          onPressed: () {}, 
+          icon: const Icon(Icons.tune_rounded, size: 20, color: ThixPolicy.textSecondary),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
       ]),
     );
   }
 }
-class _PremiumStatusCard extends StatelessWidget { @override Widget build(BuildContext context) { final l10n = AppLocalizations.of(context); return Container(height: 84, decoration: BoxDecoration(gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.premiumSoftStart, AppColors.premiumSoftEnd]), border: Border.all(color: AppColors.cardBorder, width: 0.7), borderRadius: BorderRadius.circular(AppRadius.mainCard), boxShadow: AppShadows.main), padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.l), child: Row(children: [const Icon(Icons.stars_rounded, color: AppColors.premiumAccent, size: 26), const SizedBox(width: AppSpacing.m), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [Text(l10n.t('home_premium_member'), style: const TextStyle(color: AppColors.darkText, fontSize: 14, fontWeight: FontWeight.w800)), Text(l10n.t('home_trust_score', params: {'score': '98'}), style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600))])), Container(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s), decoration: BoxDecoration(color: AppColors.darkText, borderRadius: BorderRadius.circular(AppRadius.button)), child: Text(l10n.t('home_view_btn'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)))])); } }
+
+class _PremiumStatusCard extends StatelessWidget { @override Widget build(BuildContext context) { final l10n = AppLocalizations.of(context); return Container(height: 84, decoration: BoxDecoration(gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFEAF2FF), Colors.white]), border: Border.all(color: ThixPolicy.border, width: 0.7), borderRadius: BorderRadius.circular(ThixPolicy.rXl), boxShadow: ThixPolicy.shadowCard()), padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20, vertical: ThixPolicy.s16), child: Row(children: [const Icon(Icons.stars_rounded, color: ThixPolicy.primaryDeep, size: 26), const SizedBox(width: ThixPolicy.s12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [Text(l10n.t('home_premium_member'), style: const TextStyle(color: ThixPolicy.textMain, fontSize: 14, fontWeight: FontWeight.w800)), Text(l10n.t('home_trust_score', params: {'score': '98'}), style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 12, fontWeight: FontWeight.w600))])), Container(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s12, vertical: ThixPolicy.s8), decoration: BoxDecoration(color: ThixPolicy.textMain, borderRadius: BorderRadius.circular(14)), child: Text(l10n.t('home_view_btn'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)))])); } }
 
 // QUICK ACTIONS 
 class _QuickActionsRow extends StatelessWidget {
@@ -347,20 +362,21 @@ class _QuickActionsRow extends StatelessWidget {
   @override Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Row(children: [
-      Expanded(child: Center(child: _QuickActionItem(icon: Icons.smart_toy_rounded, label: l10n.t('quickThixIA'), accent: AppColors.premiumAccent, onTap: onScanTap))),
-      Expanded(child: Center(child: _QuickActionItem(icon: Icons.folder_shared_rounded, label: 'THIX DOC', accent: AppColors.domainLearning, onTap: onDocumentTap))),
-      Expanded(child: Center(child: _QuickActionItem(icon: Icons.forum_rounded, label: l10n.t('quickChat'), accent: AppColors.domainNetwork, onTap: onChatTap))),
-      Expanded(child: Center(child: _QuickActionItem(icon: Icons.emergency_rounded, label: 'THIX SOS', accent: AppColors.dangerRed, onTap: onSecurityTap))),
+      Expanded(child: Center(child: _QuickActionItem(icon: Icons.smart_toy_rounded, label: l10n.t('quickThixIA'), accent: ThixPolicy.primaryDeep, onTap: onScanTap))),
+      Expanded(child: Center(child: _QuickActionItem(icon: Icons.folder_shared_rounded, label: 'THIX DOC', accent: ThixPolicy.domainLearning, onTap: onDocumentTap))),
+      Expanded(child: Center(child: _QuickActionItem(icon: Icons.forum_rounded, label: l10n.t('quickChat'), accent: ThixPolicy.domainNetwork, onTap: onChatTap))),
+      Expanded(child: Center(child: _QuickActionItem(icon: Icons.emergency_rounded, label: 'THIX SOS', accent: ThixPolicy.danger, onTap: onSecurityTap))),
     ]);
   }
 }
-class _QuickActionItem extends StatelessWidget { final IconData icon; final String label; final Color accent; final VoidCallback onTap; const _QuickActionItem({required this.icon, required this.label, required this.accent, required this.onTap}); @override Widget build(BuildContext context) { return _PressableScale(onTap: onTap, child: SizedBox(width: 64, child: Column(mainAxisSize: MainAxisSize.min, children: [Container(width: 46, height: 46, decoration: BoxDecoration(color: AppColors.white, shape: BoxShape.circle, border: Border.all(color: accent.withValues(alpha: 0.35), width: 1.2), boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.22), blurRadius: 10, offset: const Offset(0, 4))]), alignment: Alignment.center, child: Icon(icon, size: 20, color: accent)), const SizedBox(height: 4), Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: accent == AppColors.dangerRed ? AppColors.dangerRed : AppColors.darkText, height: 1.1), textAlign: TextAlign.center)]))); } }
+class _QuickActionItem extends StatelessWidget { final IconData icon; final String label; final Color accent; final VoidCallback onTap; const _QuickActionItem({required this.icon, required this.label, required this.accent, required this.onTap}); @override Widget build(BuildContext context) { return _PressableScale(onTap: onTap, child: SizedBox(width: 64, child: Column(mainAxisSize: MainAxisSize.min, children: [Container(width: 46, height: 46, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: accent.withValues(alpha: 0.35), width: 1.2), boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.22), blurRadius: 10, offset: const Offset(0, 4))]), alignment: Alignment.center, child: Icon(icon, size: 20, color: accent)), const SizedBox(height: 4), Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: accent == ThixPolicy.danger ? ThixPolicy.danger : ThixPolicy.textMain, height: 1.1), textAlign: TextAlign.center)]))); } }
 class _PressableScale extends StatefulWidget { final Widget child; final VoidCallback onTap; const _PressableScale({required this.child, required this.onTap}); @override State<_PressableScale> createState() => _PressableScaleState(); }
 class _PressableScaleState extends State<_PressableScale> { bool _pressed = false; void _setPressed(bool v) { if (_pressed == v) return; setState(() => _pressed = v); } @override Widget build(BuildContext context) { return GestureDetector(onTap: widget.onTap, onTapDown: (_) => _setPressed(true), onTapCancel: () => _setPressed(false), onTapUp: (_) => _setPressed(false), child: AnimatedScale(scale: _pressed ? 0.96 : 1.0, duration: const Duration(milliseconds: 120), curve: Curves.easeOut, child: AnimatedOpacity(opacity: _pressed ? 0.92 : 1.0, duration: const Duration(milliseconds: 120), curve: Curves.easeOut, child: widget.child))); } }
 
 class _ServiceNodeData { final String key; final IconData icon; final String title; final Color color; final int? badge; const _ServiceNodeData({required this.key, required this.icon, required this.title, required this.color, this.badge}); }
 class _HubMenuItemData { final IconData icon; final String label; final VoidCallback onTap; const _HubMenuItemData({required this.icon, required this.label, required this.onTap}); }
 
+// CONSTELLATION — 🌟 CENTRAGE CORRIGÉ
 class _ServicesConstellation extends StatefulWidget { 
   final SectionBadgeCounts counts; 
   final void Function(String key) onServiceTap; 
@@ -379,7 +395,6 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
   bool _menuExpanded = false; 
   Timer? _collapseTimer;
   
-  // ✅ Valeurs fixes branchées sur la ThixPolicy
   static const double _stageHeight = ThixPolicy.constellationStageHeight;
   static const double _hubRadius = ThixPolicy.constellationHubRadius;
   static const double _hubMenuRadius = ThixPolicy.constellationHubMenuRadius;
@@ -395,18 +410,18 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
   List<_ServiceNodeData> _nodes(AppLocalizations l10n) {
     final c = widget.counts;
     return [
-      _ServiceNodeData(key: 'thixMedia', icon: Icons.play_circle_filled, title: 'TDIA', color: AppColors.domainMedia, badge: c.media),
-      _ServiceNodeData(key: 'thixMarket', icon: Icons.storefront_rounded, title: l10n.t('serviceMarket'), color: AppColors.domainMarket, badge: c.market),
-      _ServiceNodeData(key: 'formations', icon: Icons.school_rounded, title: l10n.t('serviceFormations'), color: AppColors.domainLearning, badge: c.formations),
-      _ServiceNodeData(key: 'emplois', icon: Icons.work_rounded, title: l10n.t('serviceEmplois'), color: AppColors.domainJobs, badge: c.jobs),
-      _ServiceNodeData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX MEDIA', color: AppColors.domainInfo, badge: c.info),
-      _ServiceNodeData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: l10n.t('serviceOpportunites'), color: AppColors.domainOpportunity, badge: c.opportunities),
-      _ServiceNodeData(key: 'evenements', icon: Icons.event_rounded, title: l10n.t('serviceEvenements'), color: AppColors.domainEvents, badge: c.events),
-      _ServiceNodeData(key: 'reseauPro', icon: Icons.groups_rounded, title: l10n.t('serviceReseauPro'), color: AppColors.domainNetwork, badge: c.network),
-      _ServiceNodeData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: l10n.t('serviceSante'), color: AppColors.domainHealth, badge: c.health),
-      _ServiceNodeData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: l10n.t('serviceMoney'), color: AppColors.domainMoney, badge: c.money),
-      _ServiceNodeData(key: 'monPays', icon: Icons.flag, title: l10n.t('serviceMonPays'), color: AppColors.domainGov, badge: c.monPays),
-      _ServiceNodeData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: l10n.t('serviceReservation'), color: AppColors.domainReservation, badge: c.reservation)
+      _ServiceNodeData(key: 'thixMedia', icon: Icons.play_circle_filled, title: 'TDIA', color: ThixPolicy.domainMedia, badge: c.media),
+      _ServiceNodeData(key: 'thixMarket', icon: Icons.storefront_rounded, title: l10n.t('serviceMarket'), color: ThixPolicy.domainMarket, badge: c.market),
+      _ServiceNodeData(key: 'formations', icon: Icons.school_rounded, title: l10n.t('serviceFormations'), color: ThixPolicy.domainLearning, badge: c.formations),
+      _ServiceNodeData(key: 'emplois', icon: Icons.work_rounded, title: l10n.t('serviceEmplois'), color: ThixPolicy.domainJobs, badge: c.jobs),
+      _ServiceNodeData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX MEDIA', color: ThixPolicy.domainInfo, badge: c.info),
+      _ServiceNodeData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: l10n.t('serviceOpportunites'), color: ThixPolicy.domainOpportunity, badge: c.opportunities),
+      _ServiceNodeData(key: 'evenements', icon: Icons.event_rounded, title: l10n.t('serviceEvenements'), color: ThixPolicy.domainEvents, badge: c.events),
+      _ServiceNodeData(key: 'reseauPro', icon: Icons.groups_rounded, title: l10n.t('serviceReseauPro'), color: ThixPolicy.domainNetwork, badge: c.network),
+      _ServiceNodeData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: l10n.t('serviceSante'), color: ThixPolicy.domainHealth, badge: c.health),
+      _ServiceNodeData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: l10n.t('serviceMoney'), color: ThixPolicy.domainMoney, badge: c.money),
+      _ServiceNodeData(key: 'monPays', icon: Icons.flag, title: l10n.t('serviceMonPays'), color: ThixPolicy.domainGov, badge: c.monPays),
+      _ServiceNodeData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: l10n.t('serviceReservation'), color: ThixPolicy.domainReservation, badge: c.reservation)
     ];
   }
 
@@ -424,11 +439,11 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
     ];
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l), 
+      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16), 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, 
         children: [
-          Row(children: [const Icon(Icons.hub_rounded, size: 15, color: AppColors.textSecondary), const SizedBox(width: 6), Text(l10n.t('servicesTitle'), style: const TextStyle(color: AppColors.darkText, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: -0.2))]), 
+          Row(children: [const Icon(Icons.hub_rounded, size: 15, color: ThixPolicy.textSecondary), const SizedBox(width: 6), Text(l10n.t('servicesTitle'), style: const TextStyle(color: ThixPolicy.textMain, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: -0.2))]), 
           const SizedBox(height: 4), 
           SizedBox(
             height: _stageHeight, 
@@ -437,7 +452,6 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
                 final w = constraints.maxWidth; 
                 final center = Offset(w / 2, _stageHeight / 2 - 6); 
                 
-                // ✅ Règle unique de la policy
                 final maxR = math.min(
                   w / 2 - ThixPolicy.constellationOuterPadding,
                   ThixPolicy.constellationMaxRadius,
@@ -473,7 +487,7 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
                               height: 260, 
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle, 
-                                gradient: RadialGradient(colors: [AppColors.goldBadge.withValues(alpha: 0.10), Colors.transparent])
+                                gradient: RadialGradient(colors: [ThixPolicy.gold.withValues(alpha: 0.10), Colors.transparent])
                               )
                             )
                           )
@@ -489,7 +503,9 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
                         ), 
                         for (var i = 0; i < nodes.length; i++) 
                           Positioned(
-                            left: positions[i].dx - ThixPolicy.constellationNodeHalf, 
+                            // 🌟 CORRECTION DU CENTRAGE : on soustrait 35 (la moitié de la largeur du widget SizedBox qui est de 70) 
+                            // et on garde la moitié de l'icône (23) pour la hauteur verticale.
+                            left: positions[i].dx - 35, 
                             top: positions[i].dy - ThixPolicy.constellationNodeHalf, 
                             child: _ConstellationNode(
                               data: nodes[i], 
@@ -524,10 +540,10 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
                                   height: _hubRadius * 2, 
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle, 
-                                    gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.goldBadge, AppColors.premiumAccent]), 
+                                    gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [ThixPolicy.gold, ThixPolicy.premiumAccent]), 
                                     boxShadow: [
-                                      BoxShadow(color: AppColors.goldBadge.withValues(alpha: 0.45), blurRadius: 22, spreadRadius: 1), 
-                                      BoxShadow(color: AppColors.premiumAccent.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 8))
+                                      BoxShadow(color: ThixPolicy.gold.withValues(alpha: 0.45), blurRadius: 22, spreadRadius: 1), 
+                                      BoxShadow(color: ThixPolicy.premiumAccent.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 8))
                                     ], 
                                     border: Border.all(color: Colors.white, width: 2.4)
                                   ), 
@@ -551,8 +567,8 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
   }
 }
 
-class _HubSatelliteButton extends StatelessWidget { final bool visible; final int order; final double size; final IconData icon; final String label; final VoidCallback onTap; const _HubSatelliteButton({required this.visible, required this.order, required this.size, required this.icon, required this.label, required this.onTap}); @override Widget build(BuildContext context) { return AnimatedScale(scale: visible ? 1.0 : 0.4, duration: Duration(milliseconds: 180 + order * 30), curve: Curves.easeOutBack, child: AnimatedOpacity(opacity: visible ? 1 : 0, duration: Duration(milliseconds: 150 + order * 30), child: IgnorePointer(ignoring: !visible, child: Tooltip(message: label, child: GestureDetector(onTap: onTap, child: Container(width: size, height: size, decoration: BoxDecoration(color: AppColors.white, shape: BoxShape.circle, border: Border.all(color: AppColors.premiumAccent.withValues(alpha: 0.35), width: 1.2), boxShadow: AppShadows.secondary), alignment: Alignment.center, child: Icon(icon, size: 15, color: AppColors.premiumAccent))))))); } }
-class _RadialBranchesPainter extends CustomPainter { final Offset center; final List<Offset> nodeOffsets; final double shineProgress; _RadialBranchesPainter({required this.center, required this.nodeOffsets, required this.shineProgress}); @override void paint(Canvas canvas, Size size) { for (var i = 0; i < nodeOffsets.length; i++) { final end = nodeOffsets[i]; final basePaint = Paint()..shader = LinearGradient(colors: [AppColors.goldBadge.withValues(alpha: 0.38), AppColors.premiumAccent.withValues(alpha: 0.30)]).createShader(Rect.fromPoints(center, end))..strokeWidth = 1.4..strokeCap = StrokeCap.round..style = PaintingStyle.stroke; canvas.drawLine(center, end, basePaint); final phase = i / nodeOffsets.length; final t = (shineProgress + phase) % 1.0; final shinePos = Offset.lerp(center, end, t)!; for (var trail = 1; trail <= 4; trail++) { final trailT = t - (trail * 0.03); if (trailT < 0) continue; final trailPos = Offset.lerp(center, end, trailT)!; final alpha = (0.28 - trail * 0.06).clamp(0.0, 0.28); canvas.drawCircle(trailPos, 2.4 - (trail * 0.3), Paint()..color = Colors.white.withValues(alpha: alpha)); } canvas.drawCircle(shinePos, 7, Paint()..shader = RadialGradient(colors: [Colors.white.withValues(alpha: 0.85), AppColors.goldBadge.withValues(alpha: 0.0)]).createShader(Rect.fromCircle(center: shinePos, radius: 7))); canvas.drawCircle(shinePos, 2.0, Paint()..color = Colors.white); } } @override bool shouldRepaint(covariant _RadialBranchesPainter oldDelegate) => true; }
+class _HubSatelliteButton extends StatelessWidget { final bool visible; final int order; final double size; final IconData icon; final String label; final VoidCallback onTap; const _HubSatelliteButton({required this.visible, required this.order, required this.size, required this.icon, required this.label, required this.onTap}); @override Widget build(BuildContext context) { return AnimatedScale(scale: visible ? 1.0 : 0.4, duration: Duration(milliseconds: 180 + order * 30), curve: Curves.easeOutBack, child: AnimatedOpacity(opacity: visible ? 1 : 0, duration: Duration(milliseconds: 150 + order * 30), child: IgnorePointer(ignoring: !visible, child: Tooltip(message: label, child: GestureDetector(onTap: onTap, child: Container(width: size, height: size, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: ThixPolicy.premiumAccent.withValues(alpha: 0.35), width: 1.2), boxShadow: ThixPolicy.shadowSoft()), alignment: Alignment.center, child: Icon(icon, size: 15, color: ThixPolicy.premiumAccent))))))); } }
+class _RadialBranchesPainter extends CustomPainter { final Offset center; final List<Offset> nodeOffsets; final double shineProgress; _RadialBranchesPainter({required this.center, required this.nodeOffsets, required this.shineProgress}); @override void paint(Canvas canvas, Size size) { for (var i = 0; i < nodeOffsets.length; i++) { final end = nodeOffsets[i]; final basePaint = Paint()..shader = LinearGradient(colors: [ThixPolicy.gold.withValues(alpha: 0.38), ThixPolicy.premiumAccent.withValues(alpha: 0.30)]).createShader(Rect.fromPoints(center, end))..strokeWidth = 1.4..strokeCap = StrokeCap.round..style = PaintingStyle.stroke; canvas.drawLine(center, end, basePaint); final phase = i / nodeOffsets.length; final t = (shineProgress + phase) % 1.0; final shinePos = Offset.lerp(center, end, t)!; for (var trail = 1; trail <= 4; trail++) { final trailT = t - (trail * 0.03); if (trailT < 0) continue; final trailPos = Offset.lerp(center, end, trailT)!; final alpha = (0.28 - trail * 0.06).clamp(0.0, 0.28); canvas.drawCircle(trailPos, 2.4 - (trail * 0.3), Paint()..color = Colors.white.withValues(alpha: alpha)); } canvas.drawCircle(shinePos, 7, Paint()..shader = RadialGradient(colors: [Colors.white.withValues(alpha: 0.85), ThixPolicy.gold.withValues(alpha: 0.0)]).createShader(Rect.fromCircle(center: shinePos, radius: 7))); canvas.drawCircle(shinePos, 2.0, Paint()..color = Colors.white); } } @override bool shouldRepaint(covariant _RadialBranchesPainter oldDelegate) => true; }
 
 class _ConstellationNode extends StatefulWidget { final _ServiceNodeData data; final VoidCallback onTap; const _ConstellationNode({required this.data, required this.onTap}); @override State<_ConstellationNode> createState() => _ConstellationNodeState(); }
 class _ConstellationNodeState extends State<_ConstellationNode> with SingleTickerProviderStateMixin { 
@@ -573,7 +589,7 @@ class _ConstellationNodeState extends State<_ConstellationNode> with SingleTicke
       child: ScaleTransition(
         scale: _scale, 
         child: SizedBox(
-          width: 70, 
+          width: 70, // 🌟 La largeur est de 70, c'est pourquoi on soustrait 35 pour centrer !
           child: Column(
             mainAxisSize: MainAxisSize.min, 
             children: [
@@ -582,7 +598,7 @@ class _ConstellationNodeState extends State<_ConstellationNode> with SingleTicke
                 children: [
                   Container(
                     width: size, height: size, 
-                    decoration: BoxDecoration(color: AppColors.white, shape: BoxShape.circle, border: Border.all(color: d.color.withValues(alpha: 0.35), width: 1.2), boxShadow: [BoxShadow(color: d.color.withValues(alpha: 0.22), blurRadius: 10, offset: const Offset(0, 4))]), 
+                    decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: d.color.withValues(alpha: 0.35), width: 1.2), boxShadow: [BoxShadow(color: d.color.withValues(alpha: 0.22), blurRadius: 10, offset: const Offset(0, 4))]), 
                     alignment: Alignment.center, 
                     child: Icon(d.icon, color: d.color, size: iconSize)
                   ), 
@@ -591,7 +607,7 @@ class _ConstellationNodeState extends State<_ConstellationNode> with SingleTicke
                       top: -4, right: -6, 
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5), 
-                        decoration: BoxDecoration(color: AppColors.dangerRed, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white, width: 1.2)), 
+                        decoration: BoxDecoration(color: ThixPolicy.danger, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white, width: 1.2)), 
                         child: Text('${d.badge}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))
                       )
                     )
@@ -603,7 +619,7 @@ class _ConstellationNodeState extends State<_ConstellationNode> with SingleTicke
                 textAlign: TextAlign.center, 
                 maxLines: 2, 
                 overflow: TextOverflow.ellipsis, 
-                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700, color: AppColors.darkText, height: 1.1)
+                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700, color: ThixPolicy.textMain, height: 1.1)
               )
             ]
           )
@@ -615,17 +631,17 @@ class _ConstellationNodeState extends State<_ConstellationNode> with SingleTicke
 
 // HEADLINES CAROUSEL
 class _HeadlinesCarousel extends StatefulWidget { final PageController controller; final String? uid; final VoidCallback onThixInfoTap; final VoidCallback onOpportunityTap; const _HeadlinesCarousel({required this.controller, required this.uid, required this.onThixInfoTap, required this.onOpportunityTap}); @override State<_HeadlinesCarousel> createState() => _HeadlinesCarouselState(); }
-class _HeadlinesCarouselState extends State<_HeadlinesCarousel> { late final Stream<List<Map<String, dynamic>>> _articlesStream; late final Stream<List<Map<String, dynamic>>> _opportunitiesStream; Stream<List<Map<String, dynamic>>>? _priorityNotifStream; Timer? _autoTimer; int _cardCount = 0; static const double _bannerHeight = 150; @override void initState() { super.initState(); final client = Supabase.instance.client; try { _articlesStream = client.from('thix_info_articles').stream(primaryKey: ['id']).eq('is_featured', true).order('created_at', ascending: false).limit(5); } catch (_) { _articlesStream = Stream.value(const <Map<String, dynamic>>[]); } try { _opportunitiesStream = client.from('opportunities').stream(primaryKey: ['id']).eq('is_featured', true).order('created_at', ascending: false).limit(5); } catch (_) { _opportunitiesStream = Stream.value(const <Map<String, dynamic>>[]); } final uid = widget.uid; if (uid != null && uid.trim().isNotEmpty) { try { _priorityNotifStream = client.from('notifications').stream(primaryKey: ['id']).eq('user_id', uid).order('created_at', ascending: false).limit(5); } catch (_) { _priorityNotifStream = null; } } _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) { if (!widget.controller.hasClients || _cardCount <= 1) return; final current = widget.controller.page?.round() ?? 0; final next = (current + 1) % _cardCount; widget.controller.animateToPage(next, duration: const Duration(milliseconds: 550), curve: Curves.easeInOutCubic); }); } @override void dispose() { _autoTimer?.cancel(); super.dispose(); } @override Widget build(BuildContext context) { final l10n = AppLocalizations.of(context); return StreamBuilder<List<Map<String, dynamic>>>(stream: _priorityNotifStream, builder: (context, notifSnap) { final notifs = (notifSnap.data ?? const <Map<String, dynamic>>[]).where((n) => (n['priority'] == true) || (n['is_priority'] == true)).toList(growable: false); final priorityNotif = notifs.isEmpty ? null : notifs.first; return StreamBuilder<List<Map<String, dynamic>>>(stream: _articlesStream, builder: (context, articleSnap) { final articles = articleSnap.data ?? const <Map<String, dynamic>>[]; return StreamBuilder<List<Map<String, dynamic>>>(stream: _opportunitiesStream, builder: (context, oppSnap) { final opportunities = oppSnap.data ?? const <Map<String, dynamic>>[]; final cards = <Widget>[]; if (priorityNotif != null) { cards.add(_HeadlineBanner(label: l10n.t('home_headline_notif_priority'), title: (priorityNotif['title'] as String?) ?? (priorityNotif['message'] as String?) ?? l10n.t('home_headline_new_notif'), imageUrl: priorityNotif['image_url'] as String?, icon: Icons.priority_high_rounded, accent: AppColors.dangerRed, height: _bannerHeight, onTap: () => NotificationsSheet.show(context))); } for (final a in articles) { cards.add(_HeadlineBanner(label: l10n.t('home_headline_thixinfo_label'), title: (a['title'] as String?) ?? l10n.t('home_headline_thixinfo_article'), imageUrl: a['image_url'] as String?, icon: Icons.newspaper_rounded, accent: AppColors.domainInfo, height: _bannerHeight, onTap: widget.onThixInfoTap)); } for (final o in opportunities) { cards.add(_HeadlineBanner(label: l10n.t('home_headline_opportunity_label'), title: (o['title'] as String?) ?? l10n.t('home_headline_new_opportunity'), imageUrl: o['image_url'] as String?, icon: Icons.lightbulb_rounded, accent: AppColors.domainOpportunity, height: _bannerHeight, onTap: widget.onOpportunityTap)); } if (cards.isEmpty) { cards.addAll([_HeadlineBanner(label: l10n.t('home_headline_thixinfo_label'), title: l10n.t('home_headline_thixinfo_default'), icon: Icons.newspaper_rounded, accent: AppColors.domainInfo, height: _bannerHeight, onTap: widget.onThixInfoTap), _HeadlineBanner(label: l10n.t('home_headline_opportunity_label'), title: l10n.t('home_headline_opportunity_default'), icon: Icons.lightbulb_rounded, accent: AppColors.domainOpportunity, height: _bannerHeight, onTap: widget.onOpportunityTap)]); } _cardCount = cards.length; return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [SizedBox(height: _bannerHeight, child: PageView(controller: widget.controller, children: cards)), if (cards.length > 1) ...[const SizedBox(height: 8), _CarouselDots(controller: widget.controller, count: cards.length)]]); }); }); }); } }
+class _HeadlinesCarouselState extends State<_HeadlinesCarousel> { late final Stream<List<Map<String, dynamic>>> _articlesStream; late final Stream<List<Map<String, dynamic>>> _opportunitiesStream; Stream<List<Map<String, dynamic>>>? _priorityNotifStream; Timer? _autoTimer; int _cardCount = 0; static const double _bannerHeight = 150; @override void initState() { super.initState(); final client = Supabase.instance.client; try { _articlesStream = client.from('thix_info_articles').stream(primaryKey: ['id']).eq('is_featured', true).order('created_at', ascending: false).limit(5); } catch (_) { _articlesStream = Stream.value(const <Map<String, dynamic>>[]); } try { _opportunitiesStream = client.from('opportunities').stream(primaryKey: ['id']).eq('is_featured', true).order('created_at', ascending: false).limit(5); } catch (_) { _opportunitiesStream = Stream.value(const <Map<String, dynamic>>[]); } final uid = widget.uid; if (uid != null && uid.trim().isNotEmpty) { try { _priorityNotifStream = client.from('notifications').stream(primaryKey: ['id']).eq('user_id', uid).order('created_at', ascending: false).limit(5); } catch (_) { _priorityNotifStream = null; } } _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) { if (!widget.controller.hasClients || _cardCount <= 1) return; final current = widget.controller.page?.round() ?? 0; final next = (current + 1) % _cardCount; widget.controller.animateToPage(next, duration: const Duration(milliseconds: 550), curve: Curves.easeInOutCubic); }); } @override void dispose() { _autoTimer?.cancel(); super.dispose(); } @override Widget build(BuildContext context) { final l10n = AppLocalizations.of(context); return StreamBuilder<List<Map<String, dynamic>>>(stream: _priorityNotifStream, builder: (context, notifSnap) { final notifs = (notifSnap.data ?? const <Map<String, dynamic>>[]).where((n) => (n['priority'] == true) || (n['is_priority'] == true)).toList(growable: false); final priorityNotif = notifs.isEmpty ? null : notifs.first; return StreamBuilder<List<Map<String, dynamic>>>(stream: _articlesStream, builder: (context, articleSnap) { final articles = articleSnap.data ?? const <Map<String, dynamic>>[]; return StreamBuilder<List<Map<String, dynamic>>>(stream: _opportunitiesStream, builder: (context, oppSnap) { final opportunities = oppSnap.data ?? const <Map<String, dynamic>>[]; final cards = <Widget>[]; if (priorityNotif != null) { cards.add(_HeadlineBanner(label: l10n.t('home_headline_notif_priority'), title: (priorityNotif['title'] as String?) ?? (priorityNotif['message'] as String?) ?? l10n.t('home_headline_new_notif'), imageUrl: priorityNotif['image_url'] as String?, icon: Icons.priority_high_rounded, accent: ThixPolicy.danger, height: _bannerHeight, onTap: () => NotificationsSheet.show(context))); } for (final a in articles) { cards.add(_HeadlineBanner(label: l10n.t('home_headline_thixinfo_label'), title: (a['title'] as String?) ?? l10n.t('home_headline_thixinfo_article'), imageUrl: a['image_url'] as String?, icon: Icons.newspaper_rounded, accent: ThixPolicy.domainInfo, height: _bannerHeight, onTap: widget.onThixInfoTap)); } for (final o in opportunities) { cards.add(_HeadlineBanner(label: l10n.t('home_headline_opportunity_label'), title: (o['title'] as String?) ?? l10n.t('home_headline_new_opportunity'), imageUrl: o['image_url'] as String?, icon: Icons.lightbulb_rounded, accent: ThixPolicy.domainOpportunity, height: _bannerHeight, onTap: widget.onOpportunityTap)); } if (cards.isEmpty) { cards.addAll([_HeadlineBanner(label: l10n.t('home_headline_thixinfo_label'), title: l10n.t('home_headline_thixinfo_default'), icon: Icons.newspaper_rounded, accent: ThixPolicy.domainInfo, height: _bannerHeight, onTap: widget.onThixInfoTap), _HeadlineBanner(label: l10n.t('home_headline_opportunity_label'), title: l10n.t('home_headline_opportunity_default'), icon: Icons.lightbulb_rounded, accent: ThixPolicy.domainOpportunity, height: _bannerHeight, onTap: widget.onOpportunityTap)]); } _cardCount = cards.length; return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [SizedBox(height: _bannerHeight, child: PageView(controller: widget.controller, children: cards)), if (cards.length > 1) ...[const SizedBox(height: 8), _CarouselDots(controller: widget.controller, count: cards.length)]]); }); }); }); } }
 class _CarouselDots extends StatefulWidget { final PageController controller; final int count; const _CarouselDots({required this.controller, required this.count}); @override State<_CarouselDots> createState() => _CarouselDotsState(); }
-class _CarouselDotsState extends State<_CarouselDots> { int _page = 0; @override void initState() { super.initState(); widget.controller.addListener(_onScroll); } void _onScroll() { if (!widget.controller.hasClients) return; final p = widget.controller.page?.round() ?? 0; if (p != _page && mounted) setState(() => _page = p); } @override void dispose() { widget.controller.removeListener(_onScroll); super.dispose(); } @override Widget build(BuildContext context) { final activePage = widget.count == 0 ? 0 : _page.clamp(0, widget.count - 1); return Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(widget.count, (i) { final active = i == activePage; return AnimatedContainer(duration: const Duration(milliseconds: 200), margin: const EdgeInsets.symmetric(horizontal: 3), width: active ? 16 : 6, height: 6, decoration: BoxDecoration(color: active ? AppColors.premiumAccent : AppColors.cardBorder, borderRadius: BorderRadius.circular(3))); })); } }
-class _HeadlineBanner extends StatelessWidget { final String label; final String title; final IconData icon; final Color accent; final String? imageUrl; final double height; final VoidCallback onTap; const _HeadlineBanner({required this.label, required this.title, required this.icon, required this.accent, required this.height, this.imageUrl, required this.onTap}); @override Widget build(BuildContext context) { final hasImage = (imageUrl ?? '').trim().isNotEmpty; return GestureDetector(onTap: onTap, child: ClipRRect(borderRadius: BorderRadius.circular(AppRadius.mainCard), child: Container(height: height, decoration: BoxDecoration(color: accent.withValues(alpha: 0.10), boxShadow: AppShadows.main), child: Stack(fit: StackFit.expand, children: [if (hasImage) Image.network(imageUrl!.trim(), fit: BoxFit.cover, loadingBuilder: (context, child, progress) { if (progress == null) return child; return Container(color: accent.withValues(alpha: 0.10), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: accent)))); }, errorBuilder: (_, __, ___) => Container(color: accent.withValues(alpha: 0.14), alignment: Alignment.center, child: Icon(icon, color: accent, size: 40))) else Container(color: accent.withValues(alpha: 0.14), alignment: Alignment.center, child: Icon(icon, color: accent, size: 40)), Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withValues(alpha: 0.0), Colors.black.withValues(alpha: hasImage ? 0.55 : 0.25)], stops: const [0.35, 1.0])))), Positioned(left: AppSpacing.l, right: AppSpacing.l, bottom: AppSpacing.m, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(8)), child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800))), const SizedBox(height: 6), Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.15), maxLines: 2, overflow: TextOverflow.ellipsis)])), Positioned(right: AppSpacing.m, top: AppSpacing.m, child: Container(width: 30, height: 30, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), shape: BoxShape.circle), child: const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.darkText)))])))); } }
+class _CarouselDotsState extends State<_CarouselDots> { int _page = 0; @override void initState() { super.initState(); widget.controller.addListener(_onScroll); } void _onScroll() { if (!widget.controller.hasClients) return; final p = widget.controller.page?.round() ?? 0; if (p != _page && mounted) setState(() => _page = p); } @override void dispose() { widget.controller.removeListener(_onScroll); super.dispose(); } @override Widget build(BuildContext context) { final activePage = widget.count == 0 ? 0 : _page.clamp(0, widget.count - 1); return Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(widget.count, (i) { final active = i == activePage; return AnimatedContainer(duration: const Duration(milliseconds: 200), margin: const EdgeInsets.symmetric(horizontal: 3), width: active ? 16 : 6, height: 6, decoration: BoxDecoration(color: active ? ThixPolicy.premiumAccent : ThixPolicy.border, borderRadius: BorderRadius.circular(3))); })); } }
+class _HeadlineBanner extends StatelessWidget { final String label; final String title; final IconData icon; final Color accent; final String? imageUrl; final double height; final VoidCallback onTap; const _HeadlineBanner({required this.label, required this.title, required this.icon, required this.accent, required this.height, this.imageUrl, required this.onTap}); @override Widget build(BuildContext context) { final hasImage = (imageUrl ?? '').trim().isNotEmpty; return GestureDetector(onTap: onTap, child: ClipRRect(borderRadius: BorderRadius.circular(ThixPolicy.rXl), child: Container(height: height, decoration: BoxDecoration(color: accent.withValues(alpha: 0.10), boxShadow: ThixPolicy.shadowCard()), child: Stack(fit: StackFit.expand, children: [if (hasImage) Image.network(imageUrl!.trim(), fit: BoxFit.cover, loadingBuilder: (context, child, progress) { if (progress == null) return child; return Container(color: accent.withValues(alpha: 0.10), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: accent)))); }, errorBuilder: (_, __, ___) => Container(color: accent.withValues(alpha: 0.14), alignment: Alignment.center, child: Icon(icon, color: accent, size: 40))) else Container(color: accent.withValues(alpha: 0.14), alignment: Alignment.center, child: Icon(icon, color: accent, size: 40)), Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withValues(alpha: 0.0), Colors.black.withValues(alpha: hasImage ? 0.55 : 0.25)], stops: const [0.35, 1.0])))), Positioned(left: ThixPolicy.s16, right: ThixPolicy.s16, bottom: ThixPolicy.s12, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(8)), child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800))), const SizedBox(height: 6), Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, height: 1.15), maxLines: 2, overflow: TextOverflow.ellipsis)])), Positioned(right: ThixPolicy.s12, top: ThixPolicy.s12, child: Container(width: 30, height: 30, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), shape: BoxShape.circle), child: const Icon(Icons.chevron_right_rounded, size: 18, color: ThixPolicy.textMain)))])))); } }
 class _PersonalisedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(l10n.t('home_personalised_title'), style: const TextStyle(color: AppColors.darkText, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
-      const SizedBox(height: AppSpacing.m),
+      Text(l10n.t('home_personalised_title'), style: const TextStyle(color: ThixPolicy.textMain, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
+      const SizedBox(height: ThixPolicy.s12),
       Row(children: [
         Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.favorite_rounded, label: 'Mariage', accent: const Color(0xFFE25A6A), onTap: () => context.push('/thix-weeding')))),
         Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.shopping_cart_rounded, label: l10n.t('home_mini_buy'), onTap: () {}))),
@@ -640,7 +656,7 @@ class _MiniRoundAction extends StatelessWidget {
   final String label;
   final Color accent;
   final VoidCallback onTap;
-  const _MiniRoundAction({required this.icon, required this.label, this.accent = AppColors.darkText, required this.onTap});
+  const _MiniRoundAction({required this.icon, required this.label, this.accent = ThixPolicy.textMain, required this.onTap});
   @override
   Widget build(BuildContext context) {
     final isWedding = label == 'Mariage';
@@ -650,15 +666,15 @@ class _MiniRoundAction extends StatelessWidget {
         Container(
           width: 48, height: 48,
           decoration: BoxDecoration(
-            color: isWedding ? const Color(0xFFFFF0F2) : AppColors.white,
+            color: isWedding ? const Color(0xFFFFF0F2) : Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: isWedding ? const Color(0xFFE25A6A).withValues(alpha: 0.4) : AppColors.cardBorder, width: 0.8),
-            boxShadow: AppShadows.secondary,
+            border: Border.all(color: isWedding ? const Color(0xFFE25A6A).withValues(alpha: 0.4) : ThixPolicy.border, width: 0.8),
+            boxShadow: ThixPolicy.shadowSoft(),
           ),
-          child: Icon(icon, size: 20, color: isWedding ? const Color(0xFFE25A6A) : AppColors.darkText),
+          child: Icon(icon, size: 20, color: isWedding ? const Color(0xFFE25A6A) : ThixPolicy.textMain),
         ),
         const SizedBox(height: 8),
-        Text(label, style: TextStyle(color: isWedding ? const Color(0xFFE25A6A) : AppColors.textSecondary, fontSize: 11, fontWeight: isWedding ? FontWeight.w800 : FontWeight.w700), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)
+        Text(label, style: TextStyle(color: isWedding ? const Color(0xFFE25A6A) : ThixPolicy.textSecondary, fontSize: 11, fontWeight: isWedding ? FontWeight.w800 : FontWeight.w700), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)
       ]),
     );
   }
@@ -672,18 +688,18 @@ class AccountRequestSheet extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Container(
       decoration: const BoxDecoration(
-        color: AppColors.white, 
+        color: Colors.white, 
         borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))
       ), 
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl), 
+        padding: const EdgeInsets.all(ThixPolicy.s20), 
         child: Column(
           mainAxisSize: MainAxisSize.min, 
           children: [
-            Container(width: 35, height: 4, decoration: BoxDecoration(color: AppColors.cardBorder, borderRadius: BorderRadius.circular(2))), 
-            const SizedBox(height: AppSpacing.l), 
-            Text(l10n.t('account_request_title'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.darkText)), 
-            const SizedBox(height: AppSpacing.xl), 
+            Container(width: 35, height: 4, decoration: BoxDecoration(color: ThixPolicy.border, borderRadius: BorderRadius.circular(2))), 
+            const SizedBox(height: ThixPolicy.s16), 
+            Text(l10n.t('account_request_title'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: ThixPolicy.textMain)), 
+            const SizedBox(height: ThixPolicy.s20), 
             _OptionButton(
               icon: Icons.person_outline, 
               title: l10n.t('account_personal'), 
@@ -692,7 +708,7 @@ class AccountRequestSheet extends StatelessWidget {
                 Navigator.pop(context, _AccountRequestChoice.personal); 
               }
             ), 
-            const SizedBox(height: AppSpacing.m)
+            const SizedBox(height: ThixPolicy.s12)
           ]
         )
       )
@@ -711,11 +727,11 @@ class _OptionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap, 
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.m), 
+        padding: const EdgeInsets.all(ThixPolicy.s12), 
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.cardBorder), 
+          border: Border.all(color: ThixPolicy.border), 
           borderRadius: BorderRadius.circular(14), 
-          color: AppColors.lightGrayBg
+          color: ThixPolicy.surface
         ), 
         child: Row(
           children: [
@@ -723,22 +739,22 @@ class _OptionButton extends StatelessWidget {
               width: 38, 
               height: 38, 
               decoration: BoxDecoration(
-                color: AppColors.darkText.withValues(alpha: 0.06), 
+                color: ThixPolicy.textMain.withValues(alpha: 0.06), 
                 borderRadius: BorderRadius.circular(10)
               ), 
-              child: Icon(icon, color: AppColors.darkText, size: 20)
+              child: Icon(icon, color: ThixPolicy.textMain, size: 20)
             ), 
-            const SizedBox(width: AppSpacing.m), 
+            const SizedBox(width: ThixPolicy.s12), 
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start, 
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.darkText)), 
-                  Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))
+                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: ThixPolicy.textMain)), 
+                  Text(subtitle, style: const TextStyle(fontSize: 11, color: ThixPolicy.textSecondary))
                 ]
               )
             ), 
-            const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textSecondary)
+            const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: ThixPolicy.textSecondary)
           ]
         )
       )
