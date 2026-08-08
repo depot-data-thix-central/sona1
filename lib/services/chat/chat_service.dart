@@ -65,8 +65,8 @@ class ChatService {
         'user_id': uid,
         'status': status,
         'custom_status': customStatus,
-        'last_seen_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'last_seen_at': DateTime.now().toUtc().toIso8601String(), // 🌟 UTC FIX
+        'updated_at': DateTime.now().toUtc().toIso8601String(),   // 🌟 UTC FIX
       });
     } catch (e) {
       debugPrint('❌ updatePresence: $e');
@@ -98,13 +98,13 @@ class ChatService {
   }
 
   // ============================================================
-  // CONVERSATIONS — VERSION ENTERPRISE (RPC)
+  // CONVERSATIONS
   // ============================================================
 
   Future<List<ChatConversation>> getConversations({
     int limit = 20,
     int offset = 0,
-    String filter = 'all', // all | unread | groups | personal
+    String filter = 'all', 
   }) async {
     try {
       if (currentUserId.isEmpty) return [];
@@ -122,7 +122,6 @@ class ChatService {
 
       final List data = response as List;
 
-      // 1. On parse les conversations retournées par le RPC
       List<ChatConversation> conversations = data.map((row) {
         final map = Map<String, dynamic>.from(row as Map);
 
@@ -137,7 +136,7 @@ class ChatService {
             content: preview,
             createdAt: map['last_message_at'] != null
                 ? DateTime.parse(map['last_message_at'].toString())
-                : DateTime.now(),
+                : DateTime.now().toUtc(),
           );
         }
 
@@ -157,14 +156,10 @@ class ChatService {
           unreadCount: (map['unread_count'] as num?)?.toInt() ?? 0,
           updatedAt: map['updated_at'] != null
               ? DateTime.parse(map['updated_at'].toString())
-              : DateTime.now(),
+              : DateTime.now().toUtc(),
           isPinned: map['is_pinned'] ?? false,
         );
       }).toList();
-
-      // 🌟 2. CORRECTIF DU BUG "MON NOM APPARAÎT PARTOUT" 🌟
-      // Le RPC se trompe sur "other_display_name". On va récupérer manuellement
-      // les vrais profils des interlocuteurs pour remplacer la mauvaise donnée.
       
       final otherUserIds = <String>{};
       for (final conv in conversations) {
@@ -181,7 +176,6 @@ class ChatService {
 
       if (otherUserIds.isNotEmpty) {
         try {
-          // On fait une seule requête pour tous les profils (très rapide)
           final profilesResponse = await _supabase
               .from('profiles')
               .select('id, display_name, full_name, avatar_url')
@@ -191,7 +185,6 @@ class ChatService {
             for (var p in (profilesResponse as List)) p['id'].toString(): p
           };
 
-          // On remplace les faux noms par les vrais !
           conversations = conversations.map((conv) {
             if (!conv.isGroup) {
               final otherId = conv.participantIds.firstWhere(
@@ -207,8 +200,8 @@ class ChatService {
                   groupName: conv.groupName,
                   groupAvatar: conv.groupAvatar,
                   participantIds: conv.participantIds,
-                  otherParticipantName: _resolveDisplayName(correctProfile), // ✅ VRAI NOM
-                  otherParticipantAvatar: correctProfile['avatar_url'] as String?, // ✅ VRAIE PHOTO
+                  otherParticipantName: _resolveDisplayName(correctProfile), 
+                  otherParticipantAvatar: correctProfile['avatar_url'] as String?, 
                   lastMessage: conv.lastMessage,
                   unreadCount: conv.unreadCount,
                   updatedAt: conv.updatedAt,
@@ -219,14 +212,13 @@ class ChatService {
             return conv;
           }).toList();
         } catch (e) {
-          debugPrint('❌ Erreur de correction des profils: $e');
+          debugPrint('❌ Erreur correction profils: $e');
         }
       }
 
       return conversations;
     } catch (e, st) {
-      debugPrint('❌ getConversations (RPC): $e');
-      debugPrint('$st');
+      debugPrint('❌ getConversations: $e\n$st');
       return [];
     }
   }
@@ -236,7 +228,7 @@ class ChatService {
       final result = await _supabase.rpc('rpc_get_total_unread');
       return (result as num?)?.toInt() ?? 0;
     } catch (e) {
-      debugPrint('❌ getTotalUnreadCount (RPC): $e');
+      debugPrint('❌ getTotalUnreadCount: $e');
       return 0;
     }
   }
@@ -326,7 +318,7 @@ class ChatService {
     if (uid.isEmpty) throw Exception('Not logged in');
 
     final conversationId = const Uuid().v4();
-    final now = DateTime.now().toIso8601String();
+    final now = DateTime.now().toUtc().toIso8601String(); // 🌟 UTC FIX
 
     await _supabase.from('conversations').insert({
       'id': conversationId,
@@ -355,7 +347,7 @@ class ChatService {
       groupName: groupName,
       groupAvatar: groupAvatar,
       participantIds: allParticipants.toList(),
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now().toUtc(),
     );
   }
 
@@ -396,7 +388,7 @@ class ChatService {
   }
 
   // ============================================================
-  // MESSAGES (AVEC NOUVELLE FONCTION EDIT)
+  // MESSAGES
   // ============================================================
 
   Future<List<ChatMessage>> getMessages(
@@ -447,7 +439,8 @@ class ChatService {
     final uid = currentUserId;
     if (uid.isEmpty) throw Exception('Not logged in');
 
-    final now = DateTime.now();
+    // 🌟 CORRECTION DU BUG DES 3 HEURES DE DÉCALAGE : ON FORCE UTC
+    final now = DateTime.now().toUtc();
     final deleteAt = isEphemeral && ephemeralDuration != null
         ? now.add(Duration(seconds: ephemeralDuration))
         : null;
@@ -458,7 +451,7 @@ class ChatService {
           'conversation_id': conversationId,
           'sender_id': uid,
           'content': content,
-          'created_at': now.toIso8601String(),
+          'created_at': now.toIso8601String(), // 🌟 Toujours enregistré en UTC
           'media_url': mediaUrl,
           'media_type': mediaType,
           'media_name': mediaName,
@@ -466,7 +459,7 @@ class ChatService {
           'reply_to_id': replyToId,
           'is_ephemeral': isEphemeral,
           'ephemeral_duration': ephemeralDuration,
-          'delete_at': deleteAt?.toIso8601String(),
+          'delete_at': deleteAt?.toIso8601String(), // 🌟 Toujours enregistré en UTC
         })
         .select('*, profiles!sender_id(display_name, full_name, avatar_url)')
         .single();
@@ -482,7 +475,7 @@ class ChatService {
     try {
       await _supabase.from('messages').update({
         'content': newContent,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', messageId);
     } catch (e) {
       debugPrint('❌ updateMessage: $e');
@@ -512,13 +505,13 @@ class ChatService {
         'message_id': messageId,
         'user_id': uid,
         'reaction': reaction,
-        'created_at': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toUtc().toIso8601String(),
       });
     }
   }
 
   // ============================================================
-  // REALTIME (basique)
+  // REALTIME
   // ============================================================
 
   Stream<List<ChatMessage>> subscribeToMessages(String conversationId) {
@@ -587,7 +580,7 @@ class ChatService {
           avatarUrl: profile?['avatar_url']?.toString(),
           role: map['role']?.toString() ?? 'member',
           isOnline: false,
-          joinedAt: DateTime.now(),
+          joinedAt: DateTime.now().toUtc(),
         );
       }).toList();
     } catch (e) {
@@ -628,7 +621,7 @@ class ChatService {
     try {
       await _supabase.from('messages').update({
         'is_deleted': true,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', messageId);
     } catch (e) {
       debugPrint('❌ deleteMessage: $e');
