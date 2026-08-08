@@ -135,6 +135,54 @@ class ChatMsgNotifier extends StateNotifier<List<ChatMessage>> {
 }
 
 // ─────────────────────────────────────────────────────────────
+// GROUPEMENT D'IMAGES CONSÉCUTIVES
+// ─────────────────────────────────────────────────────────────
+// Fusionne les messages-images consécutifs du même expéditeur (envoyés à
+// moins de 2 min d'intervalle) en un seul item affiché comme une grille
+// compacte, au lieu d'une bulle géante par photo.
+class _ChatListItem {
+  final List<ChatMessage> messages; // 1 message normal, ou N images groupées
+  _ChatListItem.single(ChatMessage m) : messages = [m];
+  _ChatListItem.group(this.messages);
+}
+
+List<_ChatListItem> _buildChatDisplayItems(List<ChatMessage> messages) {
+  // `messages` est trié du plus récent (index 0) au plus ancien.
+  final items = <_ChatListItem>[];
+  int i = 0;
+  while (i < messages.length) {
+    final m = messages[i];
+    final isImg = m.mediaType == 'image' && (m.mediaUrl?.isNotEmpty ?? false);
+
+    if (isImg) {
+      final group = <ChatMessage>[m];
+      int j = i + 1;
+      while (j < messages.length && group.length < 9) {
+        final next = messages[j];
+        final sameSender = next.senderId == m.senderId;
+        final alsoImg = next.mediaType == 'image' && (next.mediaUrl?.isNotEmpty ?? false);
+        final closeInTime = m.createdAt.difference(next.createdAt).inSeconds.abs() < 120;
+        if (sameSender && alsoImg && closeInTime) {
+          group.add(next);
+          j++;
+        } else {
+          break;
+        }
+      }
+      if (group.length > 1) {
+        items.add(_ChatListItem.group(group));
+        i = j;
+        continue;
+      }
+    }
+
+    items.add(_ChatListItem.single(m));
+    i++;
+  }
+  return items;
+}
+
+// ─────────────────────────────────────────────────────────────
 // SCREEN
 // ─────────────────────────────────────────────────────────────
 class ChatScreen extends ConsumerStatefulWidget {
@@ -781,6 +829,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   Widget build(BuildContext context) {
     final messages = ref.watch(chatMessagesProvider(widget.conversationId));
     final msgNotifier = ref.watch(chatMessagesProvider(widget.conversationId).notifier);
+    final displayItems = _buildChatDisplayItems(messages);
+    final currentUid = ref.read(chatServiceProvider).currentUserId;
 
     return Scaffold(
       backgroundColor: _C.bg,
@@ -798,12 +848,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       controller: _scrollController,
                       reverse: true,
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                      itemCount: messages.length + (msgNotifier.loadingMore ? 1 : 0),
+                      itemCount: displayItems.length + (msgNotifier.loadingMore ? 1 : 0),
                       itemBuilder: (ctx, i) {
-                        if (i == messages.length) return const Center(child: Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary))));
+                        if (i == displayItems.length) return const Center(child: Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary))));
 
-                        final msg = messages[i];
-                        final isOwn = msg.senderId == ref.read(chatServiceProvider).currentUserId;
+                        final item = displayItems[i];
+
+                        // Groupe d'images consécutives → grille compacte
+                        if (item.messages.length > 1) {
+                          final isOwn = item.messages.first.senderId == currentUid;
+                          return _ImageGroupBubble(images: item.messages, isOwn: isOwn);
+                        }
+
+                        final msg = item.messages.first;
+                        final isOwn = msg.senderId == currentUid;
 
                         return ChatMessageBubble(
                           message: msg,
@@ -1051,6 +1109,116 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         _inputController.text += items[index];
         _inputController.selection = TextSelection.fromPosition(TextPosition(offset: _inputController.text.length));
       }, child: Center(child: Text(items[index], style: const TextStyle(fontSize: 24)))),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// BULLE — GRILLE D'IMAGES GROUPÉES
+// ─────────────────────────────────────────────────────────────
+
+class _ImageGroupBubble extends StatelessWidget {
+  final List<ChatMessage> images;
+  final bool isOwn;
+  const _ImageGroupBubble({required this.images, required this.isOwn});
+
+  @override
+  Widget build(BuildContext context) {
+    final last = images.first; // le plus récent du groupe (liste triée récent → ancien)
+    final crossAxisCount = images.length == 2 ? 2 : (images.length <= 4 ? 2 : 3);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Align(
+        alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+          child: Container(
+            margin: EdgeInsets.only(left: isOwn ? 40 : 4, right: isOwn ? 4 : 40),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isOwn ? _C.primary : _C.otherBubble,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _C.border.withOpacity(0.6)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: images.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      mainAxisSpacing: 3,
+                      crossAxisSpacing: 3,
+                    ),
+                    itemBuilder: (context, i) {
+                      final msg = images[i];
+                      final url = msg.mediaUrl!;
+                      final tag = 'img_${msg.id}';
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FullScreenImagePage(imageUrl: url, tag: tag),
+                            ),
+                          );
+                        },
+                        child: Hero(
+                          tag: tag,
+                          child: Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) {
+                              if (progress == null) return child;
+                              return Container(
+                                color: _C.surfaceAlt,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 18, height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: _C.primary),
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => Container(
+                              color: _C.surfaceAlt,
+                              child: const Icon(Icons.broken_image_outlined, color: _C.textMuted),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, right: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        DateFormat('HH:mm').format(last.createdAt.toLocal()),
+                        style: TextStyle(fontSize: 10, color: isOwn ? Colors.white70 : _C.textMuted),
+                      ),
+                      if (isOwn) ...[
+                        const SizedBox(width: 4),
+                        MessageStatusTicks(isDelivered: last.isDelivered, isRead: last.isRead),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
