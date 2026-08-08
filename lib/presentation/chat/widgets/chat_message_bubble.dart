@@ -33,7 +33,7 @@ class ChatMessageBubble extends ConsumerStatefulWidget {
   final VoidCallback? onReply;
   final void Function(String reaction)? onReaction;
   final VoidCallback? onDelete;
-  final void Function(String newContent)? onEdit; // 🌟 NOUVEAU: Callback pour l'édition
+  final void Function(String newContent)? onEdit; 
   final ChatMessage? replyToMessage;
   final bool isEphemeralActive;
   final bool isInternalNote;
@@ -46,7 +46,7 @@ class ChatMessageBubble extends ConsumerStatefulWidget {
     this.onReply,
     this.onReaction,
     this.onDelete,
-    this.onEdit, // 🌟 AJOUT
+    this.onEdit, 
     this.replyToMessage,
     this.isEphemeralActive = false,
     this.isInternalNote = false,
@@ -72,7 +72,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     return !widget.isAgentView;
   }
 
-  // 🌟 Couleurs dynamiques selon si c'est ton message ou celui de l'autre
   Color get _bubbleColor {
     if (_isNote) return _C.noteBubble;
     return widget.isOwn ? _C.primary : _C.otherBubble;
@@ -140,7 +139,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                   widget.isOwn ? Alignment.centerRight : Alignment.centerLeft,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.85, // 🌟 Élargi à 85% pour respirer
+                  maxWidth: MediaQuery.of(context).size.width * 0.85, 
                 ),
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -201,6 +200,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                                 const SizedBox(width: 6),
                               ],
                               Text(
+                                // ✅ Heure locale correcte
                                 DateFormat('HH:mm').format(m.createdAt.toLocal()),
                                 style: TextStyle(
                                   fontSize: 10,
@@ -209,10 +209,10 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                               ),
                               if (widget.isOwn) ...[
                                 const SizedBox(width: 4),
+                                // ✅ Ticks de statut corrigés
                                 MessageStatusTicks(
                                   isDelivered: m.isDelivered,
                                   isRead: m.isRead,
-                                  color: _timeColor, // 🌟 Adapté à la couleur du fond
                                 ),
                               ],
                             ],
@@ -249,6 +249,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     );
   }
 
+  // ✅ Méthode _buildBody corrigée avec détection des images et encryption
   Widget _buildBody() {
     if (m.isCodeSnippet && (m.codeContent?.isNotEmpty ?? false)) {
       return ChatCodeSnippet(
@@ -261,7 +262,13 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
       return AudioPlayerWidget(audioUrl: m.mediaUrl!);
     }
 
-    if (m.mediaType == 'image' && m.mediaUrl != null) {
+    // Détection robuste d'image
+    final isImage = m.mediaType == 'image' ||
+        (m.mediaUrl != null &&
+            RegExp(r'\.(jpg|jpeg|png|gif|webp)(\?|$)', caseSensitive: false)
+                .hasMatch(m.mediaUrl!));
+
+    if (isImage && m.mediaUrl != null) {
       return _ImageBody(url: m.mediaUrl!, messageId: m.id);
     }
 
@@ -275,9 +282,13 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     }
 
     final raw = m.content;
-    final looksEncrypted = raw.length > 16 && 
-                           !raw.contains(' ') && 
-                           RegExp(r'^[A-Za-z0-9+/]+={0,2}$').hasMatch(raw);
+    // Détection de chiffrement ENCv1
+    final looksEncrypted = raw.startsWith('ENCv1:') ||
+        raw.startsWith('🔒') ||
+        (raw.length > 20 &&
+            !raw.contains(' ') &&
+            RegExp(r'^[A-Za-z0-9+/=]+$')
+                .hasMatch(raw.replaceFirst(RegExp(r'^ENCv1:'), '')));
 
     if (looksEncrypted && !_isDecrypted) {
       return _EncryptedBody(onUnlock: _unlock, isOwn: widget.isOwn);
@@ -344,7 +355,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     }
   }
 
-  // 🌟 NOUVEAU: Boîte de dialogue pour MODIFIER le message
   void _showEditDialog() async {
     final ctrl = TextEditingController(text: _isDecrypted ? _decrypted : m.content);
     
@@ -446,7 +456,6 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
               },
             ),
             
-            // 🌟 NOUVEAU: Bouton "Modifier" affiché uniquement si c'est notre propre message (et pas une image/audio)
             if (widget.isOwn && m.mediaUrl == null && !m.isDeleted)
               ListTile(
                 leading: const Icon(Icons.edit_rounded, color: _C.textMain),
@@ -769,27 +778,29 @@ class _QuickReactions extends StatelessWidget {
   }
 }
 
+// ✅ Ticks de statut remplacés
 class MessageStatusTicks extends StatelessWidget {
   final bool isDelivered;
   final bool isRead;
-  final Color color;
+  final Color color; 
 
   const MessageStatusTicks({
     super.key,
-    this.isDelivered = true,
+    this.isDelivered = false,
     required this.isRead,
-    this.color = _C.primary,
+    this.color = _C.primary, 
   });
 
   @override
   Widget build(BuildContext context) {
+    // Rouge = lu | Orange = reçu | Vert = parti
     if (isRead) {
-      return Icon(Icons.done_all_rounded, size: 14, color: color);
+      return const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFFEF4444)); 
     }
     if (isDelivered) {
-      return Icon(Icons.done_all_rounded, size: 14, color: color.withOpacity(0.7));
+      return const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFFF59E0B)); 
     }
-    return Icon(Icons.check_rounded, size: 14, color: color.withOpacity(0.7));
+    return const Icon(Icons.check_rounded, size: 14, color: Color(0xFF22C55E)); 
   }
 }
 
