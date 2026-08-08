@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:thix_id/core/theme/thix_design_policy.dart';
@@ -12,26 +11,22 @@ import '../../core/failure.dart';
 import '../../data/repositories/wedding_repository_impl.dart';
 import '../../domain/entities/wedding_entity.dart';
 
-part 'thix_weeding_home_page.g.dart';
-
 const Color kWeedingPrimary = Color(0xFFE25A6A);
 const Color kWeedingLight = Color(0xFFFF8A9B);
 
 // ============================================================
-// PROVIDERS (Corrigés sans syntaxe invalide)
+// PROVIDERS CLASSIQUES (Sans riverpod_generator pour éviter les erreurs .g.dart)
 // ============================================================
-@riverpod
-Future<List<Map<String, dynamic>>> homePromoSlides(Ref ref) async {
+final homePromoSlidesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 250));
   return [
     {'tag': 'PROMO FLASH', 'title': "Jusqu'à -40%", 'subtitle': 'Sur les salles de réception & traiteurs', 'detail': "Valable jusqu'au 30 Septembre 2026", 'cta': 'Profiter maintenant', 'imageUrl': 'https://picsum.photos/seed/wedding-venue/900/600'},
     {'tag': 'NOUVEAU', 'title': 'Créez votre site', 'subtitle': "De mariage en 5 minutes", 'detail': 'ID unique + invitations digitales', 'cta': 'Commencer', 'imageUrl': 'https://picsum.photos/seed/wedding-couple/900/600'},
     {'tag': 'PARTENAIRES', 'title': '+300 prestataires', 'subtitle': 'Vérifiés partout en RDC', 'detail': 'Avis authentiques & prix transparents', 'cta': 'Découvrir', 'imageUrl': 'https://picsum.photos/seed/wedding-deco/900/600'},
   ];
-}
+});
 
-@riverpod
-Future<List<Map<String, dynamic>>> homeCategories(Ref ref) async {
+final homeCategoriesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 150));
   return [
     {'label': 'Salles', 'icon': Icons.villa_outlined},
@@ -45,16 +40,14 @@ Future<List<Map<String, dynamic>>> homeCategories(Ref ref) async {
     {'label': 'Costumes', 'icon': Icons.checkroom_outlined},
     {'label': 'Plus', 'icon': Icons.grid_view_rounded},
   ];
-}
+});
 
-@riverpod
-Future<Map<String, int>> homeStats(Ref ref) async {
+final homeStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 200));
   return {'Prestataires': 312, 'Avis vérifiés': 1840, 'Offres actives': 26, 'Événements': 97};
-}
+});
 
-@riverpod
-Future<List<Map<String, dynamic>>> homeOffers(Ref ref) async {
+final homeOffersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 250));
   return [
     {'title': 'Salles de fête', 'subtitle': 'Réservez votre salle idéale', 'discount': '-30%', 'icon': Icons.villa_outlined, 'color': kWeedingPrimary},
@@ -62,10 +55,9 @@ Future<List<Map<String, dynamic>>> homeOffers(Ref ref) async {
     {'title': 'Photographe', 'subtitle': 'Package complet', 'discount': 'OFFERT', 'icon': Icons.camera_alt_outlined, 'color': ThixPolicy.primaryDeep},
     {'title': 'Décoration', 'subtitle': 'Ambiances inoubliables', 'discount': '-15%', 'icon': Icons.local_florist_outlined, 'color': ThixPolicy.primary},
   ];
-}
+});
 
-@riverpod
-Future<List<Map<String, dynamic>>> homeProviders(Ref ref) async {
+final homeProvidersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 300));
   return [
     {'name': 'Palais des Congrès', 'category': 'Salle de fête', 'zone': 'Kinshasa', 'rating': 4.8, 'reviews': 128, 'price': 'Dès 600$'},
@@ -73,17 +65,16 @@ Future<List<Map<String, dynamic>>> homeProviders(Ref ref) async {
     {'name': 'Lens Prod', 'category': 'Photographe', 'zone': 'Lubumbashi', 'rating': 4.9, 'reviews': 215, 'price': 'Dès 300$'},
     {'name': 'Dream Décor', 'category': 'Décoration', 'zone': 'Kinshasa', 'rating': 4.7, 'reviews': 78, 'price': 'Dès 250$'},
   ];
-}
+});
 
-@riverpod
-Future<List<Map<String, dynamic>>> homeAnnouncements(Ref ref) async {
+final homeAnnouncementsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 200));
   return [
     {'tag': 'À VENDRE', 'title': 'Robe de mariée T38', 'subtitle': '450$', 'icon': Icons.checkroom_outlined},
     {'tag': 'À LOUER', 'title': 'Salle 200 places', 'subtitle': '800$ / jour', 'icon': Icons.villa_outlined},
     {'tag': 'SERVICE', 'title': 'Coiffure & maquillage', 'subtitle': "Dès 30$", 'icon': Icons.face_retouching_natural_outlined},
   ];
-}
+});
 
 // ============================================================
 // PAGE PRINCIPALE
