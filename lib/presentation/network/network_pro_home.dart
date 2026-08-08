@@ -269,85 +269,93 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       );
     }
 
-    return Scaffold(
-      backgroundColor: ThixColors.background,
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            color: ThixColors.primary,
-            backgroundColor: ThixColors.white,
-            onRefresh: _onRefresh,
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                _buildSliverAppBar(),
-                SliverToBoxAdapter(
-                  child: _buildStoriesFacebook(currentUser.id),
+    // 🌟 FIX WHATSAPP/FACEBOOK: 
+    // MediaQuery encapsule toute la page pour FORCER l'échelle de texte à 1.0.
+    // Cela rend cette page totalement immunisée aux changements de taille de police du système Android.
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: const TextScaler.linear(1.0),
+      ),
+      child: Scaffold(
+        backgroundColor: ThixColors.background,
+        body: Stack(
+          children: [
+            RefreshIndicator(
+              color: ThixColors.primary,
+              backgroundColor: ThixColors.white,
+              onRefresh: _onRefresh,
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-                SliverToBoxAdapter(child: _buildFilters()),
-                
-                // 🌟 NOUVEAU HUB DIRECTS & ESPACES (Remplace le Quoi de Neuf Pro)
-                SliverToBoxAdapter(child: _buildLiveHub()),
-                
-                if (_suggestions.isNotEmpty)
-                  SliverToBoxAdapter(child: _buildSuggestions()),
-                feedAsync.when(
-                  loading: () =>
-                      SliverToBoxAdapter(child: _buildShimmerFeed()),
-                  error: (e, _) => SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(40),
-                      child: Center(
-                        child: Text(
-                          'Erreur: $e',
-                          style: const TextStyle(
-                            color: ThixColors.textSecondary,
+                slivers: [
+                  _buildSliverAppBar(),
+                  SliverToBoxAdapter(
+                    child: _buildStoriesFacebook(currentUser.id),
+                  ),
+                  SliverToBoxAdapter(child: _buildFilters()),
+                  
+                  // HUB DIRECTS & ESPACES
+                  SliverToBoxAdapter(child: _buildLiveHub()),
+                  
+                  if (_suggestions.isNotEmpty)
+                    SliverToBoxAdapter(child: _buildSuggestions()),
+                  feedAsync.when(
+                    loading: () =>
+                        SliverToBoxAdapter(child: _buildShimmerFeed()),
+                    error: (e, _) => SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Center(
+                          child: Text(
+                            'Erreur: $e',
+                            style: const TextStyle(
+                              color: ThixColors.textSecondary,
+                            ),
                           ),
                         ),
                       ),
                     ),
+                    data: (posts) {
+                      if (posts.isEmpty) {
+                        return SliverToBoxAdapter(child: _buildEmpty());
+                      }
+                      return SliverList.builder(
+                        itemCount: posts.length,
+                        itemBuilder: (c, i) {
+                          final post = posts[i];
+                          return PostCard(
+                            key: ValueKey(post.id),
+                            post: post,
+                            currentProfileId: currentUser.id,
+                            onLike: null,
+                            onComment: () => _openComments(post.id),
+                            onShare: () => _showShareSheet(post),
+                            onDelete: () => ref
+                                .read(feedProvider.notifier)
+                                .deletePost(post.id),
+                            onRefresh: null,
+                          );
+                        },
+                      );
+                    },
                   ),
-                  data: (posts) {
-                    if (posts.isEmpty) {
-                      return SliverToBoxAdapter(child: _buildEmpty());
-                    }
-                    return SliverList.builder(
-                      itemCount: posts.length,
-                      itemBuilder: (c, i) {
-                        final post = posts[i];
-                        return PostCard(
-                          key: ValueKey(post.id),
-                          post: post,
-                          currentProfileId: currentUser.id,
-                          onLike: null,
-                          onComment: () => _openComments(post.id),
-                          onShare: () => _showShareSheet(post),
-                          onDelete: () => ref
-                              .read(feedProvider.notifier)
-                              .deletePost(post.id),
-                          onRefresh: null,
-                        );
-                      },
-                    );
-                  },
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                ],
+              ),
             ),
-          ),
-          ValueListenableBuilder<bool>(
-            valueListenable: _navVisible,
-            builder: (context, visible, _) => Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _buildBottomNav(visible),
+            ValueListenableBuilder<bool>(
+              valueListenable: _navVisible,
+              builder: (context, visible, _) => Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _buildBottomNav(visible),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -624,8 +632,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     );
   }
 
-  // ─────────────────────────── NOUVEAU HUB DIRECTS & ESPACES ───────────────────────────
-  // Remplace complètement l'ancienne zone "Quoi de neuf pro"
+  // ─────────────────────────── HUB DIRECTS & ESPACES ───────────────────────────
 
   Widget _buildLiveHub() {
     return Container(
@@ -646,18 +653,19 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // EN-TÊTE : Avatar + Textes + Bouton Lancer
           Row(
             children: [
-              // L'avatar devient le point d'ancrage de cet espace dédié
               const HexAvatar(size: 44, ringWidth: 2.5),
               const SizedBox(width: 12),
+              // FIX WHATSAPP : Expanded force le texte à rester dans les limites
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Directs & Espaces',
+                      maxLines: 1, // Limite stricte
+                      overflow: TextOverflow.ellipsis, // Coupe avec "..."
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 15,
@@ -666,6 +674,8 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                     ),
                     Text(
                       'Rejoignez les sessions en cours',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11.5,
                         color: ThixColors.textSecondary,
@@ -674,7 +684,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                   ],
                 ),
               ),
-              // Bouton Lancer un direct
+              const SizedBox(width: 8),
               InkWell(
                 onTap: () {
                   Navigator.push(
@@ -710,7 +720,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
           
           const SizedBox(height: 18),
           
-          // LISTE HORIZONTALE DES LIVES EN COURS
           SizedBox(
             height: 120,
             child: ListView(
@@ -775,7 +784,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
       ),
       child: Stack(
         children: [
-          // Icône en filigrane pour le style
           Positioned(
             right: -10,
             bottom: -10,
@@ -1014,7 +1022,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
                           false,
                           () => _safePush('/network/discover'),
                         ),
-                        // 🌟 BOUTON DE PUBLICATION PRINCIPAL (Reste dispo depuis la NavBar)
                         _navBtn(
                           Icons.add_circle_outline_rounded,
                           'Publier',
@@ -1070,11 +1077,11 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
             const SizedBox(height: 2),
             Text(
               label,
+              maxLines: 1, // Coupe stricte
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
-                color:
-                    active ? ThixColors.primary : ThixColors.textSecondary,
+                color: active ? ThixColors.primary : ThixColors.textSecondary,
               ),
             ),
             if (active)
@@ -1318,7 +1325,7 @@ class _FbStoryCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               name,
-              maxLines: 1,
+              maxLines: 1, // FIX WHATSAPP : Coupe stricte du texte long
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
