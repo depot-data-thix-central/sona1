@@ -196,7 +196,6 @@ class _ReceptionPanel extends StatelessWidget {
                           await counters.markSectionSeen(uid: meId, section: ThixSection.info);
                           if (context.mounted) {
                             context.pop();
-                            // ✅ Remplacement de AlertInfoSheet.show(context) par un AlertDialog
                             showDialog(
                               context: context,
                               builder: (ctx) => AlertDialog(
@@ -251,6 +250,16 @@ class _ReceptionPanel extends StatelessWidget {
                         onTap: () async {
                           await counters.markSectionSeen(uid: meId, section: ThixSection.jobs);
                           if (context.mounted) context.push(AppRoutes.jobs);
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      _SectionChip(
+                        icon: Icons.storefront_rounded,
+                        label: 'Market',
+                        count: counts.market,
+                        onTap: () async {
+                          await counters.markSectionSeen(uid: meId, section: ThixSection.market);
+                          if (context.mounted) context.push(AppRoutes.thixMarket);
                         },
                       ),
                     ],
@@ -487,7 +496,7 @@ class _ReceptionPanel extends StatelessWidget {
     );
   }
 
-    List<Map<String, dynamic>> _syntheticNotificationsFromCounts(SectionBadgeCounts counts) {
+  List<Map<String, dynamic>> _syntheticNotificationsFromCounts(SectionBadgeCounts counts) {
     Map<String, dynamic> mk({required String section, required String type, required String title, required String body, required int count}) {
       return {
         '__synthetic': true,
@@ -554,7 +563,6 @@ class _ReceptionPanel extends StatelessWidget {
         count: counts.info,
       ));
     }
-    // 🌟 AJOUT DE LA SECTION MARKET ICI
     if (counts.market > 0) {
       out.add(mk(
         section: ThixSection.market.name,
@@ -566,6 +574,7 @@ class _ReceptionPanel extends StatelessWidget {
     }
     return out;
   }
+
   Future<void> _handleSyntheticTap({required BuildContext context, required String section}) async {
     try {
       final s = ThixSection.values.firstWhere((e) => e.name == section, orElse: () => ThixSection.messages);
@@ -578,7 +587,6 @@ class _ReceptionPanel extends StatelessWidget {
           return;
         case ThixSection.info:
           context.pop();
-          // ✅ Remplacement de AlertInfoSheet.show(context) par un AlertDialog
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -605,10 +613,13 @@ class _ReceptionPanel extends StatelessWidget {
         case ThixSection.jobs:
           context.push(AppRoutes.jobs);
           return;
-        // 🌟 AJOUT DU CAS MARKET MANQUANT QUI PROVOQUAit L'ERREUR
+        case ThixSection.network:
+          context.pop();
+          context.push('/network');
+          return;
         case ThixSection.market:
           context.pop();
-          context.push(AppRoutes.thixMarket); // Remplace par ta route exacte du market si besoin
+          context.push(AppRoutes.thixMarket);
           return;
       }
     } catch (e) {
@@ -637,7 +648,6 @@ class _ReceptionPanel extends StatelessWidget {
     return lines.where((l) => l.trim().isNotEmpty).join('\n');
   }
 }
-
 
 class _IncomingAccessRequestCard extends StatelessWidget {
   final String requestId;
@@ -847,6 +857,8 @@ class _SyntheticNotificationRow extends StatelessWidget {
         return Icons.school_rounded;
       case 'info':
         return Icons.newspaper_rounded;
+      case 'market':
+        return Icons.storefront_rounded;
       default:
         return Icons.notifications_rounded;
     }
