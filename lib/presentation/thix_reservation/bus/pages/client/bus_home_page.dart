@@ -98,7 +98,6 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
       } catch (_) {}
     }
     
-    // 🌟 Remplacé context.read par ref.read (Riverpod)
     if (mounted) Future.microtask(() => ref.read(agencyDashboardProvider.notifier).init());
     
     try {
@@ -118,7 +117,6 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // 🌟 Écoute Riverpod
     final searchP = ref.watch(busSearchProvider); 
 
     return Scaffold(
@@ -127,7 +125,7 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        toolbarHeight: 56, // 🌟 Plus compact
+        toolbarHeight: 56,
         leading: IconButton(icon: const Icon(Icons.menu_rounded, color: ThixPolicy.textMain), onPressed: () {}),
         title: Row(children: [
           Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: ThixPolicy.primaryDeep, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.directions_bus_rounded, color: Colors.white, size: 18)),
@@ -153,7 +151,6 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // 🌟 HERO BANNER RÉDUIT (182 -> 160)
             SizedBox(
               height: 160,
               child: Stack(children: [
@@ -192,7 +189,6 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
             ),
             const SizedBox(height: 16),
             
-            // 🌟 CATEGORIES COMPACTES ALIGNÉES (ThixPolicy)
             Container(padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(ThixPolicy.rLg), border: Border.all(color: ThixPolicy.border), boxShadow: ThixPolicy.shadowSoft()), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
               _Cat(icon: Icons.flight_rounded, label: "Vols", color: ThixPolicy.domainLearning, onTap: () {}),
               _Cat(icon: Icons.king_bed_rounded, label: "Hôtels", color: ThixPolicy.domainNetwork, onTap: () {}),
@@ -202,7 +198,6 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
             ])),
             const SizedBox(height: 20),
             
-            // 🌟 MOTEUR DE RECHERCHE
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(ThixPolicy.rXl), border: Border.all(color: ThixPolicy.border), boxShadow: ThixPolicy.shadowSoft()),
@@ -220,7 +215,7 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
                   const SizedBox(width: 8),
                   Expanded(child: _FieldBox(icon: Icons.person_outline_rounded, label: "Passagers", value: "${searchP.passengers}", onTap: () => _pickPassengers(context))),
                   const SizedBox(width: 10),
-                  SizedBox(height: 42, child: ElevatedButton(onPressed: () async { await searchP.search(); if (context.mounted) context.push("/thix-reservation/bus/search"); }, style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Icon(Icons.search_rounded, color: Colors.white, size: 20))),
+                  SizedBox(height: 42, child: ElevatedButton(onPressed: () async { await ref.read(busSearchProvider.notifier).search(); if (context.mounted) context.push("/thix-reservation/bus/search"); }, style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Icon(Icons.search_rounded, color: Colors.white, size: 20))),
                 ]),
               ]),
             ),
@@ -279,7 +274,7 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
     final d = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: ThixPolicy.primary)), child: child!),
     );
-    if (d != null && mounted) ref.read(busSearchProvider).setDate(d);
+    if (d != null && mounted) ref.read(busSearchProvider.notifier).setDate(d);
   }
 
   void _pickPassengers(BuildContext context) {
@@ -296,9 +291,9 @@ class _BusHomePageState extends ConsumerState<BusHomePage> {
               Container(
                 decoration: BoxDecoration(color: ThixPolicy.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: ThixPolicy.border)),
                 child: Row(children: [
-                  IconButton(onPressed: () { if (p > 1) ref.read(busSearchProvider).setPassengers(p - 1); }, icon: const Icon(Icons.remove_rounded, color: ThixPolicy.textMain)), 
+                  IconButton(onPressed: () { if (p > 1) ref.read(busSearchProvider.notifier).setPassengers(p - 1); }, icon: const Icon(Icons.remove_rounded, color: ThixPolicy.textMain)), 
                   SizedBox(width: 30, child: Text("$p", textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16))), 
-                  IconButton(onPressed: () => ref.read(busSearchProvider).setPassengers(p + 1), icon: const Icon(Icons.add_rounded, color: ThixPolicy.textMain))
+                  IconButton(onPressed: () => ref.read(busSearchProvider.notifier).setPassengers(p + 1), icon: const Icon(Icons.add_rounded, color: ThixPolicy.textMain))
                 ]),
               ),
             ]),
@@ -373,7 +368,7 @@ class _CityPickerState extends ConsumerState<_CityPicker> {
       const SizedBox(height: 20),
       Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: TextField(controller: ctrl, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: widget.isDep ? "Ville de départ" : "Ville d'arrivée", hintStyle: const TextStyle(color: ThixPolicy.textSecondary), prefixIcon: const Icon(Icons.search_rounded, color: ThixPolicy.textSecondary), filled: true, fillColor: ThixPolicy.surface, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(vertical: 14)))),
       const SizedBox(height: 10),
-      if (loading) const Expanded(child: Center(child: CircularProgressIndicator(color: ThixPolicy.primary))) else Expanded(child: ListView.separated(controller: c, itemCount: filtered.length, separatorBuilder: (_, __) => const Divider(height: 1, color: ThixPolicy.border), itemBuilder: (_, i) => ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4), title: Text(filtered[i], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ThixPolicy.textMain)), trailing: const Icon(Icons.chevron_right_rounded, size: 16, color: ThixPolicy.textSecondary), onTap: () { if (widget.isDep) ref.read(busSearchProvider).setDeparture(filtered[i]); else ref.read(busSearchProvider).setArrival(filtered[i]); Navigator.pop(context); }))),
+      if (loading) const Expanded(child: Center(child: CircularProgressIndicator(color: ThixPolicy.primary))) else Expanded(child: ListView.separated(controller: c, itemCount: filtered.length, separatorBuilder: (_, __) => const Divider(height: 1, color: ThixPolicy.border), itemBuilder: (_, i) => ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4), title: Text(filtered[i], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ThixPolicy.textMain)), trailing: const Icon(Icons.chevron_right_rounded, size: 16, color: ThixPolicy.textSecondary), onTap: () { if (widget.isDep) ref.read(busSearchProvider.notifier).setDeparture(filtered[i]); else ref.read(busSearchProvider.notifier).setArrival(filtered[i]); Navigator.pop(context); }))),
     ]));
   }
 }
