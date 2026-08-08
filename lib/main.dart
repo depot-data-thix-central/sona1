@@ -55,10 +55,28 @@ class _MyAppState extends ConsumerState<MyApp> {
         app_provider.Provider<ProfileService>(create: (_) => ProfileService()),
       ],
       child: MaterialApp.router(
-        title: 'THIX ID CENTRAL', debugShowCheckedModeBanner: false,
-        theme: lightTheme, darkTheme: darkTheme, routerConfig: _router!,
-        locale: _locale.locale, supportedLocales: LocaleController.supportedLocales,
-        localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+        title: 'THIX ID CENTRAL', 
+        debugShowCheckedModeBanner: false,
+        theme: lightTheme, 
+        darkTheme: darkTheme, 
+        routerConfig: _router!,
+        locale: _locale.locale, 
+        supportedLocales: LocaleController.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate, 
+          GlobalMaterialLocalizations.delegate, 
+          GlobalWidgetsLocalizations.delegate, 
+          GlobalCupertinoLocalizations.delegate
+        ],
+        // Le correctif est ajouté ici : il force l'échelle de texte à 1.0
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: const TextScaler.linear(1.0),
+            ),
+            child: child!,
+          );
+        },
       ),
     );
   }
