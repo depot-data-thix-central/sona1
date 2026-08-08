@@ -309,22 +309,22 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
   void _runHubItem(VoidCallback action) { _collapseTimer?.cancel(); setState(() => _menuExpanded = false); action(); }
   
   List<_ServiceNodeData> _nodes(AppLocalizations l10n) {
-    final c = widget.counts;
-    return [
-      _ServiceNodeData(key: 'thixMedia', icon: Icons.play_circle_filled, title: 'TDIA', color: AppColors.domainMedia),
-      _ServiceNodeData(key: 'thixMarket', icon: Icons.storefront_rounded, title: l10n.t('serviceMarket'), color: AppColors.domainMarket),
-      _ServiceNodeData(key: 'formations', icon: Icons.school_rounded, title: l10n.t('serviceFormations'), color: AppColors.domainLearning, badge: c.formations),
-      _ServiceNodeData(key: 'emplois', icon: Icons.work_rounded, title: l10n.t('serviceEmplois'), color: AppColors.domainJobs, badge: c.jobs),
-      _ServiceNodeData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX MEDIA', color: AppColors.domainInfo, badge: c.info),
-      _ServiceNodeData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: l10n.t('serviceOpportunites'), color: AppColors.domainOpportunity),
-      _ServiceNodeData(key: 'evenements', icon: Icons.event_rounded, title: l10n.t('serviceEvenements'), color: AppColors.domainEvents, badge: c.events),
-      _ServiceNodeData(key: 'reseauPro', icon: Icons.groups_rounded, title: l10n.t('serviceReseauPro'), color: AppColors.domainNetwork),
-      _ServiceNodeData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: l10n.t('serviceSante'), color: AppColors.domainHealth),
-      _ServiceNodeData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: l10n.t('serviceMoney'), color: AppColors.domainMoney),
-      _ServiceNodeData(key: 'monPays', icon: Icons.flag, title: l10n.t('serviceMonPays'), color: AppColors.domainGov),
-      _ServiceNodeData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: l10n.t('serviceReservation'), color: AppColors.domainReservation)
-    ];
-  }
+  final c = widget.counts;
+  return [
+    _ServiceNodeData(key: 'thixMedia', icon: Icons.play_circle_filled, title: 'TDIA', color: AppColors.domainMedia, badge: c.media),
+    _ServiceNodeData(key: 'thixMarket', icon: Icons.storefront_rounded, title: l10n.t('serviceMarket'), color: AppColors.domainMarket, badge: c.market),
+    _ServiceNodeData(key: 'formations', icon: Icons.school_rounded, title: l10n.t('serviceFormations'), color: AppColors.domainLearning, badge: c.formations),
+    _ServiceNodeData(key: 'emplois', icon: Icons.work_rounded, title: l10n.t('serviceEmplois'), color: AppColors.domainJobs, badge: c.jobs),
+    _ServiceNodeData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX MEDIA', color: AppColors.domainInfo, badge: c.info),
+    _ServiceNodeData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: l10n.t('serviceOpportunites'), color: AppColors.domainOpportunity, badge: c.opportunities),
+    _ServiceNodeData(key: 'evenements', icon: Icons.event_rounded, title: l10n.t('serviceEvenements'), color: AppColors.domainEvents, badge: c.events),
+    _ServiceNodeData(key: 'reseauPro', icon: Icons.groups_rounded, title: l10n.t('serviceReseauPro'), color: AppColors.domainNetwork, badge: c.network),
+    _ServiceNodeData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: l10n.t('serviceSante'), color: AppColors.domainHealth, badge: c.health),
+    _ServiceNodeData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: l10n.t('serviceMoney'), color: AppColors.domainMoney, badge: c.money),
+    _ServiceNodeData(key: 'monPays', icon: Icons.flag, title: l10n.t('serviceMonPays'), color: AppColors.domainGov, badge: c.monPays),
+    _ServiceNodeData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: l10n.t('serviceReservation'), color: AppColors.domainReservation, badge: c.reservation),
+  ];
+}
 
   Offset _polar(Offset center, double angleDeg, double radius) { final rad = angleDeg * math.pi / 180; return center + Offset(radius * math.cos(rad), radius * math.sin(rad)); }
 
