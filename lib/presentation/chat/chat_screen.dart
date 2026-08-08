@@ -52,9 +52,10 @@ class _C {
   static const orange = Color(0xFFF59E0B);
   static const gold = Color(0xFFE3B23C);
   static const bubbleOwn = Color(0xFFE7FFDB); 
-  static const bubbleOther = Colors.white;
+  static const otherBubble = Colors.white; 
   static const navyDeep = Color(0xFF0A1F44); 
 }
+
 
 // Messages provider (family)
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
