@@ -105,15 +105,33 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     } catch (e) { if (!mounted) return; await FullScreenMessage.showError(context, title: l10n.t('home_verify_error_title'), message: l10n.t('home_verify_error_msg')); } finally { if (mounted) { setState(() => _searching = false); } }
   }
 
+  // --- NAVIGATION PROFIL ---
   void _onProfileTap() {
     HapticFeedback.mediumImpact();
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) { context.push(AppRoutes.login); } else { context.go(AppRoutes.userDashboard); }
+
+    if (user == null) {
+      context.push(AppRoutes.login);
+    } else {
+      // Dashboard est dans la branche 3 du shell → go() pour basculer de branche
+      context.go(AppRoutes.userDashboard);
+    }
   }
 
   Future<void> _openThixAi() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push('/thix_ia'); return; } context.push(AppRoutes.login); }
+  // Chat est dans la branche 2 → go() pour basculer de branche sans créer de doublon
   Future<void> _openThixChat() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.go(AppRoutes.chat); } else { context.push(AppRoutes.login); } }
-  Future<void> _openEmergency() async { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push('/thix-urgent'); return; } if (!mounted) return; context.push(AppRoutes.login); }
+  
+  Future<void> _openEmergency() async { 
+    final auth = context.read<AuthController>(); 
+    if (auth.isAuthenticated) { 
+      context.push('/thix-urgent'); 
+      return; 
+    } 
+    if (!mounted) return; 
+    context.push(AppRoutes.login); 
+  }
+  
   void _openDocumentVault() { final auth = context.read<AuthController>(); if (auth.isAuthenticated) { context.push(AppRoutes.vault); } else { context.push(AppRoutes.login); } }
   void _openScanQr() => ThixIdentitySheets.showQrScanSheet(context);
   void _openMiniApps() { final l10n = AppLocalizations.of(context); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.t('home_mini_apps_coming_soon')))); }
@@ -133,6 +151,7 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
       case 'thixInfo': context.push(AppRoutes.thixInfo); break;
       case 'opportunites': context.push(AppRoutes.opportunities); break;
       case 'evenements': context.push('/thix-event'); break;
+      // Réseau Pro est dans la branche 1 → go() pour basculer sans empiler
       case 'reseauPro': context.go(AppRoutes.network); break;
       case 'thixSante': context.push(AppRoutes.thixSante); break;
       case 'thixMoney': context.push(AppRoutes.thixMoney); break;
@@ -151,7 +170,7 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
     final badgeCountsStream = auth.currentUser == null ? Stream.value(SectionBadgeCounts.zero) : _counters.streamCounts(auth.currentUser!.id);
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC), // 1. Fond plus doux
+      backgroundColor: AppColors.lightGrayBg,
       body: Stack(children: [
         const _HomeSoftBackground(),
         CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [
@@ -180,13 +199,13 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double safeTop; final String displayName; final String? photoUrl; final bool isAuthenticated; final VoidCallback onProfileTap; final VoidCallback onAccountRequest;
   _PinnedHeaderDelegate({required this.safeTop, required this.displayName, required this.photoUrl, required this.isAuthenticated, required this.onProfileTap, required this.onAccountRequest});
   double _headerExtent() => safeTop + 92; @override double get maxExtent => _headerExtent(); @override double get minExtent => _headerExtent();
-  @override Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) { return Container(decoration: BoxDecoration(color: const Color(0xFFF7F9FC), boxShadow: overlapsContent ? [const BoxShadow(color: AppColors.shadowSecondary, blurRadius: 14, offset: Offset(0, 8))] : null), child: _PremiumHeader(safeTop: safeTop, displayName: displayName, photoUrl: photoUrl, isAuthenticated: isAuthenticated, onProfileTap: onProfileTap, onAccountRequest: onAccountRequest)); }
+  @override Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) { return Container(decoration: BoxDecoration(color: AppColors.lightGrayBg, boxShadow: overlapsContent ? [const BoxShadow(color: AppColors.shadowSecondary, blurRadius: 14, offset: Offset(0, 8))] : null), child: _PremiumHeader(safeTop: safeTop, displayName: displayName, photoUrl: photoUrl, isAuthenticated: isAuthenticated, onProfileTap: onProfileTap, onAccountRequest: onAccountRequest)); }
   @override bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) { return safeTop != oldDelegate.safeTop || displayName != oldDelegate.displayName || photoUrl != oldDelegate.photoUrl || isAuthenticated != oldDelegate.isAuthenticated; }
 }
 
 // BACKGROUND
-class _HomeSoftBackground extends StatelessWidget { const _HomeSoftBackground(); @override Widget build(BuildContext context) { return IgnorePointer(child: RepaintBoundary(child: Stack(children: [Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7F9FF), Color(0xFFF7F9FC)])))), Positioned(top: -220, right: -180, child: _SoftBlob(size: 420, colors: const [Color(0x2A003BFF), Color(0x1400214F)])), Positioned(top: -120, left: -220, child: _SoftBlob(size: 360, colors: const [Color(0x1F003BFF), Color(0x1200214F)]))]))); } }
-class _SoftBlob extends StatelessWidget { final double size; final List<Color> colors; const _SoftBlob({required this.size, required this.colors}); @override Widget build(BuildContext context) { return ClipOval(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18), child: Container(width: size, height: size, decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors))))); } }
+class _HomeSoftBackground extends StatelessWidget { const _HomeSoftBackground(); @override Widget build(BuildContext context) { return IgnorePointer(child: RepaintBoundary(child: Stack(children: [Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7F9FF), AppColors.lightGrayBg])))), Positioned(top: -220, right: -180, child: _SoftBlob(size: 420, colors: const [Color(0x2A003BFF), Color(0x1400214F)])), Positioned(top: -120, left: -220, child: _SoftBlob(size: 360, colors: const [Color(0x1F003BFF), Color(0x1200214F)]))]))); } }
+class _SoftBlob extends StatelessWidget { final double size; final List<Color> colors; const _SoftBlob({required this.size, required this.colors}); @override Widget build(BuildContext context) { return RepaintBoundary(child: ClipOval(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18), child: Container(width: size, height: size, decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors)))))); } }
 
 // HEADER
 class _PremiumHeader extends StatelessWidget {
@@ -198,6 +217,7 @@ class _PremiumHeader extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(AppSpacing.xl, safeTop + 10, AppSpacing.xl, 10),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        // RETRAIT du GestureDetector sur le texte d'accueil
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
             const _RotatingGreeting(),
@@ -207,6 +227,7 @@ class _PremiumHeader extends StatelessWidget {
         Row(children: [
           Material(color: Colors.white, shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: () { HapticFeedback.lightImpact(); showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const LanguageSheet()); }, child: Container(width: 38, height: 38, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: AppColors.cardBorder), boxShadow: AppShadows.secondary), child: Stack(alignment: Alignment.center, children: [const Icon(Icons.language_rounded, size: 20, color: AppColors.premiumAccent), Positioned(right: 2, bottom: 2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1), decoration: BoxDecoration(color: AppColors.premiumAccent, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white, width: 1)), child: Text(localeCode.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900))))])))),
           const SizedBox(width: 10),
+          // CLIC UNIQUEMENT SUR L'AVATAR
           GestureDetector(
             onTap: onProfileTap, 
             child: Container(
@@ -242,19 +263,9 @@ class _SearchBarOverlay extends StatefulWidget { final TextEditingController con
 class _SearchBarOverlayState extends State<_SearchBarOverlay> {
   @override Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // 5. Barre de recherche (plus premium)
     return Container(
-      height: 56, 
-      padding: const EdgeInsets.only(left: 18, right: 8),
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(28), 
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, 4)),
-          BoxShadow(color: AppColors.primaryBlue.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 2)),
-        ],
-        border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
-      ),
+      height: 58, padding: const EdgeInsets.only(left: 16, right: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: AppShadows.secondary),
       child: Row(children: [
         const Icon(Icons.search_rounded, size: 22, color: AppColors.textSecondary), const SizedBox(width: 10),
         Expanded(child: TextField(controller: widget.controller, enabled: !widget.isSearching, textAlignVertical: TextAlignVertical.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.darkText), decoration: InputDecoration(isDense: true, border: InputBorder.none, hintText: 'THIX ID...', hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14), contentPadding: EdgeInsets.zero))),
@@ -290,12 +301,7 @@ class _HubMenuItemData { final IconData icon; final String label; final VoidCall
 class _ServicesConstellation extends StatefulWidget { final SectionBadgeCounts counts; final void Function(String key) onServiceTap; final VoidCallback onHomeTap; final VoidCallback onMiniAppsTap; final VoidCallback onDocumentsTap; final VoidCallback onProfileTap; final VoidCallback onScanTap; const _ServicesConstellation({required this.counts, required this.onServiceTap, required this.onHomeTap, required this.onMiniAppsTap, required this.onDocumentsTap, required this.onProfileTap, required this.onScanTap}); @override State<_ServicesConstellation> createState() => _ServicesConstellationState(); }
 class _ServicesConstellationState extends State<_ServicesConstellation> with TickerProviderStateMixin {
   late final AnimationController _shineController; late final AnimationController _pulseController; bool _menuExpanded = false; Timer? _collapseTimer;
-  // 2. Constantes de la constellation (plus grande)
-  static const double _stageHeight = 380; 
-  static const double _hubRadius = 36; 
-  static const double _hubMenuRadius = 62; 
-  static const double _hubMenuNodeSize = 32;
-
+  static const double _stageHeight = 360; static const double _hubRadius = 34; static const double _hubMenuRadius = 58; static const double _hubMenuNodeSize = 30;
   @override void initState() { super.initState(); _shineController = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200))..repeat(); _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true); }
   @override void dispose() { _shineController.dispose(); _pulseController.dispose(); _collapseTimer?.cancel(); super.dispose(); }
   void _armAutoCollapse() { _collapseTimer?.cancel(); _collapseTimer = Timer(const Duration(seconds: 10), () { if (mounted) setState(() => _menuExpanded = false); }); }
@@ -321,41 +327,160 @@ class _ServicesConstellationState extends State<_ServicesConstellation> with Tic
   }
 
   Offset _polar(Offset center, double angleDeg, double radius) { final rad = angleDeg * math.pi / 180; return center + Offset(radius * math.cos(rad), radius * math.sin(rad)); }
+
   @override Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final nodes = _nodes(l10n);
-    final hubItems = <_HubMenuItemData>[_HubMenuItemData(icon: Icons.home_filled, label: l10n.t('hub_home'), onTap: () => _runHubItem(widget.onHomeTap)), _HubMenuItemData(icon: Icons.apps_rounded, label: l10n.t('hub_mini_apps'), onTap: () => _runHubItem(widget.onMiniAppsTap)), _HubMenuItemData(icon: Icons.folder_rounded, label: l10n.t('hub_documents'), onTap: () => _runHubItem(widget.onDocumentsTap)), _HubMenuItemData(icon: Icons.person_outline_rounded, label: l10n.t('hub_profile'), onTap: () => _runHubItem(widget.onProfileTap)), _HubMenuItemData(icon: Icons.qr_code_scanner_rounded, label: l10n.t('hub_scan_qr'), onTap: () => _runHubItem(widget.onScanTap))];
-    return Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Icon(Icons.hub_rounded, size: 15, color: AppColors.textSecondary), const SizedBox(width: 6), 
-    // 4. Titre « Mes services » plus grand
-    Text(l10n.t('servicesTitle'), style: const TextStyle(color: AppColors.darkText, fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3))]), const SizedBox(height: 4), SizedBox(height: _stageHeight, child: LayoutBuilder(builder: (context, constraints) { final w = constraints.maxWidth; final center = Offset(w / 2, _stageHeight / 2 - 6); 
-    // 3. Rayon des nœuds
-    final maxR = math.min(w / 2 - 38, 155.0); 
-    final nodeCount = nodes.length; final positions = <Offset>[]; for (var i = 0; i < nodeCount; i++) { final angle = -90.0 + (i * (360.0 / nodeCount)); final radius = i.isEven ? maxR : maxR * 0.70; positions.add(_polar(center, angle, radius)); } final hubPositions = <Offset>[]; for (var i = 0; i < hubItems.length; i++) { final angle = -90.0 + (i * (360.0 / hubItems.length)); hubPositions.add(_polar(center, angle, _hubMenuRadius)); } return AnimatedBuilder(animation: Listenable.merge([_shineController, _pulseController]), builder: (context, _) { return Stack(clipBehavior: Clip.none, children: [Positioned(left: center.dx - 130, top: center.dy - 130, child: IgnorePointer(child: Container(width: 260, height: 260, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [AppColors.goldBadge.withValues(alpha: 0.10), Colors.transparent]))))), Positioned.fill(child: CustomPaint(painter: _RadialBranchesPainter(center: center, nodeOffsets: positions, shineProgress: _shineController.value))), for (var i = 0; i < nodes.length; i++) Positioned(left: positions[i].dx - 30, top: positions[i].dy - 30, child: _ConstellationNode(data: nodes[i], onTap: () => widget.onServiceTap(nodes[i].key))), for (var i = 0; i < hubItems.length; i++) Positioned(left: hubPositions[i].dx - (_hubMenuNodeSize / 2), top: hubPositions[i].dy - (_hubMenuNodeSize / 2), child: _HubSatelliteButton(visible: _menuExpanded, order: i, size: _hubMenuNodeSize, icon: hubItems[i].icon, label: hubItems[i].label, onTap: hubItems[i].onTap)), Positioned(left: center.dx - _hubRadius, top: center.dy - _hubRadius, child: GestureDetector(onTap: _toggleHubMenu, child: Transform.scale(scale: 1.0 + (_pulseController.value * 0.05), child: AnimatedRotation(turns: _menuExpanded ? 0.125 : 0, duration: const Duration(milliseconds: 220), child: Container(width: _hubRadius * 2, height: _hubRadius * 2, decoration: BoxDecoration(shape: BoxShape.circle, gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.goldBadge, AppColors.premiumAccent]), boxShadow: [BoxShadow(color: AppColors.goldBadge.withValues(alpha: 0.45), blurRadius: 22, spreadRadius: 1), BoxShadow(color: AppColors.premiumAccent.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 8))], border: Border.all(color: Colors.white, width: 2.4)), alignment: Alignment.center, child: Icon(_menuExpanded ? Icons.close_rounded : Icons.grid_view_rounded, color: Colors.white, size: 26))))))]); }); }))]));
+    final hubItems = <_HubMenuItemData>[
+      _HubMenuItemData(icon: Icons.home_filled, label: l10n.t('hub_home'), onTap: () => _runHubItem(widget.onHomeTap)),
+      _HubMenuItemData(icon: Icons.apps_rounded, label: l10n.t('hub_mini_apps'), onTap: () => _runHubItem(widget.onMiniAppsTap)),
+      _HubMenuItemData(icon: Icons.folder_rounded, label: l10n.t('hub_documents'), onTap: () => _runHubItem(widget.onDocumentsTap)),
+      _HubMenuItemData(icon: Icons.person_outline_rounded, label: l10n.t('hub_profile'), onTap: () => _runHubItem(widget.onProfileTap)),
+      _HubMenuItemData(icon: Icons.qr_code_scanner_rounded, label: l10n.t('hub_scan_qr'), onTap: () => _runHubItem(widget.onScanTap)),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [const Icon(Icons.hub_rounded, size: 15, color: AppColors.textSecondary), const SizedBox(width: 6), Text(l10n.t('servicesTitle'), style: const TextStyle(color: AppColors.darkText, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: -0.2))]),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: _stageHeight,
+            child: LayoutBuilder(builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final center = Offset(w / 2, _stageHeight / 2 - 6);
+              final maxR = math.min(w / 2 - 34, 148.0);
+              final nodeCount = nodes.length;
+              final positions = <Offset>[];
+              for (var i = 0; i < nodeCount; i++) {
+                final angle = -90.0 + (i * (360.0 / nodeCount));
+                final radius = i.isEven ? maxR : maxR * 0.70;
+                positions.add(_polar(center, angle, radius));
+              }
+              final hubPositions = <Offset>[];
+              for (var i = 0; i < hubItems.length; i++) {
+                final angle = -90.0 + (i * (360.0 / hubItems.length));
+                hubPositions.add(_polar(center, angle, _hubMenuRadius));
+              }
+
+              // Couche statique (icônes + textes des services + satellites du menu hub).
+              // Ne se reconstruit QUE quand _menuExpanded change (setState), jamais à
+              // chaque tick d'animation — c'est ce qui évite le redessin continu du texte
+              // qui causait l'effet de dédoublement/ghosting sous Impeller.
+              final staticNodesLayer = RepaintBoundary(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    for (var i = 0; i < nodes.length; i++)
+                      Positioned(
+                        left: positions[i].dx - 30,
+                        top: positions[i].dy - 30,
+                        child: _ConstellationNode(data: nodes[i], onTap: () => widget.onServiceTap(nodes[i].key)),
+                      ),
+                    for (var i = 0; i < hubItems.length; i++)
+                      Positioned(
+                        left: hubPositions[i].dx - (_hubMenuNodeSize / 2),
+                        top: hubPositions[i].dy - (_hubMenuNodeSize / 2),
+                        child: _HubSatelliteButton(
+                          visible: _menuExpanded,
+                          order: i,
+                          size: _hubMenuNodeSize,
+                          icon: hubItems[i].icon,
+                          label: hubItems[i].label,
+                          onTap: hubItems[i].onTap,
+                        ),
+                      ),
+                  ],
+                ),
+              );
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: center.dx - 130,
+                    top: center.dy - 130,
+                    child: IgnorePointer(
+                      child: RepaintBoundary(
+                        child: Container(
+                          width: 260,
+                          height: 260,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(colors: [AppColors.goldBadge.withValues(alpha: 0.10), Colors.transparent]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Traits scintillants — seule partie qui repeint à chaque frame,
+                  // isolée dans son propre RepaintBoundary pour ne pas entraîner
+                  // le reste (texte, icônes) dans le cycle de redessin continu.
+                  RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: _shineController,
+                      builder: (context, _) {
+                        return Positioned.fill(
+                          child: CustomPaint(
+                            painter: _RadialBranchesPainter(center: center, nodeOffsets: positions, shineProgress: _shineController.value),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  staticNodesLayer,
+                  // Bouton central — seul son échelle/rotation dépend de l'animation.
+                  Positioned(
+                    left: center.dx - _hubRadius,
+                    top: center.dy - _hubRadius,
+                    child: RepaintBoundary(
+                      child: AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, _) {
+                          return GestureDetector(
+                            onTap: _toggleHubMenu,
+                            child: Transform.scale(
+                              scale: 1.0 + (_pulseController.value * 0.05),
+                              child: AnimatedRotation(
+                                turns: _menuExpanded ? 0.125 : 0,
+                                duration: const Duration(milliseconds: 220),
+                                child: Container(
+                                  width: _hubRadius * 2,
+                                  height: _hubRadius * 2,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.goldBadge, AppColors.premiumAccent]),
+                                    boxShadow: [
+                                      BoxShadow(color: AppColors.goldBadge.withValues(alpha: 0.45), blurRadius: 22, spreadRadius: 1),
+                                      BoxShadow(color: AppColors.premiumAccent.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 8)),
+                                    ],
+                                    border: Border.all(color: Colors.white, width: 2.4),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Icon(_menuExpanded ? Icons.close_rounded : Icons.grid_view_rounded, color: Colors.white, size: 26),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
+      ),
+    );
   }
 }
 class _HubSatelliteButton extends StatelessWidget { final bool visible; final int order; final double size; final IconData icon; final String label; final VoidCallback onTap; const _HubSatelliteButton({required this.visible, required this.order, required this.size, required this.icon, required this.label, required this.onTap}); @override Widget build(BuildContext context) { return AnimatedScale(scale: visible ? 1.0 : 0.4, duration: Duration(milliseconds: 180 + order * 30), curve: Curves.easeOutBack, child: AnimatedOpacity(opacity: visible ? 1 : 0, duration: Duration(milliseconds: 150 + order * 30), child: IgnorePointer(ignoring: !visible, child: Tooltip(message: label, child: GestureDetector(onTap: onTap, child: Container(width: size, height: size, decoration: BoxDecoration(color: AppColors.white, shape: BoxShape.circle, border: Border.all(color: AppColors.premiumAccent.withValues(alpha: 0.35), width: 1.2), boxShadow: AppShadows.secondary), alignment: Alignment.center, child: Icon(icon, size: 15, color: AppColors.premiumAccent))))))); } }
 class _RadialBranchesPainter extends CustomPainter { final Offset center; final List<Offset> nodeOffsets; final double shineProgress; _RadialBranchesPainter({required this.center, required this.nodeOffsets, required this.shineProgress}); @override void paint(Canvas canvas, Size size) { for (var i = 0; i < nodeOffsets.length; i++) { final end = nodeOffsets[i]; final basePaint = Paint()..shader = LinearGradient(colors: [AppColors.goldBadge.withValues(alpha: 0.38), AppColors.premiumAccent.withValues(alpha: 0.30)]).createShader(Rect.fromPoints(center, end))..strokeWidth = 1.4..strokeCap = StrokeCap.round..style = PaintingStyle.stroke; canvas.drawLine(center, end, basePaint); final phase = i / nodeOffsets.length; final t = (shineProgress + phase) % 1.0; final shinePos = Offset.lerp(center, end, t)!; for (var trail = 1; trail <= 4; trail++) { final trailT = t - (trail * 0.03); if (trailT < 0) continue; final trailPos = Offset.lerp(center, end, trailT)!; final alpha = (0.28 - trail * 0.06).clamp(0.0, 0.28); canvas.drawCircle(trailPos, 2.4 - (trail * 0.3), Paint()..color = Colors.white.withValues(alpha: alpha)); } canvas.drawCircle(shinePos, 7, Paint()..shader = RadialGradient(colors: [Colors.white.withValues(alpha: 0.85), AppColors.goldBadge.withValues(alpha: 0.0)]).createShader(Rect.fromCircle(center: shinePos, radius: 7))); canvas.drawCircle(shinePos, 2.0, Paint()..color = Colors.white); } } @override bool shouldRepaint(covariant _RadialBranchesPainter oldDelegate) => true; }
 class _ConstellationNode extends StatefulWidget { final _ServiceNodeData data; final VoidCallback onTap; const _ConstellationNode({required this.data, required this.onTap}); @override State<_ConstellationNode> createState() => _ConstellationNodeState(); }
-class _ConstellationNodeState extends State<_ConstellationNode> with SingleTickerProviderStateMixin { late AnimationController _controller; late Animation<double> _scale; @override void initState() { super.initState(); _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 140)); _scale = Tween<double>(begin: 1.0, end: 0.92).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut)); } @override void dispose() { _controller.dispose(); super.dispose(); } @override Widget build(BuildContext context) { final d = widget.data; return GestureDetector(onTapDown: (_) => _controller.forward(), onTapUp: (_) { _controller.reverse(); widget.onTap(); }, onTapCancel: () => _controller.reverse(), child: ScaleTransition(scale: _scale, child: SizedBox(width: 68, child: Column(mainAxisSize: MainAxisSize.min, children: [Stack(clipBehavior: Clip.none, children: [
-  // 6. Nœuds de la constellation (plus gros + plus beaux)
-  Container(
-    width: 52, 
-    height: 52, 
-    decoration: BoxDecoration(
-      color: AppColors.white, 
-      shape: BoxShape.circle, 
-      border: Border.all(color: d.color.withValues(alpha: 0.40), width: 1.5), 
-      boxShadow: [
-        BoxShadow(color: d.color.withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 5)), 
-        BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))
-      ]
-    ), 
-    alignment: Alignment.center, 
-    child: Icon(d.icon, color: d.color, size: 23)
-  ),
-  if (d.badge != null && d.badge! > 0) Positioned(top: -4, right: -6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5), decoration: BoxDecoration(color: AppColors.dangerRed, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white, width: 1.2)), child: Text('${d.badge}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))]), 
-  // Texte dessous mis à jour
-  const SizedBox(height: 5), Text(d.title, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: AppColors.darkText, height: 1.15, letterSpacing: -0.2))])))); } }
+class _ConstellationNodeState extends State<_ConstellationNode> with SingleTickerProviderStateMixin { late AnimationController _controller; late Animation<double> _scale; @override void initState() { super.initState(); _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 140)); _scale = Tween<double>(begin: 1.0, end: 0.92).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut)); } @override void dispose() { _controller.dispose(); super.dispose(); } @override Widget build(BuildContext context) { final d = widget.data; return GestureDetector(onTapDown: (_) => _controller.forward(), onTapUp: (_) { _controller.reverse(); widget.onTap(); }, onTapCancel: () => _controller.reverse(), child: ScaleTransition(scale: _scale, child: SizedBox(width: 60, child: Column(mainAxisSize: MainAxisSize.min, children: [Stack(clipBehavior: Clip.none, children: [Container(width: 46, height: 46, decoration: BoxDecoration(color: AppColors.white, shape: BoxShape.circle, border: Border.all(color: d.color.withValues(alpha: 0.35), width: 1.2), boxShadow: [BoxShadow(color: d.color.withValues(alpha: 0.22), blurRadius: 10, offset: const Offset(0, 4))]), alignment: Alignment.center, child: Icon(d.icon, color: d.color, size: 20)), if (d.badge != null && d.badge! > 0) Positioned(top: -4, right: -6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5), decoration: BoxDecoration(color: AppColors.dangerRed, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white, width: 1.2)), child: Text('${d.badge}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))]), const SizedBox(height: 4), Text(d.title, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: AppColors.darkText, height: 1.1))])))); } }
 
 // HEADLINES CAROUSEL
 class _HeadlinesCarousel extends StatefulWidget { final PageController controller; final String? uid; final VoidCallback onThixInfoTap; final VoidCallback onOpportunityTap; const _HeadlinesCarousel({required this.controller, required this.uid, required this.onThixInfoTap, required this.onOpportunityTap}); @override State<_HeadlinesCarousel> createState() => _HeadlinesCarouselState(); }
@@ -371,7 +496,7 @@ class _PersonalisedSection extends StatelessWidget {
       Text(l10n.t('home_personalised_title'), style: const TextStyle(color: AppColors.darkText, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
       const SizedBox(height: AppSpacing.m),
       Row(children: [
-        Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.favorite_rounded, label: 'Mariage', accent: const Color(0xFFE25A6A), onTap: () => context.push('/thix-weeding')))),
+        Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.favorite_rounded, label: 'Mariage', accent: Color(0xFFE25A6A), onTap: () => context.push('/thix-weeding')))),
         Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.shopping_cart_rounded, label: l10n.t('home_mini_buy'), onTap: () {}))),
         Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.shield_rounded, label: l10n.t('home_mini_secure'), onTap: () {}))),
         Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: _MiniRoundAction(icon: Icons.local_atm_rounded, label: l10n.t('home_mini_cash_out'), onTap: () {}))),
@@ -385,7 +510,8 @@ class _MiniRoundAction extends StatelessWidget {
   final Color accent;
   final VoidCallback onTap;
   const _MiniRoundAction({required this.icon, required this.label, this.accent = AppColors.darkText, required this.onTap});
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final isWedding = label == 'Mariage';
     return GestureDetector(
       onTap: onTap,
@@ -393,15 +519,17 @@ class _MiniRoundAction extends StatelessWidget {
         Container(
           width: 48, height: 48,
           decoration: BoxDecoration(
-            color: isWedding ? const Color(0xFFFFF0F2) : AppColors.white,
+            color: isWedding ? Color(0xFFFFF0F2) : AppColors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: isWedding ? const Color(0xFFE25A6A).withValues(alpha: 0.4) : AppColors.cardBorder, width: 0.8),
+            border: Border.all(color: isWedding ? Color(0xFFE25A6A).withValues(alpha: 0.4) : AppColors.cardBorder, width: 0.8),
             boxShadow: AppShadows.secondary,
           ),
-          child: Icon(icon, size: 20, color: isWedding ? const Color(0xFFE25A6A) : AppColors.darkText),
+          child: Icon(icon, size: 20, color: isWedding ? Color(0xFFE25A6A) : AppColors.darkText),
+          // Si tu veux utiliser le PNG transparent que je viens de générer:
+          // child: Padding(padding: EdgeInsets.all(10), child: Image.asset('assets/wedding_logo.png')),
         ),
         const SizedBox(height: 8),
-        Text(label, style: TextStyle(color: isWedding ? const Color(0xFFE25A6A) : AppColors.textSecondary, fontSize: 11, fontWeight: isWedding ? FontWeight.w800 : FontWeight.w700), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)
+        Text(label, style: TextStyle(color: isWedding ? Color(0xFFE25A6A) : AppColors.textSecondary, fontSize: 11, fontWeight: isWedding ? FontWeight.w800 : FontWeight.w700), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)
       ]),
     );
   }
