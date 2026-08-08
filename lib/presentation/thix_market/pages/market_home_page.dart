@@ -205,11 +205,12 @@ class _MarketHomePageState extends ConsumerState<MarketHomePage> {
                 child: const Icon(Icons.shopping_bag_rounded, color: ThixPolicy.primary, size: 20)),
             const SizedBox(width: 9),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const RichText(
-                  text: TextSpan(children: [
-                TextSpan(text: 'THIX ', style: TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w900, fontSize: 17)),
-                TextSpan(text: 'MARKET', style: TextStyle(color: ThixPolicy.domainMarket, fontWeight: FontWeight.w900, fontSize: 17)),
-              ])),
+              RichText( // 🌟 Le 'const' a été retiré ici
+    text: const TextSpan(children: [ // 🌟 Tu peux le mettre ici par contre !
+  TextSpan(text: 'THIX ', style: TextStyle(color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w900, fontSize: 17)),
+  TextSpan(text: 'MARKET', style: TextStyle(color: ThixPolicy.domainMarket, fontWeight: FontWeight.w900, fontSize: 17)),
+]))
+
               Text(t.appTagline, style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 10.5)),
             ]),
           ]),
