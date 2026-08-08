@@ -62,19 +62,62 @@ final homeOffersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) asyn
 final homeProvidersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 300));
   return [
-    <String, dynamic>{'name': 'Palais des Congrès', 'category': 'Salle de fête', 'zone': 'Kinshasa', 'rating': 4.8, 'reviews': 128, 'price': 'Dès 600$'},
-    <String, dynamic>{'name': "Saveurs d'Afrique", 'category': 'Traiteur', 'zone': 'Goma', 'rating': 4.9, 'reviews': 96, 'price': 'Dès 450$'},
-    <String, dynamic>{'name': 'Lens Prod', 'category': 'Photographe', 'zone': 'Lubumbashi', 'rating': 4.9, 'reviews': 215, 'price': 'Dès 300$'},
-    <String, dynamic>{'name': 'Dream Décor', 'category': 'Décoration', 'zone': 'Kinshasa', 'rating': 4.7, 'reviews': 78, 'price': 'Dès 250$'},
+    <String, dynamic>{
+      'name': 'Palais des Congrès',
+      'category': 'Salle de fête',
+      'zone': 'Kinshasa',
+      'rating': 4.8,
+      'reviews': 128,
+      'price': r'Dès 600$', // ✅ raw string — $ littéral
+    },
+    <String, dynamic>{
+      'name': "Saveurs d'Afrique",
+      'category': 'Traiteur',
+      'zone': 'Goma',
+      'rating': 4.9,
+      'reviews': 96,
+      'price': r'Dès 450$',
+    },
+    <String, dynamic>{
+      'name': 'Lens Prod',
+      'category': 'Photographe',
+      'zone': 'Lubumbashi',
+      'rating': 4.9,
+      'reviews': 215,
+      'price': r'Dès 300$',
+    },
+    <String, dynamic>{
+      'name': 'Dream Décor',
+      'category': 'Décoration',
+      'zone': 'Kinshasa',
+      'rating': 4.7,
+      'reviews': 78,
+      'price': r'Dès 250$',
+    },
   ];
 });
 
 final homeAnnouncementsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   await Future.delayed(const Duration(milliseconds: 200));
   return [
-    <String, dynamic>{'tag': 'À VENDRE', 'title': 'Robe de mariée T38', 'subtitle': '450$', 'icon': Icons.checkroom_outlined},
-    <String, dynamic>{'tag': 'À LOUER', 'title': 'Salle 200 places', 'subtitle': '800$ / jour', 'icon': Icons.villa_outlined},
-    <String, dynamic>{'tag': 'SERVICE', 'title': 'Coiffure & maquillage', 'subtitle': "Dès 30$", 'icon': Icons.face_retouching_natural_outlined},
+    <String, dynamic>{
+      'tag': 'À VENDRE',
+      'title': 'Robe de mariée T38',
+      'subtitle': r'450$', // ✅
+      'icon': Icons.checkroom_outlined,
+    },
+    <String, dynamic>{
+      'tag': 'À LOUER',
+      'title': 'Salle 200 places',
+      'subtitle': r'800$ / jour', // ✅
+      'icon': Icons.villa_outlined,
+    },
+    <String, dynamic>{
+      'tag': 'SERVICE',
+      'title': 'Coiffure & maquillage',
+      'subtitle': r'Dès 30$', // ✅
+      'icon': Icons.face_retouching_natural_outlined,
+    },
   ];
 });
 
