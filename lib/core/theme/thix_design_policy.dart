@@ -85,10 +85,12 @@ class ThixPolicy {
   static const double constellationHubRadius = 34;
   static const double constellationHubMenuRadius = 58;
   static const double constellationHubMenuNodeSize = 30;
-  static const double constellationNodeSize = 52;
-  static const double constellationNodeIconSize = 22;
-  static const double constellationLabelSize = 10.5;
-  static const double constellationNodeHalf = 35;
+  
+  // 🌟 Valeurs réduites pour matcher avec THIX IA / THIX CHAT
+  static const double constellationNodeSize = 46.0;      // Réduit de 52 à 46
+  static const double constellationNodeIconSize = 20.0;  // Réduit de 22 à 20
+  static const double constellationLabelSize = 10.0;     // Réduit légèrement pour l'équilibre
+  static const double constellationNodeHalf = 23.0;      // Moitié parfaite de 46 (corrige l'ancien "35")
   static const double constellationOuterPadding = 34;
 
   // ─────────────────────────────────────────────────────────────
