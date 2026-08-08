@@ -32,14 +32,16 @@ class Lesson {
   });
 
   factory Lesson.fromJson(Map<String, dynamic> json) => Lesson(
-        id: json['id'],
-        moduleId: json['module_id'],
-        title: json['title'],
-        description: json['description'],
-        type: json['type'],
-        durationMinutes: json['duration_minutes'] ?? 0,
-        order: json['order'] ?? 0,
-        content: json['content'],
+        // 🌟 FIX : On force le type et on donne une valeur de secours si c'est null
+        id: json['id'] as String? ?? '',
+        moduleId: json['module_id'] as String? ?? '',
+        title: json['title'] as String? ?? 'Leçon sans titre',
+        description: json['description'] as String?,
+        type: json['type'] as String? ?? 'text', // 'text' par défaut pour éviter le crash
+        durationMinutes: json['duration_minutes'] as int? ?? 0,
+        order: json['order'] as int? ?? 0,
+        content: json['content'] as String?,
+        
         createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
         video: json['video'] != null ? Video.fromJson(json['video']) : null,
         evaluation: json['evaluation'] != null ? Evaluation.fromJson(json['evaluation']) : null,
