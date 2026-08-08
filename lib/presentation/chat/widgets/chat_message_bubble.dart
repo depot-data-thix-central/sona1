@@ -187,14 +187,36 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               if (m.isEphemeral || widget.isEphemeralActive) ...[
-                                ChatEphemeralTimer(
-                                  duration: m.ephemeralDuration ?? 0,
-                                  onExpired: () {
-                                    widget.onDelete?.call();
-                                  },
-                                ),
-                                const SizedBox(width: 6),
-                              ],
+  Builder(
+    builder: (context) {
+      // 🌟 On calcule le temps RESTANT exact à partir de deleteAt
+      int remainingSeconds = m.ephemeralDuration ?? 0;
+      
+      // Si on a la date exacte de suppression depuis Supabase
+      if (m.deleteAt != null) {
+        remainingSeconds = m.deleteAt!.difference(DateTime.now()).inSeconds;
+      }
+      
+      // Si le temps est déjà écoulé quand on ouvre la page, on supprime direct
+      if (remainingSeconds <= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          widget.onDelete?.call();
+        });
+        return const SizedBox.shrink(); // On n'affiche plus le chrono
+      }
+
+      // Sinon, on affiche le chrono avec le temps RESTANT
+      return ChatEphemeralTimer(
+        duration: remainingSeconds,
+        onExpired: () {
+          widget.onDelete?.call();
+        },
+      );
+    }
+  ),
+  const SizedBox(width: 6),
+],
+
                               if (m.sentiment != null && widget.isAgentView) ...[
                                 SentimentIndicator(result: m.sentiment!),
                                 const SizedBox(width: 6),
