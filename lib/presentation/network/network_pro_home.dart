@@ -36,13 +36,13 @@ final activeLiveSessionsProvider =
     return Supabase.instance.client
         .from('live_sessions')
         .stream(primaryKey: ['id'])
-        .eq('is_active', true)
-        .order('viewer_count', ascending: false)
+        .eq('status', 'live') // 🌟 CORRECTION ICI (au lieu de 'is_active', true)
         .limit(10);
   } catch (_) {
     return Stream.value(const <Map<String, dynamic>>[]);
   }
 });
+
 
 class ThixColors {
   static const background = Color(0xFFF6F7FB);
@@ -277,15 +277,26 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome>
     _safePush('/network/comments/$postId');
   }
 
-  void _joinLive([Map<String, dynamic>? session]) {
-    // ⚠️ Si LivePrepScreen accepte un identifiant de session pour rejoindre
-    // un direct existant (plutôt que d'en démarrer un nouveau), passe-le ici,
-    // ex: LivePrepScreen(sessionId: session?['id'] as String?)
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const LivePrepScreen()),
-    );
+    void _joinLive([Map<String, dynamic>? session]) {
+    if (session == null) {
+      // Cas 1 : On clique sur le bouton "Lancer" -> On va préparer son propre direct
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LivePrepScreen()),
+      );
+    } else {
+      // Cas 2 : On clique sur la carte d'un direct en cours -> On rejoint en tant que Spectateur
+      final channelName = session['channel_name'] as String?;
+      final liveId = session['id'].toString();
+      
+      if (channelName != null) {
+        // 🌟 À FAIRE : Naviguer vers un écran LiveViewerScreen (Spectateur)
+        // en lui passant le channelName pour qu'Agora s'y connecte sans allumer la caméra
+        debugPrint("Rejoindre le canal Agora : $channelName");
+      }
+    }
   }
+
 
   @override
   void dispose() {
