@@ -83,9 +83,6 @@ dependencies:
   printing: ^5.13.0
   pdf: ^3.10.10
 
-  # Graphiques
-  syncfusion_flutter_charts: ^34.2.2
-
   # Audio / Dictée
   speech_to_text: ^7.4.0
 
@@ -98,8 +95,6 @@ dependencies:
   flutter_contacts: ^2.3.1
 
   # Maps
-  flutter_map: ^8.3.1
-  latlong2: ^0.10.1
   google_maps_flutter: ^2.12.3
 
   # THIX MARKET
