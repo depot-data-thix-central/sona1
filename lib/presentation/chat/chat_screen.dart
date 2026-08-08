@@ -315,12 +315,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     super.dispose();
   }
 
-  Future<void> _markAsRead() async {
-    await ref.read(chatServiceProvider).markAsRead(widget.conversationId);
+    Future<void> _markAsRead() async {
+    // 🌟 CORRECTION : On demande au Provider de la liste de faire la mise à jour !
+    // Cela va instantanément mettre le badge à 0 dans l'UI ET appeler la base de données en arrière-plan.
     try {
-      ref.read(chatListProvider.notifier).refresh(silent: true);
-    } catch (_) {}
+      ref.read(chatListProvider.notifier).markAsRead(widget.conversationId);
+    } catch (e) {
+      debugPrint('Erreur _markAsRead UI: $e');
+    }
   }
+
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
