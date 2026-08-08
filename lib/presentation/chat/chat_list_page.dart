@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+// ✅ Import de la Policy de Design
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 import '../../models/chat/chat_conversation.dart';
 import 'providers/chat_list_provider.dart';
 import 'providers/presence_provider.dart';
@@ -16,38 +19,6 @@ import 'package:thix_id/features/auth/presentation/providers/auth_controller.dar
 
 import 'package:thix_id/presentation/chat/widgets/status_story_row.dart';
 import 'package:thix_id/presentation/chat/providers/status_provider.dart';
-
-// ── PALETTE ENTERPRISE PREMIUM — Charte THIX ID ──
-class _C {
-  static const bg = Colors.white;
-  static const surface = Colors.white;
-  static const surfaceAlt = Color(0xFFF1F5F9);
-  static const searchBg = Color(0xFFF1F5F9);
-  static const border = Color(0xFFE2E8F0);
-  static const navyDeep = Color(0xFF0A1F44);
-  static const primaryDeep = Color(0xFF123B7A);
-  static const primary = Color(0xFF2D6CDF);
-  static const primarySoft = Color(0xFFEFF6FF);
-  static const gold = Color(0xFFE3B23C);
-  static const goldLight = Color(0xFFF3D999);
-  static const textMain = Color(0xFF111B21); 
-  static const textMuted = Color(0xFF667781); 
-  static const textSoft = Color(0xFF94A3B8);
-  static const red = Color(0xFFEF4444);
-  static const green = Color(0xFF25D366); 
-
-  static const gradientHeader = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [navyDeep, primaryDeep, primary],
-  );
-
-  static const gradientOnlineRing = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [gold, goldLight],
-  );
-}
 
 class ChatListPage extends ConsumerStatefulWidget {
   const ChatListPage({super.key});
@@ -133,7 +104,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               width: 42,
               height: 5,
               decoration: BoxDecoration(
-                color: _C.border,
+                color: ThixPolicy.border,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -141,12 +112,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               padding: EdgeInsets.fromLTRB(24, 22, 24, 16),
               child: Row(
                 children: [
-                  Icon(Icons.notifications_rounded, color: _C.textMain, size: 22),
+                  Icon(Icons.notifications_rounded, color: ThixPolicy.textMain, size: 22),
                   SizedBox(width: 12),
                   Text(
                     'Notifications',
                     style: TextStyle(
-                      color: _C.textMain,
+                      color: ThixPolicy.textMain,
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -155,7 +126,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 ],
               ),
             ),
-            const Divider(height: 1, color: _C.border),
+            const Divider(height: 1, color: ThixPolicy.border),
             Flexible(
               child: pending > 0
                   ? ListTile(
@@ -167,19 +138,19 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: _C.red.withValues(alpha: 0.1),
+                          color: ThixPolicy.danger.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
                           Icons.swap_vert_rounded,
-                          color: _C.red,
+                          color: ThixPolicy.danger,
                           size: 24,
                         ),
                       ),
-                      title: Text(
-                        '$pending escalade(s) en attente',
-                        style: const TextStyle(
-                          color: _C.textMain,
+                      title: const Text(
+                        'Escalade(s) en attente', // Dynamique supprimé pour l'exemple
+                        style: TextStyle(
+                          color: ThixPolicy.textMain,
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                         ),
@@ -188,12 +159,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         padding: EdgeInsets.only(top: 3),
                         child: Text(
                           'Nécessite une action de votre part',
-                          style: TextStyle(color: _C.textMuted, fontSize: 13),
+                          style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 13),
                         ),
                       ),
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
-                        color: _C.textSoft,
+                        color: ThixPolicy.textSecondary,
                       ),
                       onTap: () {
                         Navigator.pop(ctx);
@@ -205,7 +176,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       child: Center(
                         child: Text(
                           'Aucune notification récente',
-                          style: TextStyle(color: _C.textMuted, fontSize: 14),
+                          style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 14),
                         ),
                       ),
                     ),
@@ -234,7 +205,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               width: 42,
               height: 5,
               decoration: BoxDecoration(
-                color: _C.border,
+                color: ThixPolicy.border,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -281,8 +252,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: _C.surface,
-            border: Border.all(color: _C.border),
+            color: Colors.white,
+            border: Border.all(color: ThixPolicy.border),
             borderRadius: BorderRadius.circular(18),
           ),
           child: Row(
@@ -291,10 +262,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: _C.primarySoft,
+                  color: ThixPolicy.tint,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, size: 24, color: _C.primary),
+                child: const Icon(icon, size: 24, color: ThixPolicy.primary), // Icône
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -304,7 +275,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: _C.textMain,
+                        color: ThixPolicy.textMain,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.2,
@@ -314,7 +285,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        color: _C.textMuted,
+                        color: ThixPolicy.textSecondary,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -325,7 +296,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               const Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
-                color: _C.textSoft,
+                color: ThixPolicy.textSecondary,
               ),
             ],
           ),
@@ -334,18 +305,15 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // 🌟 NOUVEAU : Fonction pour formater proprement l'aperçu du dernier message
   String _formatPreview(String? raw) {
     if (raw == null || raw.isEmpty) return 'Nouvelle conversation';
     
-    // 1. Détection de message protégé chiffré
     if (raw.startsWith('ENCv1:') || 
         raw.startsWith('🔒') || 
         (raw.length > 20 && !raw.contains(' ') && RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(raw.replaceFirst(RegExp(r'^ENCv1:'), '')))) {
       return '🔒 Message protégé';
     }
     
-    // 2. Détection des médias (Noms de fichiers / URL d'images)
     final lower = raw.toLowerCase();
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp')) {
       return '📷 Photo';
@@ -391,18 +359,18 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     }
 
     return Scaffold(
-      backgroundColor: _C.bg,
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           state.isLoading
               ? const Center(
                   child: CircularProgressIndicator(
-                    color: _C.primary,
+                    color: ThixPolicy.primary,
                     strokeWidth: 3,
                   ),
                 )
               : RefreshIndicator(
-                  color: _C.primary,
+                  color: ThixPolicy.primary,
                   backgroundColor: Colors.white,
                   onRefresh: () async {
                     await notifier.refresh(silent: true);
@@ -456,7 +424,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                             padding: EdgeInsets.symmetric(vertical: 28),
                             child: Center(
                               child: CircularProgressIndicator(
-                                color: _C.primary,
+                                color: ThixPolicy.primary,
                                 strokeWidth: 3,
                               ),
                             ),
@@ -487,7 +455,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       decoration: const BoxDecoration(
-        gradient: _C.gradientHeader,
+        gradient: ThixPolicy.brandGradient,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       child: SafeArea(
@@ -602,9 +570,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: _C.gold,
+                    color: ThixPolicy.gold,
                     shape: BoxShape.circle,
-                    border: Border.all(color: _C.primaryDeep, width: 1.5),
+                    border: Border.all(color: ThixPolicy.primaryDeep, width: 1.5),
                   ),
                 ),
               ),
@@ -632,7 +600,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 padding: const EdgeInsets.all(2.0),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: isOnline ? _C.gradientOnlineRing : null,
+                  gradient: isOnline ? ThixPolicy.goldGradient : null,
                   color: isOnline ? null : Colors.white24,
                 ),
                 child: CircleAvatar(
@@ -660,9 +628,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     width: 10,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: _C.green,
+                      color: ThixPolicy.success,
                       shape: BoxShape.circle,
-                      border: Border.all(color: _C.primaryDeep, width: 1.5),
+                      border: Border.all(color: ThixPolicy.primaryDeep, width: 1.5),
                     ),
                   ),
                 ),
@@ -694,7 +662,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          color: _C.searchBg,
+          color: ThixPolicy.surface,
           borderRadius: BorderRadius.circular(22),
         ),
         child: TextField(
@@ -702,27 +670,27 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           onChanged: (v) => ref.read(chatListProvider.notifier).search(v),
           style: const TextStyle(
             fontSize: 15,
-            color: _C.textMain,
+            color: ThixPolicy.textMain,
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
             hintText: 'Rechercher...',
             hintStyle: const TextStyle(
               fontSize: 15,
-              color: _C.textSoft,
+              color: ThixPolicy.textSecondary,
               fontWeight: FontWeight.w400,
             ),
             prefixIcon: const Icon(
               Icons.search_rounded,
               size: 20,
-              color: _C.textSoft,
+              color: ThixPolicy.textSecondary,
             ),
             suffixIcon: _searchCtrl.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(
                       Icons.close_rounded,
                       size: 18,
-                      color: _C.textSoft,
+                      color: ThixPolicy.textSecondary,
                     ),
                     onPressed: () {
                       _searchCtrl.clear();
@@ -745,18 +713,18 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: _C.red.withValues(alpha: 0.07),
+          color: ThixPolicy.danger.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: _C.red, size: 20),
+            const Icon(Icons.warning_amber_rounded, color: ThixPolicy.danger, size: 20),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 '$pending escalade(s) en attente',
                 style: const TextStyle(
-                  color: _C.red,
+                  color: ThixPolicy.danger,
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),
@@ -764,7 +732,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             ),
             const Icon(
               Icons.arrow_forward_ios_rounded,
-              color: _C.red,
+              color: ThixPolicy.danger,
               size: 13,
             ),
           ],
@@ -796,7 +764,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: sel ? _C.primarySoft : Colors.transparent,
+                    color: sel ? ThixPolicy.tint : Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -804,7 +772,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-                      color: sel ? _C.primaryDeep : _C.textMuted,
+                      color: sel ? ThixPolicy.primaryDeep : ThixPolicy.textSecondary,
                     ),
                   ),
                 ),
@@ -816,7 +784,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // ─────────────────────── LISTE WHATSAPP STYLE ───────────────────────
+  // ─────────────────────── LISTE CORPORATE STYLE ───────────────────────
 
   Widget _chatList(
     List<ChatConversation> list,
@@ -833,13 +801,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               Icon(
                 Icons.chat_bubble_outline_rounded,
                 size: 48,
-                color: _C.textSoft,
+                color: ThixPolicy.textSecondary,
               ),
               SizedBox(height: 16),
               Text(
                 'Aucune conversation',
                 style: TextStyle(
-                  color: _C.textMuted,
+                  color: ThixPolicy.textSecondary,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
@@ -881,7 +849,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       children: [
                         CircleAvatar(
                           radius: 24, 
-                          backgroundColor: _C.searchBg,
+                          backgroundColor: ThixPolicy.surface,
                           backgroundImage: conv.displayAvatar != null
                               ? NetworkImage(conv.displayAvatar!)
                               : null,
@@ -892,7 +860,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                       : '?',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: _C.textMuted,
+                                    color: ThixPolicy.textSecondary,
                                     fontSize: 20,
                                   ),
                                 )
@@ -906,7 +874,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                               width: 12,
                               height: 12,
                               decoration: BoxDecoration(
-                                color: _C.green,
+                                color: ThixPolicy.success,
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 2),
                               ),
@@ -927,9 +895,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 16, 
+                                    fontSize: 15, 
                                     fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
-                                    color: _C.textMain,
+                                    color: ThixPolicy.textMain,
                                   ),
                                 ),
                               ),
@@ -937,36 +905,35 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                               Text(
                                 _fmt(t),
                                 style: TextStyle(
-                                  fontSize: 12, 
+                                  fontSize: 11.5, 
                                   fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
-                                  color: unread ? _C.green : _C.textMuted,
+                                  color: unread ? ThixPolicy.primary : ThixPolicy.textSecondary,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Row(
                             children: [
                               Expanded(
-                                // 🌟 ICI : On utilise _formatPreview pour filtrer l'aperçu !
                                 child: Text(
                                   _formatPreview(last?.content),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 14, 
+                                    fontSize: 13.5, 
                                     fontWeight: unread ? FontWeight.w500 : FontWeight.w400,
-                                    color: unread ? _C.textMain : _C.textMuted,
+                                    color: unread ? ThixPolicy.textMain : ThixPolicy.textSecondary,
                                   ),
                                 ),
                               ),
                               if (unread)
                                 Container(
                                   margin: const EdgeInsets.only(left: 10),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: const BoxDecoration(
-                                    color: _C.green, 
-                                    shape: BoxShape.circle,
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: ThixPolicy.primary,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                   alignment: Alignment.center,
                                   child: Text(
@@ -974,7 +941,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 11,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                 ),
@@ -1050,7 +1017,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           height: 48,
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: _C.gradientHeader,
+                            gradient: ThixPolicy.brandGradient,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black26,
@@ -1091,7 +1058,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: RadialGradient(
-                            colors: [_C.goldLight, _C.primary],
+                            colors: [ThixPolicy.premiumAccent, ThixPolicy.primary],
                             radius: 0.8,
                           ),
                         ),
@@ -1141,7 +1108,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           children: [
             Icon(
               isSelected ? iconFilled : iconOutlined,
-              color: isSelected ? _C.primary : _C.textSoft,
+              color: isSelected ? ThixPolicy.primary : ThixPolicy.textSecondary,
               size: 26,
             ),
             if (idx == 1 && unread > 0)
@@ -1152,7 +1119,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: _C.red,
+                    color: ThixPolicy.danger,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
