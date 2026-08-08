@@ -143,25 +143,103 @@ class _HomePagePremiumState extends State<HomePagePremium> with SingleTickerProv
   }
 
   void _handleServiceTap(String serviceKey) {
+  // 1. Marquer la section comme vue (pour faire tomber le badge à 0)
+  final uid = context.read<AuthController>().currentUser?.id;
+  if (uid != null) {
+    final counters = NotificationCountersService();
+    ThixSection? section;
+
     switch (serviceKey) {
-      case 'thixMedia': context.push(AppRoutes.thixMedia); break;
-      case 'thixMarket': context.push(AppRoutes.thixMarket); break;
-      case 'formations': context.push(AppRoutes.trainingHome); break;
-      case 'emplois': context.push(AppRoutes.jobs); break;
-      case 'thixInfo': context.push(AppRoutes.thixInfo); break;
-      case 'opportunites': context.push(AppRoutes.opportunities); break;
-      case 'evenements': context.push('/thix-event'); break;
-      // Réseau Pro est dans la branche 1 → go() pour basculer sans empiler
-      case 'reseauPro': context.go(AppRoutes.network); break;
-      case 'thixSante': context.push(AppRoutes.thixSante); break;
-      case 'thixMoney': context.push(AppRoutes.thixMoney); break;
-      case 'monPays': context.push(AppRoutes.monPays); break;
-      case 'reservation': context.push(AppRoutes.reservation); break;
-      case 'thixUrgent': context.push(AppRoutes.thixUrgent); break;
-      default: break;
+      case 'thixMedia':
+        section = ThixSection.media;
+        break;
+      case 'thixMarket':
+        section = ThixSection.market;
+        break;
+      case 'formations':
+        section = ThixSection.formations;
+        break;
+      case 'emplois':
+        section = ThixSection.jobs;
+        break;
+      case 'thixInfo':
+        section = ThixSection.info;
+        break;
+      case 'opportunites':
+        section = ThixSection.opportunities;
+        break;
+      case 'evenements':
+        section = ThixSection.events;
+        break;
+      case 'reseauPro':
+        section = ThixSection.network;
+        break;
+      case 'thixSante':
+        section = ThixSection.health;
+        break;
+      case 'thixMoney':
+        section = ThixSection.money;
+        break;
+      case 'monPays':
+        section = ThixSection.monPays;
+        break;
+      case 'reservation':
+        section = ThixSection.reservation;
+        break;
+    }
+
+    if (section != null) {
+      // On ne bloque pas la navigation
+      counters.markSectionSeen(uid: uid, section: section);
     }
   }
 
+  // 2. Navigation (exactement comme avant)
+  switch (serviceKey) {
+    case 'thixMedia':
+      context.push(AppRoutes.thixMedia);
+      break;
+    case 'thixMarket':
+      context.push(AppRoutes.thixMarket);
+      break;
+    case 'formations':
+      context.push(AppRoutes.trainingHome);
+      break;
+    case 'emplois':
+      context.push(AppRoutes.jobs);
+      break;
+    case 'thixInfo':
+      context.push(AppRoutes.thixInfo);
+      break;
+    case 'opportunites':
+      context.push(AppRoutes.opportunities);
+      break;
+    case 'evenements':
+      context.push('/thix-event');
+      break;
+    // Réseau Pro est dans la branche 1 → go() pour basculer sans empiler
+    case 'reseauPro':
+      context.go(AppRoutes.network);
+      break;
+    case 'thixSante':
+      context.push(AppRoutes.thixSante);
+      break;
+    case 'thixMoney':
+      context.push(AppRoutes.thixMoney);
+      break;
+    case 'monPays':
+      context.push(AppRoutes.monPays);
+      break;
+    case 'reservation':
+      context.push(AppRoutes.reservation);
+      break;
+    case 'thixUrgent':
+      context.push(AppRoutes.thixUrgent);
+      break;
+    default:
+      break;
+  }
+}
   @override Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final safeTop = MediaQuery.paddingOf(context).top;
