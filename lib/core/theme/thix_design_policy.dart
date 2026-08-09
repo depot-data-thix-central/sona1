@@ -1,176 +1,225 @@
 import 'package:flutter/material.dart';
 
-/// ═══════════════════════════════════════════════════════════════
+/// ============================================================================
 /// THIX DESIGN SYSTEM v1
-/// ═══════════════════════════════════════════════════════════════
+/// ============================================================================
 ///
-/// Source de vérité unique pour :
-/// - Web
-/// - Mobile
-/// - PWA
+/// SOURCE DE VÉRITÉ UNIQUE
+///
+/// Utilisé par :
+/// - THIX Web
+/// - THIX Mobile
+/// - THIX PWA
 /// - Android
 /// - iOS
 ///
 /// PRINCIPES
-/// ───────────────────────────────────────────────────────────────
-/// 1. Aucun écran ne définit ses propres couleurs de marque.
-/// 2. Aucun écran ne définit ses propres tailles typographiques.
-/// 3. Aucun écran ne définit ses propres rayons standards.
-/// 4. Les composants utilisent les tokens THIX.
-/// 5. Web et Mobile utilisent les mêmes rôles visuels.
-/// 6. Les adaptations responsive ne changent pas l'identité.
-/// ═══════════════════════════════════════════════════════════════
+/// ─────────────────────────────────────────────────────────────────────────────
+/// 1. Les couleurs Core THIX sont centralisées ici.
+/// 2. La typographie est centralisée ici.
+/// 3. Les espacements sont centralisés ici.
+/// 4. Les rayons sont centralisés ici.
+/// 5. Les dimensions de composants sont centralisées ici.
+/// 6. Web et Mobile utilisent les mêmes rôles visuels.
+/// 7. Le responsive adapte la disposition, pas l'identité.
+/// 8. Les domaines peuvent avoir leur propre accent.
+/// 9. Les nouveaux écrans doivent utiliser ThixPolicy / ThemeData.
+/// 10. Les anciennes API sont maintenues séparément dans theme.dart.
+/// ============================================================================
 
 class ThixPolicy {
   ThixPolicy._();
 
-  // ═════════════════════════════════════════════════════════════
-  // 01. BRAND COLORS
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 01. BRAND / CORE COLORS
+  // ══════════════════════════════════════════════════════════════════════════
 
+  /// THIX primary blue.
   static const Color primary = Color(0xFF2D6CDF);
+
+  /// Dark brand blue.
   static const Color primaryDeep = Color(0xFF123B7A);
+
+  /// Deep ink / brand navy.
   static const Color inkDeep = Color(0xFF0A1F44);
 
+  /// Gold accent.
   static const Color gold = Color(0xFFE3B23C);
+
+  /// Deep gold / premium accent.
   static const Color premiumAccent = Color(0xFFD4A017);
 
-  // ─────────────────────────────────────────────────────────────
-  // SURFACES
-  // ─────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // 02. SURFACES
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const Color surface = Color(0xFFF0F2F5);
+
   static const Color surfaceSoft = Color(0xFFF7F8FA);
+
   static const Color surfaceStrong = Color(0xFFE8ECF2);
 
   static const Color card = Color(0xFFFFFFFF);
+
   static const Color cardElevated = Color(0xFFFFFFFF);
 
   static const Color border = Color(0xFFE2E8F0);
+
   static const Color borderStrong = Color(0xFFCBD5E1);
 
   static const Color tint = Color(0xFFEEF3FF);
 
-  // ─────────────────────────────────────────────────────────────
-  // TEXT
-  // ─────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // 03. TEXT COLORS
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const Color textMain = Color(0xFF10192E);
+
   static const Color textSecondary = Color(0xFF7386A8);
+
   static const Color textMuted = Color(0xFF94A3B8);
+
   static const Color textDisabled = Color(0xFFCBD5E1);
 
   static const Color onBrand = Colors.white;
 
-  // ─────────────────────────────────────────────────────────────
-  // STATES
-  // ─────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // 04. SYSTEM STATES
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const Color success = Color(0xFF22C55E);
+
   static const Color warning = Color(0xFFF59E0B);
+
   static const Color danger = Color(0xFFEF4444);
+
   static const Color info = Color(0xFF0284C7);
 
-  // ═════════════════════════════════════════════════════════════
-  // 02. DOMAIN COLORS
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 05. DOMAIN COLORS
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // Ces couleurs ne remplacent PAS THIX primary.
+  //
+  // Elles représentent l'identité d'un domaine précis.
+  //
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const Color domainMedia = Color(0xFF7C3AED);
+
   static const Color domainMarket = Color(0xFFF97316);
+
   static const Color domainLearning = Color(0xFF2563EB);
+
   static const Color domainJobs = Color(0xFF16A34A);
+
   static const Color domainInfo = Color(0xFF0284C7);
+
   static const Color domainOpportunity = Color(0xFFF59E0B);
+
   static const Color domainEvents = Color(0xFFEF4444);
+
   static const Color domainNetwork = Color(0xFF4F46E5);
+
   static const Color domainHealth = Color(0xFFE11D48);
+
   static const Color domainMoney = Color(0xFF059669);
+
   static const Color domainGov = Color(0xFF334155);
+
   static const Color domainReservation = Color(0xFF0D9488);
 
-  // ═════════════════════════════════════════════════════════════
-  // 03. SPACING
-  // ═════════════════════════════════════════════════════════════
-  //
-  // Grille principale : 4 / 8
-  //
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 06. SPACING
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const double s2 = 2;
+
   static const double s4 = 4;
+
   static const double s6 = 6;
+
   static const double s8 = 8;
+
   static const double s12 = 12;
+
   static const double s16 = 16;
+
   static const double s20 = 20;
+
   static const double s24 = 24;
+
   static const double s28 = 28;
+
   static const double s32 = 32;
+
   static const double s40 = 40;
+
   static const double s48 = 48;
+
   static const double s56 = 56;
+
   static const double s64 = 64;
 
-  // ═════════════════════════════════════════════════════════════
-  // 04. RADII
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 07. RADIUS
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const double rXs = 8;
+
   static const double rSm = 12;
+
   static const double rMd = 16;
+
   static const double rLg = 20;
+
   static const double rXl = 24;
+
   static const double r2Xl = 32;
+
   static const double rFull = 999;
 
-  // ═════════════════════════════════════════════════════════════
-  // 05. TYPOGRAPHY
-  // ═════════════════════════════════════════════════════════════
-  //
-  // IMPORTANT :
-  // Les écrans doivent utiliser les rôles ci-dessous.
-  //
-  // Ne pas faire :
-  //   fontSize: 17
-  //
-  // Faire :
-  //   style: ThixPolicy.cardTitle
-  //
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 08. TYPOGRAPHY FOUNDATION
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const String fontFamily = 'Inter';
 
-  // ─────────────────────────────────────────────────────────────
-  // SIZE TOKENS
-  // ─────────────────────────────────────────────────────────────
+  // Sizes
 
   static const double display = 28;
 
   static const double h1 = 24;
+
   static const double h2 = 20;
+
   static const double h3 = 18;
 
   static const double title = 16;
 
   static const double body = 14;
+
   static const double bodySmall = 13;
 
   static const double label = 12;
+
   static const double caption = 11;
+
   static const double micro = 10;
 
-  // ─────────────────────────────────────────────────────────────
-  // WEIGHT TOKENS
-  // ─────────────────────────────────────────────────────────────
+  // Weights
 
   static const FontWeight regular = FontWeight.w400;
+
   static const FontWeight medium = FontWeight.w500;
+
   static const FontWeight semiBold = FontWeight.w600;
+
   static const FontWeight bold = FontWeight.w700;
 
-  // ─────────────────────────────────────────────────────────────
-  // TEXT STYLES — RÔLES THIX
-  // ─────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // 09. TYPOGRAPHY — SEMANTIC ROLES
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const TextStyle displayStyle = TextStyle(
     fontFamily: fontFamily,
@@ -260,29 +309,29 @@ class ThixPolicy {
     color: textSecondary,
   );
 
-  // ─────────────────────────────────────────────────────────────
-  // SEMANTIC TEXT STYLES
-  // ─────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // 10. TYPOGRAPHY — COMPONENT ROLES
+  // ══════════════════════════════════════════════════════════════════════════
 
-  /// Grand titre de page / Hero
+  /// Page hero / main screen title.
   static const TextStyle heroTitle = h1Style;
 
-  /// Titre de section
+  /// Section title.
   static const TextStyle sectionTitle = h3Style;
 
-  /// Titre de carte
+  /// Card title.
   static const TextStyle cardTitle = titleStyle;
 
-  /// Texte principal
+  /// Main body text.
   static const TextStyle bodyText = bodyStyle;
 
-  /// Texte secondaire
+  /// Secondary body text.
   static const TextStyle secondaryText = bodySmallStyle;
 
-  /// Label navigation / constellation
+  /// Navigation / constellation label.
   static const TextStyle navLabel = labelStyle;
 
-  /// Texte de bouton
+  /// Button text.
   static const TextStyle buttonText = TextStyle(
     fontFamily: fontFamily,
     fontSize: 14,
@@ -291,7 +340,7 @@ class ThixPolicy {
     color: onBrand,
   );
 
-  /// Texte de badge / chip
+  /// Chip / badge text.
   static const TextStyle chipText = TextStyle(
     fontFamily: fontFamily,
     fontSize: 12,
@@ -300,29 +349,56 @@ class ThixPolicy {
     color: onBrand,
   );
 
-  // ═════════════════════════════════════════════════════════════
-  // 06. COMPONENT SIZES
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 11. COMPONENT DIMENSIONS
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const double minTapTarget = 44;
 
   static const double buttonHeight = 48;
+
   static const double buttonHeightSmall = 40;
+
   static const double buttonHeightLarge = 52;
 
   static const double searchBarHeight = 48;
+
   static const double inputHeight = 48;
 
   static const double iconButtonSize = 44;
 
   static const double bottomNavHeight = 64;
+
   static const double appBarHeight = 72;
 
   static const double fabSize = 56;
 
-  // ═════════════════════════════════════════════════════════════
-  // 07. CONSTELLATION
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 12. CARD POLICY
+  // ══════════════════════════════════════════════════════════════════════════
+
+  static const EdgeInsets cardPadding = EdgeInsets.all(s16);
+
+  static const EdgeInsets cardPaddingLarge = EdgeInsets.all(s20);
+
+  static const double cardRadius = rLg;
+
+  static const double cardBorderWidth = 1;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 13. INPUT POLICY
+  // ══════════════════════════════════════════════════════════════════════════
+
+  static const EdgeInsets inputPadding = EdgeInsets.symmetric(
+    horizontal: s16,
+    vertical: s12,
+  );
+
+  static const double inputRadius = rMd;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 14. CONSTELLATION
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const double constellationStageHeight = 360;
 
@@ -350,32 +426,9 @@ class ThixPolicy {
 
   static const double constellationOuterPadding = 34;
 
-  // ═════════════════════════════════════════════════════════════
-  // 08. CARD POLICY
-  // ═════════════════════════════════════════════════════════════
-
-  static const EdgeInsets cardPadding = EdgeInsets.all(s16);
-
-  static const EdgeInsets cardPaddingLarge = EdgeInsets.all(s20);
-
-  static const double cardRadius = rLg;
-
-  static const double cardBorderWidth = 1;
-
-  // ═════════════════════════════════════════════════════════════
-  // 09. INPUT POLICY
-  // ═════════════════════════════════════════════════════════════
-
-  static const EdgeInsets inputPadding = EdgeInsets.symmetric(
-    horizontal: s16,
-    vertical: s12,
-  );
-
-  static const double inputRadius = rMd;
-
-  // ═════════════════════════════════════════════════════════════
-  // 10. SHADOWS
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 15. SHADOWS
+  // ══════════════════════════════════════════════════════════════════════════
 
   static List<BoxShadow> shadowCard({
     double opacity = 0.08,
@@ -413,9 +466,9 @@ class ThixPolicy {
     ];
   }
 
-  // ═════════════════════════════════════════════════════════════
-  // 11. GRADIENTS
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 16. GRADIENTS
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -445,12 +498,36 @@ class ThixPolicy {
     ],
   );
 
-  // ═════════════════════════════════════════════════════════════
-  // 12. THEME — LIGHT
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 17. TEXT THEME
+  // ══════════════════════════════════════════════════════════════════════════
+
+  static const TextTheme textTheme = TextTheme(
+    displayLarge: displayStyle,
+
+    headlineLarge: h1Style,
+    headlineMedium: h2Style,
+    headlineSmall: h3Style,
+
+    titleLarge: titleStyle,
+    titleMedium: titleStyle,
+    titleSmall: labelStyle,
+
+    bodyLarge: bodyStyle,
+    bodyMedium: bodyStyle,
+    bodySmall: bodySmallStyle,
+
+    labelLarge: labelStyle,
+    labelMedium: captionStyle,
+    labelSmall: microStyle,
+  );
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 18. LIGHT THEME
+  // ══════════════════════════════════════════════════════════════════════════
 
   static ThemeData lightTheme() {
-    final colorScheme = const ColorScheme.light(
+    const colorScheme = ColorScheme.light(
       primary: primary,
       onPrimary: onBrand,
       secondary: gold,
@@ -472,9 +549,9 @@ class ThixPolicy {
 
       scaffoldBackgroundColor: surface,
 
-      splashFactory: InkRipple.splashFactory,
+      textTheme: textTheme,
 
-      textTheme: _textTheme,
+      splashFactory: InkRipple.splashFactory,
 
       appBarTheme: const AppBarTheme(
         elevation: 0,
@@ -559,15 +636,12 @@ class ThixPolicy {
           backgroundColor: primary,
           foregroundColor: onBrand,
           elevation: 0,
-
           padding: const EdgeInsets.symmetric(
             horizontal: s20,
           ),
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rMd),
           ),
-
           textStyle: buttonText,
         ),
       ),
@@ -578,21 +652,16 @@ class ThixPolicy {
             minTapTarget,
             buttonHeight,
           ),
-
           foregroundColor: primary,
-
           side: const BorderSide(
             color: primary,
           ),
-
           padding: const EdgeInsets.symmetric(
             horizontal: s20,
           ),
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rMd),
           ),
-
           textStyle: buttonText.copyWith(
             color: primary,
           ),
@@ -605,13 +674,10 @@ class ThixPolicy {
             minTapTarget,
             minTapTarget,
           ),
-
           foregroundColor: primary,
-
           textStyle: buttonText.copyWith(
             color: primary,
           ),
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(rSm),
           ),
@@ -633,9 +699,9 @@ class ThixPolicy {
     );
   }
 
-  // ═════════════════════════════════════════════════════════════
-  // 13. THEME — DARK
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 19. DARK THEME
+  // ══════════════════════════════════════════════════════════════════════════
 
   static ThemeData darkTheme() {
     const darkBackground = Color(0xFF0A1222);
@@ -646,7 +712,7 @@ class ThixPolicy {
     const darkText = Color(0xFFF8FAFC);
     const darkSecondary = Color(0xFFA8B6CC);
 
-    final colorScheme = const ColorScheme.dark(
+    const colorScheme = ColorScheme.dark(
       primary: primary,
       onPrimary: onBrand,
       secondary: gold,
@@ -668,7 +734,7 @@ class ThixPolicy {
 
       scaffoldBackgroundColor: darkBackground,
 
-      textTheme: _textTheme.apply(
+      textTheme: textTheme.apply(
         bodyColor: darkText,
         displayColor: darkText,
       ),
@@ -768,6 +834,22 @@ class ThixPolicy {
         ),
       ),
 
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(
+            minTapTarget,
+            minTapTarget,
+          ),
+          foregroundColor: primary,
+          textStyle: buttonText.copyWith(
+            color: primary,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(rSm),
+          ),
+        ),
+      ),
+
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: primary,
         foregroundColor: onBrand,
@@ -783,48 +865,21 @@ class ThixPolicy {
     );
   }
 
-  // ═════════════════════════════════════════════════════════════
-  // 14. TEXT THEME
-  // ═════════════════════════════════════════════════════════════
-
-  static const TextTheme _textTheme = TextTheme(
-    displayLarge: displayStyle,
-
-    headlineLarge: h1Style,
-    headlineMedium: h2Style,
-    headlineSmall: h3Style,
-
-    titleLarge: titleStyle,
-    titleMedium: titleStyle,
-    titleSmall: labelStyle,
-
-    bodyLarge: bodyStyle,
-    bodyMedium: bodyStyle,
-    bodySmall: bodySmallStyle,
-
-    labelLarge: labelStyle,
-    labelMedium: captionStyle,
-    labelSmall: microStyle,
-  );
-
-  // ═════════════════════════════════════════════════════════════
-  // 15. LEGACY ALIASES
-  // ═════════════════════════════════════════════════════════════
-  //
-  // Ces alias évitent de casser immédiatement les anciens écrans.
-  //
-  // Ils pourront être supprimés en v2.
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 20. LEGACY TYPOGRAPHY ALIASES
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const double titleLg = h3;
+
   static const double titleMd = title;
 
   static const TextStyle titleLgStyle = h3Style;
+
   static const TextStyle titleMdStyle = titleStyle;
 
-  // ═════════════════════════════════════════════════════════════
-  // 16. DOMAIN HELPERS
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 21. DOMAIN HELPER
+  // ══════════════════════════════════════════════════════════════════════════
 
   static Color domainColor(String domain) {
     switch (domain.toLowerCase()) {
@@ -884,24 +939,14 @@ class ThixPolicy {
     }
   }
 
-  // ═════════════════════════════════════════════════════════════
-  // 17. RESPONSIVE POLICY
-  // ═════════════════════════════════════════════════════════════
-  //
-  // IMPORTANT :
-  // Le responsive ne modifie PAS la hiérarchie typographique.
-  //
-  // Il modifie principalement :
-  // - largeur
-  // - padding
-  // - nombre de colonnes
-  // - densité
-  // - disposition
-  //
-  // ═════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // 22. RESPONSIVE
+  // ══════════════════════════════════════════════════════════════════════════
 
   static const double breakpointMobile = 600;
+
   static const double breakpointTablet = 900;
+
   static const double breakpointDesktop = 1200;
 
   static bool isMobile(BuildContext context) {
@@ -919,10 +964,6 @@ class ThixPolicy {
     return MediaQuery.sizeOf(context).width >= breakpointDesktop;
   }
 
-  // ═════════════════════════════════════════════════════════════
-  // 18. CONTENT WIDTH
-  // ═════════════════════════════════════════════════════════════
-
   static double contentMaxWidth(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
 
@@ -936,10 +977,6 @@ class ThixPolicy {
 
     return double.infinity;
   }
-
-  // ═════════════════════════════════════════════════════════════
-  // 19. PAGE PADDING
-  // ═════════════════════════════════════════════════════════════
 
   static EdgeInsets pagePadding(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
