@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// ✅ Design System THIX v1
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 // Imports des pages (inchangés)
 import 'screens/mon_medecin_traitant_page.dart';
 import 'screens/dossier_famille_page.dart';
@@ -34,26 +37,6 @@ import 'screens/bien_etre_mental_page.dart';
 import 'screens/nutrition_page.dart';
 import 'screens/activite_physique_page.dart';
 import 'screens/gestion_stress_page.dart';
-
-// =========================================================================
-// DESIGN SYSTEM PREMIUM - NIVEAU ENTREPRISE
-// =========================================================================
-class _C {
-  static const bg = Color(0xFFF8FAFC); // Fond très clair et moderne
-  static const white = Color(0xFFFFFFFF);
-  static const navy = Color(0xFF0F172A); // Texte principal très sombre
-  static const slate = Color(0xFF334155); // Texte secondaire
-  static const textMuted = Color(0xFF64748B); // Texte tertiaire
-  
-  static const primary = Color(0xFF2563EB); // Bleu médical premium
-  static const emerald = Color(0xFF059669); // Vert santé/succès
-  static const violet = Color(0xFF7C3AED); // Violet tech/IA
-  static const red = Color(0xFFDC2626); // Rouge urgence
-  static const amber = Color(0xFFD97706); // Orange alertes
-  
-  static const border = Color(0xFFE2E8F0);
-  static const borderLight = Color(0xFFF1F5F9);
-}
 
 // ---------------- Données réelles ----------------
 class DashboardStats {
@@ -122,35 +105,36 @@ class PatientDashboardPage extends ConsumerStatefulWidget {
 }
 
 class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
+  // Branchement 100% ThixPolicy pour les couleurs des services
   late final List<ServiceItem> _dossierServices = [
-    ServiceItem('Ordonnances', 'Prescriptions', Icons.receipt_long_rounded, _C.violet, const MesOrdonnancesPage()),
-    ServiceItem('Résultats', 'Labo & Imagerie', Icons.biotech_rounded, _C.primary, const ResultatsExamensPage()),
-    ServiceItem('Vaccins', 'Carnet à jour', Icons.vaccines_rounded, _C.emerald, const CarnetVaccinationPage()),
-    ServiceItem('Historique', 'Dossier complet', Icons.folder_shared_rounded, _C.slate, const DossierMedicalPage()),
-    ServiceItem('Assurance', 'Couverture', Icons.shield_rounded, _C.navy, const AssuranceSantePage()),
-    ServiceItem('Partage', 'Accès médecins', Icons.share_rounded, _C.primary, const DossierPartagePage()),
+    ServiceItem('Ordonnances', 'Prescriptions', Icons.receipt_long_rounded, ThixPolicy.primaryDeep, const MesOrdonnancesPage()),
+    ServiceItem('Résultats', 'Labo & Imagerie', Icons.biotech_rounded, ThixPolicy.primary, const ResultatsExamensPage()),
+    ServiceItem('Vaccins', 'Carnet à jour', Icons.vaccines_rounded, ThixPolicy.success, const CarnetVaccinationPage()),
+    ServiceItem('Historique', 'Dossier complet', Icons.folder_shared_rounded, ThixPolicy.textSecondary, const DossierMedicalPage()),
+    ServiceItem('Assurance', 'Couverture', Icons.shield_rounded, ThixPolicy.inkDeep, const AssuranceSantePage()),
+    ServiceItem('Partage', 'Accès médecins', Icons.share_rounded, ThixPolicy.primary, const DossierPartagePage()),
   ];
 
   late final List<ServiceItem> _careServices = [
-    ServiceItem('Médicaments', 'En pharmacie', Icons.medication_rounded, _C.violet, const TrouverMedicamentPage()),
-    ServiceItem('Second Avis', 'Experts médicaux', Icons.people_alt_rounded, _C.primary, const SecondAvisPage()),
-    ServiceItem('Don de sang', 'Centres proches', Icons.bloodtype_rounded, _C.red, const DonSangPage()),
-    ServiceItem('Rendez-vous', 'Planification', Icons.medical_services_rounded, _C.emerald, const ConsulterMedecinPage()),
-    ServiceItem('Épidémies', 'Alertes locales', Icons.coronavirus_rounded, _C.amber, const EpidemiesPage()),
+    ServiceItem('Médicaments', 'En pharmacie', Icons.medication_rounded, ThixPolicy.primaryDeep, const TrouverMedicamentPage()),
+    ServiceItem('Second Avis', 'Experts médicaux', Icons.people_alt_rounded, ThixPolicy.primary, const SecondAvisPage()),
+    ServiceItem('Don de sang', 'Centres proches', Icons.bloodtype_rounded, ThixPolicy.danger, const DonSangPage()),
+    ServiceItem('Rendez-vous', 'Planification', Icons.medical_services_rounded, ThixPolicy.success, const ConsulterMedecinPage()),
+    ServiceItem('Épidémies', 'Alertes locales', Icons.coronavirus_rounded, ThixPolicy.warning, const EpidemiesPage()),
   ];
 
   late final List<ServiceItem> _familyServices = [
-    ServiceItem('Profils', 'Gérer la famille', Icons.family_restroom_rounded, _C.violet, const DossierFamillePage()),
-    ServiceItem('Maternité', 'Suivi grossesse', Icons.pregnant_woman_rounded, const Color(0xFFDB2777), const SuiviGrossessePage()),
-    ServiceItem('Pédiatrie', 'Santé enfants', Icons.child_care_rounded, _C.primary, const SanteEnfantsPage()),
-    ServiceItem('Rappels', 'Prochains soins', Icons.notifications_active_rounded, _C.amber, const RappelsVaccinPage()),
+    ServiceItem('Profils', 'Gérer la famille', Icons.family_restroom_rounded, ThixPolicy.primaryDeep, const DossierFamillePage()),
+    ServiceItem('Maternité', 'Suivi grossesse', Icons.pregnant_woman_rounded, ThixPolicy.danger, const SuiviGrossessePage()),
+    ServiceItem('Pédiatrie', 'Santé enfants', Icons.child_care_rounded, ThixPolicy.primary, const SanteEnfantsPage()),
+    ServiceItem('Rappels', 'Prochains soins', Icons.notifications_active_rounded, ThixPolicy.warning, const RappelsVaccinPage()),
   ];
 
   late final List<ServiceItem> _wellbeingServices = [
-    ServiceItem('Nutrition', 'Suivi alimentaire', Icons.restaurant_rounded, _C.amber, const NutritionPage()),
-    ServiceItem('Activité', 'Sport & Fitness', Icons.directions_run_rounded, _C.emerald, const ActivitePhysiquePage()),
-    ServiceItem('Psychologie', 'Santé mentale', Icons.psychology_rounded, _C.violet, const BienEtreMentalPage()),
-    ServiceItem('Relaxation', 'Gestion du stress', Icons.self_improvement_rounded, _C.primary, const GestionStressPage()),
+    ServiceItem('Nutrition', 'Suivi alimentaire', Icons.restaurant_rounded, ThixPolicy.warning, const NutritionPage()),
+    ServiceItem('Activité', 'Sport & Fitness', Icons.directions_run_rounded, ThixPolicy.success, const ActivitePhysiquePage()),
+    ServiceItem('Psychologie', 'Santé mentale', Icons.psychology_rounded, ThixPolicy.primaryDeep, const BienEtreMentalPage()),
+    ServiceItem('Relaxation', 'Gestion du stress', Icons.self_improvement_rounded, ThixPolicy.primary, const GestionStressPage()),
   ];
 
   void _go(Widget page) {
@@ -164,12 +148,12 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     final stats = ref.watch(dashboardStatsProvider);
 
     return Scaffold(
-      backgroundColor: _C.bg,
+      backgroundColor: ThixPolicy.surfaceSoft,
       body: Stack(
         children: [
           RefreshIndicator(
-            color: _C.primary,
-            backgroundColor: _C.white,
+            color: ThixPolicy.primary,
+            backgroundColor: ThixPolicy.card,
             onRefresh: () async {
               ref.invalidate(dashboardStatsProvider);
               ref.invalidate(patientProfileProvider);
@@ -230,11 +214,11 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
 
     return SliverAppBar(
-      backgroundColor: _C.bg,
+      backgroundColor: ThixPolicy.surfaceSoft,
       pinned: true,
       elevation: 0,
       scrolledUnderElevation: 1,
-      shadowColor: _C.navy.withOpacity(0.1),
+      shadowColor: ThixPolicy.inkDeep.withOpacity(0.05),
       collapsedHeight: 70,
       expandedHeight: 70,
       automaticallyImplyLeading: false,
@@ -248,14 +232,14 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                 height: 44, width: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _C.white,
-                  border: Border.all(color: _C.border, width: 1.5),
+                  color: ThixPolicy.card,
+                  border: Border.all(color: ThixPolicy.border, width: 1.5),
                   image: (avatarUrl != null && avatarUrl.isNotEmpty) 
                       ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover) 
                       : null,
                 ),
                 child: (avatarUrl == null || avatarUrl.isEmpty) 
-                    ? const Icon(Icons.person_rounded, color: _C.textMuted, size: 24) 
+                    ? const Icon(Icons.person_rounded, color: ThixPolicy.textMuted, size: 24) 
                     : null,
               ),
               const SizedBox(width: 12),
@@ -266,12 +250,12 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Bonjour, $firstName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
+                    Text('Bonjour, $firstName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: ThixPolicy.inkDeep, letterSpacing: -0.5)),
                     const Row(
                       children: [
-                        Icon(Icons.shield_rounded, size: 12, color: _C.emerald),
+                        Icon(Icons.shield_rounded, size: 12, color: ThixPolicy.success),
                         SizedBox(width: 4),
-                        Text('Espace sécurisé', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _C.textMuted)),
+                        Text('Espace sécurisé', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ThixPolicy.textSecondary)),
                       ],
                     ),
                   ],
@@ -285,15 +269,15 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: _C.red.withOpacity(0.1),
+                    color: ThixPolicy.danger.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _C.red.withOpacity(0.3)),
+                    border: Border.all(color: ThixPolicy.danger.withOpacity(0.3)),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.bolt_rounded, size: 16, color: _C.red),
+                      Icon(Icons.bolt_rounded, size: 16, color: ThixPolicy.danger),
                       SizedBox(width: 4),
-                      Text('SOS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: _C.red)),
+                      Text('SOS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: ThixPolicy.danger)),
                     ],
                   ),
                 ),
@@ -305,11 +289,11 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                 child: Container(
                   height: 40, width: 40,
                   decoration: BoxDecoration(
-                    color: _C.white,
+                    color: ThixPolicy.card,
                     shape: BoxShape.circle,
-                    border: Border.all(color: _C.border),
+                    border: Border.all(color: ThixPolicy.border),
                   ),
-                  child: const Icon(Icons.notifications_none_rounded, color: _C.navy, size: 20),
+                  child: const Icon(Icons.notifications_none_rounded, color: ThixPolicy.inkDeep, size: 20),
                 ),
               ),
             ],
@@ -320,30 +304,30 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   // =========================================================================
-  // 2. CARTE STATISTIQUES COMPACTE (Remplacement des gros cercles)
+  // 2. CARTE STATISTIQUES COMPACTE
   // =========================================================================
   Widget _buildCompactStatsCard(AsyncValue<DashboardStats> statsAsync) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
-        color: _C.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _C.borderLight),
-        boxShadow: [BoxShadow(color: _C.navy.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
+        color: ThixPolicy.card,
+        borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+        border: Border.all(color: ThixPolicy.border),
+        boxShadow: ThixPolicy.shadowSoft(opacity: 0.03),
       ),
       child: statsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: _C.primary)),
-        error: (_, __) => const Center(child: Text('Erreur de chargement', style: TextStyle(color: _C.textMuted))),
+        loading: () => const Center(child: CircularProgressIndicator(color: ThixPolicy.primary)),
+        error: (_, __) => const Center(child: Text('Erreur de chargement', style: TextStyle(color: ThixPolicy.textMuted))),
         data: (d) => Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildStatItem('Consultations', d.consultations, _C.primary, Icons.stethoscope),
+            _buildStatItem('Consultations', d.consultations, ThixPolicy.primary, Icons.stethoscope),
             _buildStatDivider(),
-            _buildStatItem('Examens', d.examens, _C.emerald, Icons.science_rounded),
+            _buildStatItem('Examens', d.examens, ThixPolicy.success, Icons.science_rounded),
             _buildStatDivider(),
-            _buildStatItem('Traitements', d.medicaments, _C.violet, Icons.medication_rounded),
+            _buildStatItem('Traitements', d.medicaments, ThixPolicy.primaryDeep, Icons.medication_rounded),
             _buildStatDivider(),
-            _buildStatItem('Rendez-vous', d.rdvs, _C.amber, Icons.calendar_today_rounded),
+            _buildStatItem('Rendez-vous', d.rdvs, ThixPolicy.warning, Icons.calendar_today_rounded),
           ],
         ),
       ),
@@ -357,17 +341,17 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text('$value', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
+            Text('$value', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: ThixPolicy.inkDeep, letterSpacing: -0.5)),
           ],
         ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _C.textMuted)),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: ThixPolicy.textSecondary)),
       ],
     );
   }
 
   Widget _buildStatDivider() {
-    return Container(height: 30, width: 1, color: _C.borderLight);
+    return Container(height: 30, width: 1, color: ThixPolicy.border);
   }
 
   // =========================================================================
@@ -381,8 +365,8 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
             title: 'Pharmacies',
             subtitle: 'Trouver de garde',
             icon: Icons.local_pharmacy_rounded,
-            bgColor: const Color(0xFFF0FDF4),
-            iconColor: _C.emerald,
+            bgColor: ThixPolicy.success.withOpacity(0.08),
+            iconColor: ThixPolicy.success,
             onTap: () => _go(const PharmaciesProchesPage()),
           ),
         ),
@@ -392,8 +376,8 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
             title: 'Hôpitaux',
             subtitle: 'Réseau de soins',
             icon: Icons.local_hospital_rounded,
-            bgColor: const Color(0xFFEFF6FF),
-            iconColor: _C.primary,
+            bgColor: ThixPolicy.primary.withOpacity(0.08),
+            iconColor: ThixPolicy.primary,
             onTap: () => _go(const TrouverHopitalPage()),
           ),
         ),
@@ -404,12 +388,12 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   Widget _buildBanner({required String title, required String subtitle, required IconData icon, required Color bgColor, required Color iconColor, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(ThixPolicy.rMd),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(ThixPolicy.s16),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(ThixPolicy.rMd),
           border: Border.all(color: iconColor.withOpacity(0.1)),
         ),
         child: Column(
@@ -417,11 +401,11 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: iconColor.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]),
+              decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: iconColor.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]),
               child: Icon(icon, color: iconColor, size: 20),
             ),
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.3)),
+            const SizedBox(height: ThixPolicy.s12),
+            Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: ThixPolicy.inkDeep, letterSpacing: -0.3)),
             const SizedBox(height: 2),
             Text(subtitle, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: iconColor)),
           ],
@@ -435,8 +419,8 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   // =========================================================================
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.3)),
+      padding: const EdgeInsets.only(bottom: ThixPolicy.s16),
+      child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: ThixPolicy.inkDeep, letterSpacing: -0.3)),
     );
   }
 
@@ -447,23 +431,23 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
       padding: EdgeInsets.zero,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 2.6, // Ratio parfait pour icône + 2 lignes de texte
+        mainAxisSpacing: ThixPolicy.s12,
+        crossAxisSpacing: ThixPolicy.s12,
+        childAspectRatio: 2.6,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final it = items[index];
         return InkWell(
           onTap: () => _go(it.page),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(ThixPolicy.rSm),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: _C.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _C.borderLight),
-              boxShadow: [BoxShadow(color: _C.navy.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2))],
+              color: ThixPolicy.card,
+              borderRadius: BorderRadius.circular(ThixPolicy.rSm),
+              border: Border.all(color: ThixPolicy.border),
+              boxShadow: ThixPolicy.shadowSoft(opacity: 0.015),
             ),
             child: Row(
               children: [
@@ -481,9 +465,9 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _C.navy, letterSpacing: -0.2)),
+                      Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: ThixPolicy.inkDeep, letterSpacing: -0.2)),
                       const SizedBox(height: 2),
-                      Text(it.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _C.textMuted)),
+                      Text(it.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: ThixPolicy.textSecondary)),
                     ],
                   ),
                 ),
@@ -506,9 +490,9 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
         child: Container(
           height: 64,
           decoration: BoxDecoration(
-            color: _C.navy, // Fond sombre premium
+            color: ThixPolicy.inkDeep, // Utilisation de ThixPolicy.inkDeep
             borderRadius: BorderRadius.circular(32),
-            boxShadow: [BoxShadow(color: _C.navy.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+            boxShadow: [BoxShadow(color: ThixPolicy.inkDeep.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           child: Stack(
             clipBehavior: Clip.none,
@@ -523,7 +507,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                   _premiumNavItem(Icons.people_alt_rounded, 'Famille', false, () => _go(const DossierFamillePage())),
                 ],
               ),
-              // Bouton IA Central Flottant
+              // Bouton IA Central Flottant (Dégradé ThixPolicy)
               Positioned(
                 top: -20,
                 left: 0,
@@ -534,12 +518,12 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                     child: Container(
                       height: 64, width: 64,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [_C.primary, Color(0xFF0EA5E9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        gradient: const LinearGradient(colors: [ThixPolicy.primary, ThixPolicy.primaryDeep], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         shape: BoxShape.circle,
-                        border: Border.all(color: _C.bg, width: 4),
-                        boxShadow: [BoxShadow(color: _C.primary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
+                        border: Border.all(color: ThixPolicy.surfaceSoft, width: 4),
+                        boxShadow: [BoxShadow(color: ThixPolicy.primary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
                       ),
-                      child: const Icon(Icons.auto_awesome_rounded, color: _C.white, size: 28),
+                      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
                     ),
                   ),
                 ),
@@ -559,9 +543,9 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 22, color: active ? _C.white : _C.textMuted),
+            Icon(icon, size: 22, color: active ? Colors.white : ThixPolicy.textSecondary),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 9, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? _C.white : _C.textMuted)),
+            Text(label, style: TextStyle(fontSize: 9, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? Colors.white : ThixPolicy.textSecondary)),
           ],
         ),
       ),
