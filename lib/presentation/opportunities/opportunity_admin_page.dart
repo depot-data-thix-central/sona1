@@ -1,11 +1,17 @@
 // lib/presentation/opportunities/opportunity_admin_page.dart
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 
 // ✅ Design System THIX v1
 import 'package:thix_id/core/theme/thix_design_policy.dart';
+
+// Tes services et modèles
+import 'package:thix_id/models/opportunity_item.dart';
+import 'package:thix_id/services/opportunity_service.dart';
 
 class OpportunityAdminPage extends StatefulWidget {
   const OpportunityAdminPage({super.key});
@@ -25,7 +31,10 @@ class _OpportunityAdminPageState extends State<OpportunityAdminPage> {
   final _rewardCtrl = TextEditingController();
   final _linkCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _imageUrlCtrl = TextEditingController(); // Pour simplifier (URL de l'image)
+
+  // Image d'Upload
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageExt;
 
   // Liste dynamique pour les critères d'éligibilité
   final List<TextEditingController> _eligibilityCtrls = [TextEditingController()];
@@ -43,7 +52,6 @@ class _OpportunityAdminPageState extends State<OpportunityAdminPage> {
     _rewardCtrl.dispose();
     _linkCtrl.dispose();
     _descCtrl.dispose();
-    _imageUrlCtrl.dispose();
     for (var ctrl in _eligibilityCtrls) {
       ctrl.dispose();
     }
@@ -74,6 +82,27 @@ class _OpportunityAdminPageState extends State<OpportunityAdminPage> {
     }
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true, // Nécessaire pour avoir les bytes de l'image
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        setState(() {
+          _selectedImageBytes = file.bytes;
+          _selectedImageExt = file.extension ?? 'jpg';
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de la sélection de l\'image.'), backgroundColor: ThixPolicy.danger),
+      );
+    }
+  }
+
   Future<void> _submitOpportunity() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -92,27 +121,40 @@ class _OpportunityAdminPageState extends State<OpportunityAdminPage> {
     setState(() => _isLoading = true);
 
     try {
-      // 🌟 INTÉGRATION SUPABASE ICI 🌟
-      // Récupérer les critères non vides
+      final service = OpportunityService();
+      String? finalImageUrl;
+
+      // 1. Upload de l'image s'il y en a une
+      if (_selectedImageBytes != null) {
+        finalImageUrl = await service.uploadOpportunityImage(
+          bytes: _selectedImageBytes!,
+          extension: _selectedImageExt!,
+        );
+      }
+
+      // 2. Préparation des critères
       final eligibilityList = _eligibilityCtrls.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
 
-      /*
-      await Supabase.instance.client.from('opportunities').insert({
-        'title': _titleCtrl.text.trim(),
-        'organizer': _organizerCtrl.text.trim(),
-        'category': _selectedCategory,
-        'location': _locationCtrl.text.trim(),
-        'reward_label': _rewardCtrl.text.trim(),
-        'deadline': _selectedDeadline!.toIso8601String(),
-        'apply_url': _linkCtrl.text.trim(),
-        'description': _descCtrl.text.trim(),
-        'eligibility': eligibilityList,
-        'image_url': _imageUrlCtrl.text.trim(),
-      });
-      */
+      // 3. Création de l'objet Opportunity
+      final newItem = OpportunityItem(
+        id: '', // L'ID sera généré par le backend ou ton service
+        title: _titleCtrl.text.trim(),
+        organizer: _organizerCtrl.text.trim(),
+        location: _locationCtrl.text.trim(),
+        category: _selectedCategory,
+        rewardLabel: _rewardCtrl.text.trim(),
+        deadlineLabel: DateFormat('dd MMM yyyy', 'fr_FR').format(_selectedDeadline!),
+        deadline: _selectedDeadline!,
+        description: _descCtrl.text.trim(),
+        eligibility: eligibilityList,
+        applyUrl: _linkCtrl.text.trim(),
+        imageAssetPath: finalImageUrl, // Sera null si pas d'image, sinon l'URL Supabase
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
-      // Simulation réseau
-      await Future.delayed(const Duration(seconds: 2));
+      // 4. Insertion via ton service
+      await service.createOpportunity(newItem);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -152,6 +194,10 @@ class _OpportunityAdminPageState extends State<OpportunityAdminPage> {
           padding: const EdgeInsets.all(ThixPolicy.s16),
           physics: const BouncingScrollPhysics(),
           children: [
+            // 🌟 NOUVEAU BLOC IMAGE
+            _buildImageUploadSection(),
+            const SizedBox(height: ThixPolicy.s24),
+
             _buildSection(
               title: 'Informations Générales',
               icon: Icons.info_outline_rounded,
@@ -164,6 +210,7 @@ class _OpportunityAdminPageState extends State<OpportunityAdminPage> {
               ],
             ),
             const SizedBox(height: ThixPolicy.s24),
+            
             _buildSection(
               title: 'Détails Pratiques',
               icon: Icons.work_outline_rounded,
@@ -175,11 +222,10 @@ class _OpportunityAdminPageState extends State<OpportunityAdminPage> {
                 _buildDatePicker(),
                 const SizedBox(height: ThixPolicy.s16),
                 _buildInputField(label: 'Lien de candidature (URL) *', controller: _linkCtrl, hint: 'https://...', keyboardType: TextInputType.url),
-                const SizedBox(height: ThixPolicy.s16),
-                _buildInputField(label: 'Lien de l\'image de couverture (URL)', controller: _imageUrlCtrl, hint: 'https://...', isRequired: false),
               ],
             ),
             const SizedBox(height: ThixPolicy.s24),
+
             _buildSection(
               title: 'Contenu',
               icon: Icons.article_outlined,
@@ -226,6 +272,65 @@ class _OpportunityAdminPageState extends State<OpportunityAdminPage> {
   // ============================================================
   // WIDGETS FACTORY
   // ============================================================
+  
+  // 🌟 DESIGN PREMIUM POUR L'UPLOAD D'IMAGE
+  Widget _buildImageUploadSection() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        height: 180,
+        decoration: BoxDecoration(
+          color: ThixPolicy.card,
+          borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+          border: Border.all(
+            color: _selectedImageBytes != null ? ThixPolicy.primary : ThixPolicy.borderStrong,
+            width: _selectedImageBytes != null ? 2 : 1,
+          ),
+          image: _selectedImageBytes != null
+              ? DecorationImage(
+                  image: MemoryImage(_selectedImageBytes!),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
+                )
+              : null,
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _selectedImageBytes != null ? Colors.white.withOpacity(0.2) : ThixPolicy.tint,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _selectedImageBytes != null ? Icons.edit_rounded : Icons.add_photo_alternate_rounded,
+                  color: _selectedImageBytes != null ? Colors.white : ThixPolicy.primary,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: ThixPolicy.s12),
+              Text(
+                _selectedImageBytes != null ? 'Modifier la photo de couverture' : 'Ajouter une photo de couverture',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _selectedImageBytes != null ? Colors.white : ThixPolicy.primaryDeep,
+                ),
+              ),
+              if (_selectedImageBytes == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4.0),
+                  child: Text('Formats recommandés : JPG, PNG (Max 5MB)', style: TextStyle(fontSize: 11, color: ThixPolicy.textSecondary)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSection({required String title, required IconData icon, required List<Widget> children}) {
     return Container(
       padding: const EdgeInsets.all(ThixPolicy.s20),
