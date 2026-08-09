@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// ✅ Design System THIX v1
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 import 'package:thix_id/models/chat/user_status_story.dart';
 import 'package:thix_id/presentation/chat/providers/status_provider.dart';
 import 'package:thix_id/presentation/chat/status/create_status_page.dart';
@@ -30,7 +33,7 @@ class StatusStoryRow extends ConsumerWidget {
           child: SizedBox(
             width: 22,
             height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            child: CircularProgressIndicator(strokeWidth: 2, color: ThixPolicy.primary), // Corrigé pour fond clair
           ),
         ),
       );
@@ -133,10 +136,10 @@ class _StatusAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ringColor = hasUnseen
-        ? const Color(0xFFE3B23C) // or THIX = non vu
+        ? ThixPolicy.gold // non vu
         : (isMine
-            ? const Color(0xFF2D6CDF)
-            : Colors.white38);
+            ? ThixPolicy.primary
+            : ThixPolicy.borderStrong); // Corrigé pour lisibilité sur fond clair
 
     return GestureDetector(
       onTap: onTap,
@@ -161,7 +164,7 @@ class _StatusAvatar extends StatelessWidget {
                 ),
                 child: CircleAvatar(
                   radius: 26,
-                  backgroundColor: Colors.white24,
+                  backgroundColor: ThixPolicy.tint, // Corrigé pour fond clair
                   backgroundImage:
                       avatarUrl != null && avatarUrl!.isNotEmpty
                           ? NetworkImage(avatarUrl!)
@@ -169,7 +172,7 @@ class _StatusAvatar extends StatelessWidget {
                   child: (avatarUrl == null || avatarUrl!.isEmpty)
                       ? Icon(
                           isAdd ? Icons.add : Icons.person_rounded,
-                          color: Colors.white,
+                          color: ThixPolicy.primaryDeep, // Corrigé pour lisibilité
                           size: isAdd ? 26 : 22,
                         )
                       : null,
@@ -183,9 +186,10 @@ class _StatusAvatar extends StatelessWidget {
                     width: 20,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2D6CDF),
+                      color: ThixPolicy.primary,
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF0A1F44), width: 2),
+                      // La bordure prend la couleur du fond (ThixPolicy.card = blanc) pour bien détacher le bouton
+                      border: Border.all(color: ThixPolicy.card, width: 2), 
                     ),
                     child: const Icon(Icons.add, size: 14, color: Colors.white),
                   ),
@@ -203,7 +207,7 @@ class _StatusAvatar extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: ThixPolicy.textMain, // 🌟 Corrigé : le texte est noir/foncé maintenant !
               ),
             ),
           ),
