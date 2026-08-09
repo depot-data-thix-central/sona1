@@ -32,16 +32,18 @@ class NetworkService extends ChangeNotifier {
     return t; 
   }
 
+  // 🌟 MICE À JOUR POUR LA SCALABILITÉ (Curseur lastCreatedAt ajouté)
   Future<List<NetworkPost>> getFeedPosts({
     int limit = 20,
-    int offset = 0,
+    int? offset,
+    DateTime? lastCreatedAt,
     String feedType = 'all',
   }) async {
     final uid = currentUserId;
     if (uid.isEmpty) return [];
 
     limit = limit.clamp(1, 100);
-    offset = offset < 0 ? 0 : offset;
+    final safeOffset = (offset ?? 0) < 0 ? 0 : (offset ?? 0);
 
     final type = _normalizeFeedType(feedType);
 
@@ -54,45 +56,49 @@ class NetworkService extends ChangeNotifier {
 
     List<dynamic> res;
 
+    // Fonction utilitaire pour appliquer le Curseur (Rapide) ou l'Offset (Lent)
+    Future<List<dynamic>> fetchWithPagination(dynamic query) async {
+      if (lastCreatedAt != null) {
+        return await query
+            .lt('created_at', lastCreatedAt.toIso8601String())
+            .limit(limit);
+      } else {
+        return await query.range(safeOffset, safeOffset + limit - 1);
+      }
+    }
+
     switch (type) {
       case 'network':
         final connIds = await getMyConnectionIds();
         connIds.add(uid);
         if (connIds.isEmpty) return [];
-        res = await _supabase
+        final q = _supabase
             .from('posts_view')
             .select()
             .inFilter('user_id', connIds.toList())
-            .order('created_at', ascending: false)
-            .range(offset, offset + limit - 1);
+            .order('created_at', ascending: false);
+        res = await fetchWithPagination(q);
         break;
 
       case 'popular':
+        // Popular est trié par likes_count, donc on garde l'offset ici
         res = await _supabase
             .from('posts_view')
             .select()
             .eq('is_public', true)
             .order('likes_count', ascending: false)
-            .range(offset, offset + limit - 1);
+            .range(safeOffset, safeOffset + limit - 1);
         break;
 
       case 'recent':
-        res = await _supabase
-            .from('posts_view')
-            .select()
-            .eq('is_public', true)
-            .order('created_at', ascending: false)
-            .range(offset, offset + limit - 1);
-        break;
-
       case 'all':
       default:
-        res = await _supabase
+        final q = _supabase
             .from('posts_view')
             .select()
             .eq('is_public', true)
-            .order('created_at', ascending: false)
-            .range(offset, offset + limit - 1);
+            .order('created_at', ascending: false);
+        res = await fetchWithPagination(q);
         break;
     }
 
@@ -179,7 +185,6 @@ class NetworkService extends ChangeNotifier {
   // POSTS CRUD
   // ─────────────────────────────────────────────────────────────
 
-  // 🌟 AJOUT : Paramètre optionnel postType pour supporter l'audio
   Future<String> createPost(String content, List<String> images, {String postType = 'standard'}) async {
     final res = await _supabase.from('posts').insert({
       'user_id': currentUserId,
@@ -187,7 +192,7 @@ class NetworkService extends ChangeNotifier {
       'image_urls': images,
       'media_urls': images,
       'media_url': images.isNotEmpty ? images.first : null,
-      'post_type': postType, // 🌟 Utilisé ici
+      'post_type': postType,
       'is_public': true,
     }).select('id').single();
     notifyListeners();
@@ -533,13 +538,12 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
-  // 🌟 AJOUT : Paramètre audioUrl ajouté à l'enregistrement du commentaire
   Future<Comment> addComment(
     String postId,
     String content, {
     String? parentId,
     String? audioUrl,
-    String? imageUrl, // 🌟 AJOUT
+    String? imageUrl,
   }) async {
     final res = await _supabase
         .from('comments')
@@ -549,7 +553,7 @@ class NetworkService extends ChangeNotifier {
           'content': content.trim(),
           'parent_id': parentId,
           'audio_url': audioUrl,
-          'image_url': imageUrl, // 🌟 AJOUT
+          'image_url': imageUrl,
         })
         .select('*, profiles!user_id(display_name, avatar_url)')
         .single();
@@ -1163,7 +1167,6 @@ class NetworkService extends ChangeNotifier {
     }
   }
 
-  // 🌟 AJOUT : Fonction dédiée à l'upload des fichiers audio
   Future<String?> uploadAudioBytes(
     Uint8List bytes, {
     String bucket = 'audio_uploads',
