@@ -2153,4 +2153,46 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                       : 'Disponible à partir du ${_availableFrom!.day}/${_availableFrom!.month}/${_availableFrom!.year} ${_availableFrom!.hour.toString().padLeft(2, '0')}:${_availableFrom!.minute.toString().padLeft(2, '0')}',
                   style: const TextStyle(fontSize: 12),
                 ),
-                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius)
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius)),
+                ),
+              ),
+              const SizedBox(height: ThixPolicy.s24),
+              ElevatedButton.icon(
+                onPressed: _sending ? null : () async {
+                  if (_selectedDocId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez sélectionner une archive.'), backgroundColor: ThixPolicy.danger));
+                    return;
+                  }
+                  final recipients = _recipientsC.text.split(RegExp(r'[,;\s]+')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                  if (recipients.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Indiquez au moins un destinataire.'), backgroundColor: ThixPolicy.danger));
+                    return;
+                  }
+
+                  setState(() => _sending = true);
+                  final selectedDoc = widget.documents.firstWhere((d) => d['id'].toString() == _selectedDocId);
+                  await widget.onSend(_SendPayload(
+                    documentId: _selectedDocId!,
+                    docIdLabel: (selectedDoc['generated_doc_id'] as String?) ?? (selectedDoc['doc_id'] as String?),
+                    recipients: recipients,
+                    subject: _subjectC.text.trim().isEmpty ? null : _subjectC.text.trim(),
+                    body: _bodyC.text.trim().isEmpty ? null : _bodyC.text.trim(),
+                    password: _passwordC.text.trim().isEmpty ? null : _passwordC.text.trim(),
+                    availableFrom: _availableFrom,
+                    autoDestructIn: _computeDuration(),
+                  ));
+                  if (mounted) setState(() => _sending = false);
+                },
+                icon: _sending ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, size: 18),
+                label: Text(_sending ? 'Transmission...' : 'TRANSMETTRE', style: const TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius))),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
