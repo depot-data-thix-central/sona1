@@ -16,6 +16,8 @@ import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 // ✅ Import de la Policy de Design
 import 'package:thix_id/core/theme/thix_design_policy.dart';
@@ -434,26 +436,59 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPage()));
   }
 
+  /// ─────────────────────────────────────────────────────────────
+  /// ENREGISTREMENT AUDIO — CORRIGÉ
+  /// ─────────────────────────────────────────────────────────────
+  /// Avant : path: '' → crash sur mobile car `record` exige un
+  /// chemin de fichier valide sur Android/iOS (contrairement au web
+  /// qui peut gérer un flux interne).
+  /// Après : génération d'un vrai chemin temporaire via path_provider.
+  /// ─────────────────────────────────────────────────────────────
   Future<void> _startRecording() async {
     try {
-      if (await _audioRecorder.hasPermission()) {
-        await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000), path: '');
-        setState(() {
-          _isRecording = true;
-          _recordDuration = 0;
-          _audioBytes = null;
-          _localAudioPath = null;
-          _showStickers = false;
-        });
-        
-        _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          setState(() => _recordDuration++);
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permission microphone requise')));
+      final hasPermission = await _audioRecorder.hasPermission();
+      if (!hasPermission) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission microphone requise'), backgroundColor: ThixPolicy.danger),
+          );
+        }
+        return;
       }
+
+      String recordPath;
+      if (kIsWeb) {
+        // Sur le web, `record` gère un chemin logique / blob interne.
+        recordPath = 'audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      } else {
+        final dir = await getTemporaryDirectory();
+        recordPath = p.join(dir.path, 'audio_${DateTime.now().millisecondsSinceEpoch}.m4a');
+      }
+
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
+        path: recordPath,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isRecording = true;
+        _recordDuration = 0;
+        _audioBytes = null;
+        _localAudioPath = null;
+        _showStickers = false;
+      });
+
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted) setState(() => _recordDuration++);
+      });
     } catch (e) {
       debugPrint('Erreur record: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible de démarrer l\'enregistrement.'), backgroundColor: ThixPolicy.danger),
+        );
+      }
     }
   }
 
@@ -461,7 +496,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _recordTimer?.cancel();
     try {
       final path = await _audioRecorder.stop();
-      setState(() => _isRecording = false);
+      if (mounted) setState(() => _isRecording = false);
       if (path != null) {
         Uint8List bytes;
         if (kIsWeb) {
@@ -471,13 +506,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           final file = XFile(path);
           bytes = await file.readAsBytes();
         }
-        setState(() {
-          _audioBytes = bytes;
-          _localAudioPath = path;
-        });
+        if (mounted) {
+          setState(() {
+            _audioBytes = bytes;
+            _localAudioPath = path;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Erreur stop record: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'enregistrement.'), backgroundColor: ThixPolicy.danger),
+        );
+      }
     }
   }
 
@@ -787,11 +829,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     return _otherParticipant!.status == 'online' && DateTime.now().difference(_otherParticipant!.lastSeenAt).inMinutes <= 2;
   }
 
+  /// ─────────────────────────────────────────────────────────────
+  /// FORMATAGE HEURE — CORRIGÉ (heure locale)
+  /// ─────────────────────────────────────────────────────────────
+  /// Avant : DateFormat(...).format(d) sans .toLocal()
+  /// → `d` vient de Supabase (UTC), donc l'heure affichée était
+  /// décalée par rapport à l'heure locale de l'utilisateur.
+  /// ─────────────────────────────────────────────────────────────
   String _formatLastSeen(DateTime d) {
-    final diff = DateTime.now().difference(d);
-    if (diff.inDays == 0) return 'à ${DateFormat('HH:mm').format(d)}';
-    if (diff.inDays == 1) return 'hier à ${DateFormat('HH:mm').format(d)}';
-    return 'le ${DateFormat('dd/MM/yyyy').format(d)}';
+    final local = d.toLocal();
+    final diff = DateTime.now().difference(local);
+    if (diff.inDays == 0) return 'à ${DateFormat('HH:mm').format(local)}';
+    if (diff.inDays == 1) return 'hier à ${DateFormat('HH:mm').format(local)}';
+    return 'le ${DateFormat('dd/MM/yyyy').format(local)}';
   }
 
   // ─────────────────────── UI ───────────────────────
