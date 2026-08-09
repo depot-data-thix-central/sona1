@@ -6,28 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/nav.dart';
-import 'package:thix_id/theme.dart';
 import 'package:thix_id/models/app_user.dart';
 import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 
-typedef PhoneAuthSession = dynamic;
+// ✅ Intégration du Design System THIX v1
+import 'package:thix_id/core/theme/thix_design_policy.dart';
 
-// ---------------------------------------------------------------------------
-// Design System — THIX CENTRAL (Enterprise Level)
-// ---------------------------------------------------------------------------
-class _AppColors {
-  static const Color primary = Color(0xFF0A3D62);
-  static const Color primaryLight = Color(0xFF1A5A8C);
-  static const Color accent = Color(0xFFF8961E);
-  static const Color accentLight = Color(0xFFF9C74F);
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color surface = Colors.white;
-  static const Color textDark = Color(0xFF1E293B);
-  static const Color textMuted = Color(0xFF64748B);
-  static const Color border = Color(0xFFE2E8F0);
-  static const Color success = Color(0xFF10B981);
-  static const Color shadowLight = Color(0x0F000000);
-}
+typedef PhoneAuthSession = dynamic;
 
 // ---------------------------------------------------------------------------
 // Page de connexion principale
@@ -84,9 +69,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500)),
-        backgroundColor: isError ? Colors.red.shade700 : _AppColors.success,
+        backgroundColor: isError ? ThixPolicy.danger : ThixPolicy.success,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rSm)),
         duration: const Duration(seconds: 4),
       ),
     );
@@ -226,10 +211,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+              insetPadding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s24),
               child: Container(
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(color: _AppColors.surface, borderRadius: BorderRadius.circular(24)),
+                padding: const EdgeInsets.all(ThixPolicy.s28),
+                decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(ThixPolicy.cardRadius)),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -239,45 +224,45 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: _AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
+                          decoration: BoxDecoration(color: ThixPolicy.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
                           child: Icon(
                             isOtpSent ? Icons.vpn_key_rounded : Icons.lock_reset_rounded, 
-                            color: _AppColors.primary
+                            color: ThixPolicy.primary
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: ThixPolicy.s16),
                         Expanded(
                           child: Text(
                             isOtpSent ? 'Nouveau mot de passe' : 'Mot de passe oublié', 
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 18, color: _AppColors.textDark)
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 18, color: ThixPolicy.textMain)
                           )
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ThixPolicy.s16),
                     
                     // --- TEXTE DESCRIPTIF ---
                     Text(
                       isOtpSent 
                           ? 'Un code à 6 chiffres a été envoyé à ${emailC.text}. Saisissez-le ci-dessous avec votre nouveau mot de passe.'
                           : 'Entrez l\'email associé à votre compte. Si un compte existe, un code de réinitialisation vous sera envoyé.', 
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 13, height: 1.4)
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ThixPolicy.textSecondary, fontSize: 13, height: 1.4)
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: ThixPolicy.s24),
                     
                     // --- ÉTAPE 1 : SAISIE DE L'EMAIL ---
                     if (!isOtpSent) ...[
                       TextFormField(
                         controller: emailC, keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+                        style: const TextStyle(fontSize: 14, color: ThixPolicy.textMain, fontWeight: FontWeight.w500),
                         decoration: InputDecoration(
                           hintText: 'votre@email.com',
-                          hintStyle: const TextStyle(color: _AppColors.textMuted),
-                          filled: true, fillColor: _AppColors.background,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
+                          hintStyle: const TextStyle(color: ThixPolicy.textSecondary),
+                          filled: true, fillColor: ThixPolicy.surface,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s16),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.border)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.primary, width: 1.5)),
                         ),
                       ),
                     ] 
@@ -286,39 +271,39 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     else ...[
                       TextFormField(
                         controller: otpC, keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+                        style: const TextStyle(fontSize: 14, color: ThixPolicy.textMain, fontWeight: FontWeight.w500),
                         decoration: InputDecoration(
                           labelText: 'Code de vérification (OTP)',
                           hintText: '000000',
-                          filled: true, fillColor: _AppColors.background,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
+                          filled: true, fillColor: ThixPolicy.surface,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s16),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.border)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.primary, width: 1.5)),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: ThixPolicy.s16),
                       TextFormField(
                         controller: newPasswordC, obscureText: isObscured,
-                        style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+                        style: const TextStyle(fontSize: 14, color: ThixPolicy.textMain, fontWeight: FontWeight.w500),
                         decoration: InputDecoration(
                           labelText: 'Nouveau mot de passe',
                           hintText: 'Min. 8 caractères',
-                          filled: true, fillColor: _AppColors.background,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
+                          filled: true, fillColor: ThixPolicy.surface,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s16),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.border)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.primary, width: 1.5)),
                           suffixIcon: IconButton(
                             splashRadius: 20,
-                            icon: Icon(isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: _AppColors.textMuted, size: 20),
+                            icon: Icon(isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: ThixPolicy.textSecondary, size: 20),
                             onPressed: () => setDialogState(() => isObscured = !isObscured),
                           )
                         ),
                       ),
                     ],
 
-                    const SizedBox(height: 28),
+                    const SizedBox(height: ThixPolicy.s28),
                     
                     // --- BOUTONS D'ACTION ---
                     Row(
@@ -326,10 +311,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         Expanded(
                           child: TextButton(
                             onPressed: isSending ? null : () => Navigator.of(dialogContext).pop(), 
-                            child: const Text('Annuler', style: TextStyle(color: _AppColors.textMuted, fontWeight: FontWeight.w600))
+                            child: const Text('Annuler', style: TextStyle(color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600))
                           )
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: ThixPolicy.s12),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: isSending ? null : () async {
@@ -380,10 +365,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _AppColors.primary, 
-                              foregroundColor: Colors.white, 
+                              backgroundColor: ThixPolicy.primary, 
+                              foregroundColor: ThixPolicy.onBrand, 
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rMd))
                             ),
                             child: Text(
                               isSending 
@@ -414,18 +399,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final isLoading = authState.isLoading;
 
     return Scaffold(
-      backgroundColor: _AppColors.background,
+      backgroundColor: ThixPolicy.surfaceSoft,
       body: SafeArea(
         top: false,
         child: Stack(
           children: [
-            // Header Gradient Design épuré (Intégration du logo complet sans texte redondant)
+            // Header Gradient Design épuré
             Positioned(
               top: 0, left: 0, right: 0, height: 260,
               child: Container(
                 padding: const EdgeInsets.only(top: 60),
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_AppColors.primary, _AppColors.primaryLight]),
+                  gradient: ThixPolicy.brandGradient,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -438,7 +423,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         return const Text(
                           'THIX CENTRAL',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: ThixPolicy.onBrand,
                             fontWeight: FontWeight.w900,
                             fontSize: 20,
                             letterSpacing: 1.0,
@@ -455,38 +440,38 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             Positioned.fill(
               top: 200,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+                padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s24, vertical: 0),
                 physics: const BouncingScrollPhysics(),
                 child: Column(
                   children: [
                     // Main Login Card
                     Container(
                       decoration: BoxDecoration(
-                        color: _AppColors.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8))],
+                        color: ThixPolicy.card,
+                        borderRadius: BorderRadius.circular(ThixPolicy.rXl),
+                        boxShadow: ThixPolicy.shadowCard(),
                       ),
-                      padding: const EdgeInsets.all(28),
+                      padding: const EdgeInsets.all(ThixPolicy.s28),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('Connexion', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 20, color: _AppColors.textDark)),
+                          Text('Connexion', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 20, color: ThixPolicy.textMain)),
                           const SizedBox(height: 6),
-                          Text('Accédez à votre espace sécurisé', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 13)),
-                          const SizedBox(height: 28),
+                          Text('Accédez à votre espace sécurisé', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ThixPolicy.textSecondary, fontSize: 13)),
+                          const SizedBox(height: ThixPolicy.s28),
                           
                           _SecureInput(
                             key: const ValueKey('identifier'), label: 'Identifiant THIX ID ou Email', hint: 'Ex: TX-882-091 ou email', icon: Icons.badge_outlined, isPassword: false, type: TextInputType.text, controller: _identifierC, textInputAction: TextInputAction.next,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: ThixPolicy.s16),
                           _SecureInput(
                             key: ValueKey(inPhoneCodeMode ? 'sms_code' : 'password'), label: inPhoneCodeMode ? 'Code SMS reçu' : 'Mot de passe', hint: inPhoneCodeMode ? '123456' : '••••••••••••', icon: inPhoneCodeMode ? Icons.sms_outlined : Icons.lock_outline_rounded, isPassword: !inPhoneCodeMode, type: inPhoneCodeMode ? TextInputType.number : TextInputType.text, controller: _passwordC, textInputAction: TextInputAction.done,
                           ),
                           
                           if (inPhoneCodeMode)
-                            Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () => setState(() { _phoneSession = null; _passwordC.clear(); }), child: const Text('Changer de numéro', style: TextStyle(color: _AppColors.primary, fontWeight: FontWeight.w600)))),
+                            Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () => setState(() { _phoneSession = null; _passwordC.clear(); }), child: const Text('Changer de numéro', style: TextStyle(color: ThixPolicy.primary, fontWeight: FontWeight.w600)))),
                           
-                          const SizedBox(height: 12),
+                          const SizedBox(height: ThixPolicy.s12),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -496,34 +481,34 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   children: [
                                     AnimatedContainer(
                                       duration: const Duration(milliseconds: 200), width: 18, height: 18,
-                                      decoration: BoxDecoration(color: _rememberMe ? _AppColors.primary : _AppColors.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: _rememberMe ? _AppColors.primary : _AppColors.border, width: 1.5)),
+                                      decoration: BoxDecoration(color: _rememberMe ? ThixPolicy.primary : ThixPolicy.card, borderRadius: BorderRadius.circular(6), border: Border.all(color: _rememberMe ? ThixPolicy.primary : ThixPolicy.border, width: 1.5)),
                                       alignment: Alignment.center,
-                                      child: Icon(Icons.check_rounded, size: 14, color: _rememberMe ? Colors.white : Colors.transparent),
+                                      child: Icon(Icons.check_rounded, size: 14, color: _rememberMe ? ThixPolicy.onBrand : Colors.transparent),
                                     ),
                                     const SizedBox(width: 8),
-                                    Text('Rester connecté', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w500)),
+                                    Text('Rester connecté', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ThixPolicy.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
                                   ],
                                 ),
                               ),
                               GestureDetector(
                                 onTap: _openForgotPasswordDialog,
-                                child: Text('Oublié ?', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+                                child: Text('Oublié ?', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: ThixPolicy.primary, fontWeight: FontWeight.w700, fontSize: 13)),
                               ),
                             ],
                           ),
                           
-                          const SizedBox(height: 32),
+                          const SizedBox(height: ThixPolicy.s32),
                           
                           // Primary Action Button
                           ElevatedButton(
                             onPressed: (isLoading || _lockoutSecondsLeft > 0) ? null : _signIn,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _AppColors.primary,
-                              foregroundColor: Colors.white,
+                              backgroundColor: ThixPolicy.primary,
+                              foregroundColor: ThixPolicy.onBrand,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               elevation: 4,
-                              shadowColor: _AppColors.primary.withValues(alpha: 0.4),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shadowColor: ThixPolicy.primary.withValues(alpha: 0.4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rMd)),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -544,14 +529,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             ),
                           ),
                           
-                          const SizedBox(height: 24),
+                          const SizedBox(height: ThixPolicy.s24),
                           
                           // Biometrics Divider
                           Row(
                             children: [
-                              const Expanded(child: Divider(color: _AppColors.border)),
-                              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('BIOMÉTRIE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _AppColors.textMuted, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1.0))),
-                              const Expanded(child: Divider(color: _AppColors.border)),
+                              const Expanded(child: Divider(color: ThixPolicy.border)),
+                              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('BIOMÉTRIE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: ThixPolicy.textSecondary, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1.0))),
+                              const Expanded(child: Divider(color: ThixPolicy.border)),
                             ],
                           ),
                           const SizedBox(height: 20),
@@ -569,23 +554,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: ThixPolicy.s24),
                     
                     // Security Badge
                     Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: _AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _AppColors.success.withValues(alpha: 0.3)), boxShadow: [BoxShadow(color: _AppColors.success.withValues(alpha: 0.05), blurRadius: 10)]),
+                      padding: const EdgeInsets.all(ThixPolicy.s16),
+                      decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(ThixPolicy.rMd), border: Border.all(color: ThixPolicy.success.withValues(alpha: 0.3)), boxShadow: [BoxShadow(color: ThixPolicy.success.withValues(alpha: 0.05), blurRadius: 10)]),
                       child: Row(
                         children: [
-                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _AppColors.success.withValues(alpha: 0.1), shape: BoxShape.circle), child: const Icon(Icons.verified_user_rounded, color: _AppColors.success, size: 20)),
-                          const SizedBox(width: 16),
+                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: ThixPolicy.success.withValues(alpha: 0.1), shape: BoxShape.circle), child: const Icon(Icons.verified_user_rounded, color: ThixPolicy.success, size: 20)),
+                          const SizedBox(width: ThixPolicy.s16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Standard de Sécurité Étatique', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: _AppColors.textDark, fontWeight: FontWeight.w700, fontSize: 13)),
+                                Text('Standard de Sécurité Étatique', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: ThixPolicy.textMain, fontWeight: FontWeight.w700, fontSize: 13)),
                                 const SizedBox(height: 4),
-                                Text('Chiffrement local de bout en bout', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 12)),
+                                Text('Chiffrement local de bout en bout', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ThixPolicy.textSecondary, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -593,27 +578,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     
-                    const SizedBox(height: 28),
+                    const SizedBox(height: ThixPolicy.s28),
                     
                     // Registration Link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Nouvel utilisateur ?', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.textMuted, fontSize: 14)),
+                        Text('Nouvel utilisateur ?', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ThixPolicy.textSecondary, fontSize: 14)),
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: () => context.push(AppRoutes.personalReg),
-                          child: Text('Créer un compte', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _AppColors.primary, fontWeight: FontWeight.w800, fontSize: 14)),
+                          child: Text('Créer un compte', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ThixPolicy.primary, fontWeight: FontWeight.w800, fontSize: 14)),
                         ),
                       ],
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: ThixPolicy.s24),
                     
                     // Language Selector
                     Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: _AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: _AppColors.border)),
+                      decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(24), border: Border.all(color: ThixPolicy.border)),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: const [
@@ -662,27 +647,27 @@ class _SecureInputState extends State<_SecureInput> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _AppColors.textDark)),
+        Text(widget.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: ThixPolicy.textMain)),
         const SizedBox(height: 8),
         TextFormField(
           controller: widget.controller, 
           obscureText: _obscured, 
           keyboardType: widget.type, 
           textInputAction: widget.textInputAction, 
-          style: const TextStyle(fontSize: 14, color: _AppColors.textDark, fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 14, color: ThixPolicy.textMain, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             hintText: widget.hint, 
-            hintStyle: const TextStyle(color: _AppColors.textMuted, fontWeight: FontWeight.w400),
-            prefixIcon: Icon(widget.icon, size: 20, color: _AppColors.textMuted),
+            hintStyle: const TextStyle(color: ThixPolicy.textSecondary, fontWeight: FontWeight.w400),
+            prefixIcon: Icon(widget.icon, size: 20, color: ThixPolicy.textSecondary),
             suffixIcon: widget.isPassword 
-                ? IconButton(splashRadius: 20, icon: Icon(_obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20, color: _AppColors.textMuted), onPressed: () => setState(() => _obscured = !_obscured)) 
+                ? IconButton(splashRadius: 20, icon: Icon(_obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20, color: ThixPolicy.textSecondary), onPressed: () => setState(() => _obscured = !_obscured)) 
                 : null,
             filled: true,
-            fillColor: _AppColors.background,
+            fillColor: ThixPolicy.surface,
             contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _AppColors.primary, width: 1.5)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), borderSide: const BorderSide(color: ThixPolicy.primary, width: 1.5)),
           ),
         ),
       ],
@@ -699,13 +684,13 @@ class _SocialAuth extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 76, height: 60, 
-      decoration: BoxDecoration(color: _AppColors.background, borderRadius: BorderRadius.circular(14), border: Border.all(color: _AppColors.border)),
+      decoration: BoxDecoration(color: ThixPolicy.surface, borderRadius: BorderRadius.circular(ThixPolicy.rSm), border: Border.all(color: ThixPolicy.border)),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center, 
         children: [
-          Icon(icon, color: _AppColors.textDark, size: 22), 
+          Icon(icon, color: ThixPolicy.textMain, size: 22), 
           const SizedBox(height: 4), 
-          Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600))
+          Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: ThixPolicy.textSecondary, fontSize: 10, fontWeight: FontWeight.w600))
         ]
       ),
     );
@@ -721,8 +706,8 @@ class _LangChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: active ? _AppColors.primary : Colors.transparent, borderRadius: BorderRadius.circular(20)),
-      child: Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: active ? Colors.white : _AppColors.textMuted, fontWeight: active ? FontWeight.w700 : FontWeight.w600, fontSize: 11)),
+      decoration: BoxDecoration(color: active ? ThixPolicy.primary : Colors.transparent, borderRadius: BorderRadius.circular(20)),
+      child: Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: active ? ThixPolicy.onBrand : ThixPolicy.textSecondary, fontWeight: active ? FontWeight.w700 : FontWeight.w600, fontSize: 11)),
     );
   }
 }
