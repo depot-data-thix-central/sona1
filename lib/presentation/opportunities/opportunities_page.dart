@@ -2,37 +2,30 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+// ✅ Design System THIX v1
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 import 'package:thix_id/models/opportunity_item.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/opportunity_service.dart';
-import 'package:thix_id/theme.dart';
+import 'package:thix_id/services/external_link_service.dart';
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 
 // ============================================================
-// CHARTE GRAPHIQUE UNIFIÉE — Style "Mon Pays" / Événement
+// PAGE PRINCIPALE : LISTE DES OPPORTUNITÉS
 // ============================================================
-class _OppColors {
-  static const Color primaryBlue = Color(0xFF0B3D91);
-  static const Color navyDeep = Color(0xFF0A1F44);
-  static const Color lightBg = Color(0xFFF6F8FB);
-  static const Color gold = Color(0xFFF7C948);
-  static const Color rdcRed = Color(0xFFCE1126); // <-- LA COULEUR MANQUANTE EST ICI
-  static const Color mutedText = Color(0xFF6B7690);
-  static const Color cardBorder = Color(0xFFEEF1F7);
-  static const Color darkText = Color(0xFF10182B);
-  static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color softBlue = Color(0xFFEEF1F7);
-}
-
-
-class OpportunitiesPage extends StatefulWidget {
+class OpportunitiesPage extends ConsumerStatefulWidget {
   const OpportunitiesPage({super.key});
 
   @override
-  State<OpportunitiesPage> createState() => _OpportunitiesPageState();
+  ConsumerState<OpportunitiesPage> createState() => _OpportunitiesPageState();
 }
 
-class _OpportunitiesPageState extends State<OpportunitiesPage> {
+class _OpportunitiesPageState extends ConsumerState<OpportunitiesPage> {
   final OpportunityService _service = OpportunityService();
   late Future<List<OpportunityItem>> _opportunitiesFuture;
   int _selectedCategoryIndex = 0;
@@ -53,21 +46,40 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 🌟 VÉRIFICATION DU RÔLE ADMIN
+    final user = ref.watch(authControllerProvider).value;
+    // Remplace par la vraie logique de vérification de ton modèle User (ex: user?.role == 'admin')
+    final bool isAdmin = user?.appMetadata?['role'] == 'admin' || user?.userMetadata?['is_admin'] == true;
+
     return Scaffold(
-      backgroundColor: _OppColors.lightBg,
+      backgroundColor: ThixPolicy.surfaceSoft,
+      // 🌟 BOUTON ESPACE ADMIN (Visible uniquement par les administrateurs)
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                context.push('/opportunities/admin'); // Redirection vers ton espace admin
+              },
+              backgroundColor: ThixPolicy.inkDeep,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add_business_rounded, size: 20),
+              label: const Text('Espace Admin', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            )
+          : null,
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverToBoxAdapter(child: _buildHeader(context)),
+          _buildSliverAppBar(context),
           
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 12),
+                const SizedBox(height: ThixPolicy.s16),
                 _buildSearchBar(),
-                const SizedBox(height: 20),
+                const SizedBox(height: ThixPolicy.s24),
                 _buildCategorySection(),
-                const SizedBox(height: 20),
+                const SizedBox(height: ThixPolicy.s24),
               ],
             ),
           ),
@@ -79,27 +91,20 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
                 if (snap.connectionState != ConnectionState.done) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(_OppColors.primaryBlue),
-                      ),
-                    ),
+                    child: Center(child: CircularProgressIndicator(color: ThixPolicy.primary, strokeWidth: 3)),
                   );
                 }
 
                 final list = snap.data ?? const <OpportunityItem>[];
                 if (list.isEmpty) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    padding: const EdgeInsets.symmetric(vertical: 60),
                     child: Center(
                       child: Column(
                         children: [
-                          Icon(Icons.inbox_rounded, size: 48, color: _OppColors.mutedText.withOpacity(0.5)),
+                          Icon(Icons.inbox_rounded, size: 48, color: ThixPolicy.textMuted.withOpacity(0.5)),
                           const SizedBox(height: 12),
-                          const Text(
-                            'Aucune opportunité pour le moment.',
-                            style: TextStyle(color: _OppColors.mutedText, fontWeight: FontWeight.w600),
-                          ),
+                          const Text('Aucune opportunité pour le moment.', style: TextStyle(color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -113,24 +118,24 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildSectionHeader('À la une', null),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: ThixPolicy.s12),
                     FeaturedOpportunitiesCarousel(
                       opportunities: featured,
                       onOpen: (o) => context.push('/opportunities/${o.id}'),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: ThixPolicy.s32),
                     
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildNotificationBanner(),
+                      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
+                      child: _buildPremiumAlertBanner(),
                     ),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: ThixPolicy.s32),
                     _buildSectionHeader('Toutes les opportunités', null),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: ThixPolicy.s12),
                     
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
                       child: Column(
                         children: others.map((o) => _OpportunityCard(
                           item: o,
@@ -138,7 +143,7 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
                         )).toList(),
                       ),
                     ),
-                    const SizedBox(height: 80),
+                    const SizedBox(height: 100), // Espace pour le FAB Admin
                   ],
                 );
               },
@@ -150,117 +155,69 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
   }
 
   // ============================================================
-  // HEADER
+  // COMPOSANTS UI ENTREPRISE
   // ============================================================
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 48, 16, 20),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_OppColors.navyDeep, _OppColors.primaryBlue],
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(26),
-          bottomRight: Radius.circular(26),
-        ),
-        boxShadow: [
-          BoxShadow(color: Color(0x332D6CDF), blurRadius: 22, offset: Offset(0, 10)),
-        ],
+  Widget _buildSliverAppBar(BuildContext context) {
+    return SliverAppBar(
+      backgroundColor: ThixPolicy.card,
+      pinned: true,
+      elevation: 0,
+      scrolledUnderElevation: 2,
+      shadowColor: ThixPolicy.inkDeep.withOpacity(0.1),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ThixPolicy.textMain, size: 20),
+        onPressed: () => context.go(AppRoutes.home),
       ),
-      child: Row(
+      title: Row(
         children: [
-          InkWell(
-            onTap: () => context.go(AppRoutes.home),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.14),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'THIX OPPORTUNITÉS',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Bourses, subventions, concours',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
           Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(color: ThixPolicy.tint, borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.work_outline_rounded, color: ThixPolicy.primary, size: 18),
           ),
+          const SizedBox(width: 10),
+          const Text('THIX Opportunités', style: TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.3)),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // RECHERCHE
-  // ============================================================
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
       child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        height: 48,
         decoration: BoxDecoration(
-          color: _OppColors.pureWhite,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: _OppColors.cardBorder),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+          color: ThixPolicy.card,
+          borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+          border: Border.all(color: ThixPolicy.border),
+          boxShadow: ThixPolicy.shadowSoft(opacity: 0.03),
         ),
-        child: const Row(
-          children: [
-            Icon(Icons.search_rounded, size: 18, color: _OppColors.mutedText),
-            SizedBox(width: 9),
-            Text('Rechercher une opportunité...', style: TextStyle(fontSize: 12.5, color: _OppColors.mutedText)),
-          ],
+        child: const TextField(
+          style: TextStyle(fontSize: 14, color: ThixPolicy.textMain),
+          decoration: InputDecoration(
+            hintText: 'Rechercher un emploi, une bourse...',
+            hintStyle: TextStyle(fontSize: 13, color: ThixPolicy.textSecondary),
+            prefixIcon: Icon(Icons.search_rounded, size: 20, color: ThixPolicy.textSecondary),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
         ),
       ),
     );
   }
 
-  // ============================================================
-  // CATÉGORIES (Quick Access)
-  // ============================================================
   Widget _buildCategorySection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Catégories',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _OppColors.primaryBlue),
-          ),
-        ),
-        const SizedBox(height: 12),
         SizedBox(
-          height: 85,
+          height: 36,
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
             scrollDirection: Axis.horizontal,
             itemCount: _categories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s8),
             itemBuilder: (context, index) {
               final isSelected = _selectedCategoryIndex == index;
               final cat = _categories[index];
@@ -269,31 +226,24 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedCategoryIndex = index);
                 },
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: 75,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: isSelected ? _OppColors.primaryBlue : _OppColors.pureWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isSelected ? Colors.transparent : _OppColors.cardBorder),
-                    boxShadow: isSelected 
-                      ? [BoxShadow(color: _OppColors.primaryBlue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] 
-                      : [],
+                    color: isSelected ? ThixPolicy.inkDeep : ThixPolicy.card,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isSelected ? ThixPolicy.inkDeep : ThixPolicy.border),
+                    boxShadow: isSelected ? [BoxShadow(color: ThixPolicy.inkDeep.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))] : [],
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Row(
                     children: [
-                      Icon(cat['icon'] as IconData, color: isSelected ? _OppColors.gold : _OppColors.primaryBlue, size: 24),
-                      const SizedBox(height: 6),
+                      Icon(cat['icon'] as IconData, color: isSelected ? ThixPolicy.gold : ThixPolicy.textSecondary, size: 16),
+                      const SizedBox(width: 6),
                       Text(
                         cat['label'] as String,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected ? Colors.white : _OppColors.darkText,
-                        ),
+                        style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600, color: isSelected ? Colors.white : ThixPolicy.textSecondary),
                       ),
                     ],
                   ),
@@ -306,70 +256,61 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
     );
   }
 
-  // ============================================================
-  // EN-TÊTE DE SECTION
-  // ============================================================
   Widget _buildSectionHeader(String title, VoidCallback? onTap) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _OppColors.primaryBlue)),
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: ThixPolicy.textMain, letterSpacing: -0.3)),
           if (onTap != null)
             GestureDetector(
               onTap: onTap,
-              child: const Row(
-                children: [
-                  Text('Voir tout', style: TextStyle(fontSize: 12, color: Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
-                  SizedBox(width: 2),
-                  Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF5B8DEF)),
-                ],
-              ),
+              child: const Text('Voir tout', style: TextStyle(fontSize: 13, color: ThixPolicy.primary, fontWeight: FontWeight.w700)),
             ),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // BANNIÈRE
-  // ============================================================
-  Widget _buildNotificationBanner() {
+  Widget _buildPremiumAlertBanner() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(ThixPolicy.s20),
       decoration: BoxDecoration(
-        color: _OppColors.primaryBlue,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: _OppColors.primaryBlue.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 8)),
-        ],
+        gradient: ThixPolicy.brandGradient,
+        borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+        boxShadow: ThixPolicy.shadowCard(opacity: 0.15),
       ),
       child: Row(
         children: [
-          const Icon(Icons.star, color: _OppColors.gold, size: 28),
-          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.notifications_active_rounded, color: ThixPolicy.gold, size: 24),
+          ),
+          const SizedBox(width: ThixPolicy.s16),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Alerte Opportunités', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                SizedBox(height: 2),
-                Text('Soyez le premier à postuler.', style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.3)),
+                Text('Alertes personnalisées', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                SizedBox(height: 4),
+                Text('Recevez les offres qui correspondent à votre profil.', style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.3)),
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           ElevatedButton(
             onPressed: () {},
             style: ElevatedButton.styleFrom(
-              backgroundColor: _OppColors.gold,
-              foregroundColor: _OppColors.primaryBlue,
+              backgroundColor: ThixPolicy.gold,
+              foregroundColor: ThixPolicy.inkDeep,
               elevation: 0,
+              minimumSize: const Size(80, 36),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
             ),
-            child: const Text('Activer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+            child: const Text('Activer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -378,7 +319,7 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
 }
 
 // ============================================================
-// CARTE OPPORTUNITÉ (Liste)
+// CARTE OPPORTUNITÉ (Liste Classique)
 // ============================================================
 class _OpportunityCard extends StatelessWidget {
   final OpportunityItem item;
@@ -389,12 +330,12 @@ class _OpportunityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final img = item.imageAssetPath;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: ThixPolicy.s16),
       decoration: BoxDecoration(
-        color: _OppColors.pureWhite,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _OppColors.cardBorder),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        color: ThixPolicy.card,
+        borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+        border: Border.all(color: ThixPolicy.border),
+        boxShadow: ThixPolicy.shadowSoft(opacity: 0.04),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -408,84 +349,58 @@ class _OpportunityCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (img != null)
-                    (img.startsWith('http') ? Image.network(img, fit: BoxFit.cover) : Image.asset(img, fit: BoxFit.cover))
+                    (img.startsWith('http') ? CachedNetworkImage(imageUrl: img, fit: BoxFit.cover) : Image.asset(img, fit: BoxFit.cover))
                   else
-                    Container(color: _OppColors.softBlue),
+                    Container(color: ThixPolicy.surfaceStrong),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                        colors: [ThixPolicy.inkDeep.withOpacity(0.8), Colors.transparent],
                       ),
                     ),
                   ),
                   Positioned(
-                    top: 12,
-                    left: 12,
+                    top: 12, left: 12,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.2)),
-                      ),
-                      child: Text(item.category, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w800)),
+                      decoration: BoxDecoration(color: ThixPolicy.card.withOpacity(0.9), borderRadius: BorderRadius.circular(20)),
+                      child: Text(item.category.toUpperCase(), style: const TextStyle(fontSize: 10, color: ThixPolicy.primaryDeep, fontWeight: FontWeight.w900)),
                     ),
                   ),
                   Positioned(
-                    top: 12,
-                    right: 12,
+                    top: 12, right: 12,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: _OppColors.gold, borderRadius: BorderRadius.circular(8)),
-                      child: Text(item.rewardLabel, style: const TextStyle(fontSize: 10, color: _OppColors.navyDeep, fontWeight: FontWeight.w900)),
+                      decoration: BoxDecoration(color: ThixPolicy.success, borderRadius: BorderRadius.circular(8)),
+                      child: Text(item.rewardLabel, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w900)),
                     ),
                   ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(ThixPolicy.s16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.title,
-                    style: const TextStyle(fontSize: 15, color: _OppColors.darkText, fontWeight: FontWeight.w900, height: 1.2),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 10),
+                  Text(item.title, style: const TextStyle(fontSize: 15, color: ThixPolicy.textMain, fontWeight: FontWeight.w900, height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: ThixPolicy.s12),
                   Row(
                     children: [
-                      const Icon(Icons.apartment_rounded, size: 16, color: _OppColors.primaryBlue),
+                      const Icon(Icons.business_rounded, size: 16, color: ThixPolicy.textSecondary),
                       const SizedBox(width: 6),
-                      Expanded(child: Text(item.organizer, style: const TextStyle(fontSize: 12, color: _OppColors.mutedText, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      Expanded(child: Text(item.organizer, style: const TextStyle(fontSize: 12, color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.schedule_rounded, size: 16, color: _OppColors.rdcRed),
+                      const Icon(Icons.schedule_rounded, size: 16, color: ThixPolicy.danger),
                       const SizedBox(width: 6),
-                      Expanded(child: Text(item.deadlineLabel, style: const TextStyle(fontSize: 12, color: _OppColors.mutedText), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      Expanded(child: Text(item.deadlineLabel, style: const TextStyle(fontSize: 12, color: ThixPolicy.danger, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)),
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 40,
-                    child: ElevatedButton(
-                      onPressed: onOpen,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _OppColors.softBlue,
-                        foregroundColor: _OppColors.primaryBlue,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text('Voir les détails', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                    ),
                   ),
                 ],
               ),
@@ -518,8 +433,8 @@ class _FeaturedOpportunitiesCarouselState extends State<FeaturedOpportunitiesCar
   @override
   void initState() {
     super.initState();
-    _controller = PageController(viewportFraction: 0.88);
-    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _controller = PageController(viewportFraction: 0.90);
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || widget.opportunities.isEmpty) return;
       final next = (_index + 1) % widget.opportunities.length;
       _controller.animateToPage(next, duration: const Duration(milliseconds: 600), curve: Curves.easeOutCubic);
@@ -537,7 +452,7 @@ class _FeaturedOpportunitiesCarouselState extends State<FeaturedOpportunitiesCar
   Widget build(BuildContext context) {
     if (widget.opportunities.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 220,
+      height: 240,
       child: Column(
         children: [
           Expanded(
@@ -554,7 +469,7 @@ class _FeaturedOpportunitiesCarouselState extends State<FeaturedOpportunitiesCar
               },
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: ThixPolicy.s12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(widget.opportunities.length, (i) {
@@ -563,11 +478,8 @@ class _FeaturedOpportunitiesCarouselState extends State<FeaturedOpportunitiesCar
                 duration: const Duration(milliseconds: 250),
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 height: 6,
-                width: active ? 18 : 6,
-                decoration: BoxDecoration(
-                  color: active ? _OppColors.primaryBlue : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                width: active ? 20 : 6,
+                decoration: BoxDecoration(color: active ? ThixPolicy.primary : ThixPolicy.borderStrong, borderRadius: BorderRadius.circular(10)),
               );
             }),
           ),
@@ -577,9 +489,6 @@ class _FeaturedOpportunitiesCarouselState extends State<FeaturedOpportunitiesCar
   }
 }
 
-// ============================================================
-// CARTE "À LA UNE"
-// ============================================================
 class _FeaturedOpportunityCard extends StatelessWidget {
   final OpportunityItem opportunity;
   final VoidCallback onTap;
@@ -592,75 +501,53 @@ class _FeaturedOpportunityCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: _OppColors.navyDeep.withOpacity(0.15), blurRadius: 15, offset: const Offset(0, 8))],
+          borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+          boxShadow: ThixPolicy.shadowCard(opacity: 0.1),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           fit: StackFit.expand,
           children: [
             if (img != null)
-              (img.startsWith('http') ? Image.network(img, fit: BoxFit.cover) : Image.asset(img, fit: BoxFit.cover))
+              (img.startsWith('http') ? CachedNetworkImage(imageUrl: img, fit: BoxFit.cover) : Image.asset(img, fit: BoxFit.cover))
             else
-              Container(color: _OppColors.softBlue),
+              Container(color: ThixPolicy.surfaceStrong),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [_OppColors.primaryBlue.withOpacity(0.95), Colors.transparent],
-                  stops: const [0, 0.7],
+                  colors: [ThixPolicy.inkDeep.withOpacity(0.9), Colors.transparent],
+                  stops: const [0, 0.6],
                 ),
               ),
             ),
             Positioned(
-              top: 14,
-              left: 14,
+              top: 16, left: 16,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: _OppColors.gold, borderRadius: BorderRadius.circular(8)),
-                child: const Text('À LA UNE', style: TextStyle(fontSize: 9, color: _OppColors.navyDeep, fontWeight: FontWeight.w900)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: ThixPolicy.gold, borderRadius: BorderRadius.circular(8)),
+                child: const Text('À LA UNE', style: TextStyle(fontSize: 9, color: ThixPolicy.inkDeep, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
               ),
             ),
             Positioned(
-              top: 14,
-              right: 14,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
-                ),
-                child: Text(opportunity.rewardLabel, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w800)),
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
+              left: 16, right: 16, bottom: 20,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    opportunity.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w900, height: 1.15),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: ThixPolicy.success.withOpacity(0.9), borderRadius: BorderRadius.circular(6)),
+                    child: Text(opportunity.rewardLabel, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w800)),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  Text(opportunity.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.w900, height: 1.2, letterSpacing: -0.3)),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Icon(Icons.apartment_rounded, size: 16, color: _OppColors.gold),
+                      const Icon(Icons.business_center_rounded, size: 14, color: ThixPolicy.tint),
                       const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          opportunity.organizer,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: _OppColors.gold, fontWeight: FontWeight.w800),
-                        ),
-                      ),
+                      Expanded(child: Text(opportunity.organizer, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: ThixPolicy.tint, fontWeight: FontWeight.w600))),
                     ],
                   ),
                 ],
