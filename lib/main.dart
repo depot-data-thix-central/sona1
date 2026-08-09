@@ -68,15 +68,13 @@ class _MyAppState extends ConsumerState<MyApp> {
           GlobalWidgetsLocalizations.delegate, 
           GlobalCupertinoLocalizations.delegate
         ],
-        // Fige l'apparence de l'app indépendamment des réglages du téléphone
-        // (taille de police ET taille d'affichage/zoom d'écran Android),
-        // pour un rendu identique sur tous les appareils.
+        // Fige uniquement l'échelle de texte (accessibilité système ignorée),
+        // sans forcer de devicePixelRatio — pour garder un rendu net et
+        // fidèle à la densité réelle de chaque écran.
         builder: (context, child) {
-          final mq = MediaQuery.of(context);
           return MediaQuery(
-            data: mq.copyWith(
+            data: MediaQuery.of(context).copyWith(
               textScaler: const TextScaler.linear(1.0),
-              devicePixelRatio: 2.75,
             ),
             child: child!,
           );
