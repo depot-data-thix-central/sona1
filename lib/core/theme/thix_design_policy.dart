@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// ============================================================================
 /// THIX DESIGN SYSTEM v1
@@ -220,134 +221,127 @@ class ThixPolicy {
   // ══════════════════════════════════════════════════════════════════════════
   // 09. TYPOGRAPHY — SEMANTIC ROLES
   // ══════════════════════════════════════════════════════════════════════════
+  //
+  // NOTE : ces styles utilisent désormais GoogleFonts.inter() pour charger
+  // réellement la police Inter (au lieu de fontFamily: 'Inter' qui pointait
+  // vers une police jamais enregistrée dans l'app → fallback système en gras
+  // sur mobile). Ce sont donc des getters, pas des const.
+  // ══════════════════════════════════════════════════════════════════════════
 
-  static const TextStyle displayStyle = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: display,
-    fontWeight: bold,
-    height: 1.21,
-    color: textMain,
-  );
+  static TextStyle get displayStyle => GoogleFonts.inter(
+        fontSize: display,
+        fontWeight: bold,
+        height: 1.21,
+        color: textMain,
+      );
 
-  static const TextStyle h1Style = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: h1,
-    fontWeight: bold,
-    height: 1.25,
-    color: textMain,
-  );
+  static TextStyle get h1Style => GoogleFonts.inter(
+        fontSize: h1,
+        fontWeight: bold,
+        height: 1.25,
+        color: textMain,
+      );
 
-  static const TextStyle h2Style = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: h2,
-    fontWeight: bold,
-    height: 1.30,
-    color: textMain,
-  );
+  static TextStyle get h2Style => GoogleFonts.inter(
+        fontSize: h2,
+        fontWeight: bold,
+        height: 1.30,
+        color: textMain,
+      );
 
-  static const TextStyle h3Style = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: h3,
-    fontWeight: semiBold,
-    height: 1.33,
-    color: textMain,
-  );
+  static TextStyle get h3Style => GoogleFonts.inter(
+        fontSize: h3,
+        fontWeight: semiBold,
+        height: 1.33,
+        color: textMain,
+      );
 
-  static const TextStyle titleStyle = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: title,
-    fontWeight: semiBold,
-    height: 1.38,
-    color: textMain,
-  );
+  static TextStyle get titleStyle => GoogleFonts.inter(
+        fontSize: title,
+        fontWeight: semiBold,
+        height: 1.38,
+        color: textMain,
+      );
 
-  static const TextStyle bodyStyle = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: body,
-    fontWeight: regular,
-    height: 1.43,
-    color: textMain,
-  );
+  static TextStyle get bodyStyle => GoogleFonts.inter(
+        fontSize: body,
+        fontWeight: regular,
+        height: 1.43,
+        color: textMain,
+      );
 
-  static const TextStyle bodyMediumStyle = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: body,
-    fontWeight: medium,
-    height: 1.43,
-    color: textMain,
-  );
+  static TextStyle get bodyMediumStyle => GoogleFonts.inter(
+        fontSize: body,
+        fontWeight: medium,
+        height: 1.43,
+        color: textMain,
+      );
 
-  static const TextStyle bodySmallStyle = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: bodySmall,
-    fontWeight: regular,
-    height: 1.38,
-    color: textSecondary,
-  );
+  static TextStyle get bodySmallStyle => GoogleFonts.inter(
+        fontSize: bodySmall,
+        fontWeight: regular,
+        height: 1.38,
+        color: textSecondary,
+      );
 
-  static const TextStyle labelStyle = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: label,
-    fontWeight: semiBold,
-    height: 1.33,
-    color: textMain,
-  );
+  static TextStyle get labelStyle => GoogleFonts.inter(
+        fontSize: label,
+        fontWeight: semiBold,
+        height: 1.33,
+        color: textMain,
+      );
 
-  static const TextStyle captionStyle = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: caption,
-    fontWeight: medium,
-    height: 1.45,
-    color: textSecondary,
-  );
+  static TextStyle get captionStyle => GoogleFonts.inter(
+        fontSize: caption,
+        fontWeight: medium,
+        height: 1.45,
+        color: textSecondary,
+      );
 
-  static const TextStyle microStyle = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: micro,
-    fontWeight: medium,
-    height: 1.4,
-    color: textSecondary,
-  );
+  static TextStyle get microStyle => GoogleFonts.inter(
+        fontSize: micro,
+        fontWeight: medium,
+        height: 1.4,
+        color: textSecondary,
+      );
 
   // ══════════════════════════════════════════════════════════════════════════
   // 10. TYPOGRAPHY — COMPONENT ROLES
   // ══════════════════════════════════════════════════════════════════════════
 
   /// Page hero / main screen title.
-  static const TextStyle heroTitle = h1Style;
+  static TextStyle get heroTitle => h1Style;
 
   /// Section title.
-  static const TextStyle sectionTitle = h3Style;
+  static TextStyle get sectionTitle => h3Style;
 
   /// Card title.
-  static const TextStyle cardTitle = titleStyle;
+  static TextStyle get cardTitle => titleStyle;
 
   /// Main body text.
-  static const TextStyle bodyText = bodyStyle;
+  static TextStyle get bodyText => bodyStyle;
 
   /// Secondary body text.
-  static const TextStyle secondaryText = bodySmallStyle;
+  static TextStyle get secondaryText => bodySmallStyle;
 
   /// Navigation / constellation label.
-  static const TextStyle navLabel = labelStyle;
+  static TextStyle get navLabel => labelStyle;
 
   /// Button text.
-  static const TextStyle buttonText = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: 14,
-    fontWeight: bold,
-    height: 1.25,
-    color: onBrand,
-  );
+  static TextStyle get buttonText => GoogleFonts.inter(
+        fontSize: 14,
+        fontWeight: bold,
+        height: 1.25,
+        color: onBrand,
+      );
 
   /// Chip / badge text.
-  static const TextStyle chipText = TextStyle(
-    fontFamily: fontFamily,
-    fontSize: 12,
-    fontWeight: semiBold,
-    height: 1.2,
-    color: onBrand,
-  );
+  static TextStyle get chipText => GoogleFonts.inter(
+        fontSize: 12,
+        fontWeight: semiBold,
+        height: 1.2,
+        color: onBrand,
+      );
 
   // ══════════════════════════════════════════════════════════════════════════
   // 11. COMPONENT DIMENSIONS
@@ -501,26 +495,29 @@ class ThixPolicy {
   // ══════════════════════════════════════════════════════════════════════════
   // 17. TEXT THEME
   // ══════════════════════════════════════════════════════════════════════════
+  //
+  // Devient un getter car il référence des styles GoogleFonts non-const.
+  // ══════════════════════════════════════════════════════════════════════════
 
-  static const TextTheme textTheme = TextTheme(
-    displayLarge: displayStyle,
+  static TextTheme get textTheme => TextTheme(
+        displayLarge: displayStyle,
 
-    headlineLarge: h1Style,
-    headlineMedium: h2Style,
-    headlineSmall: h3Style,
+        headlineLarge: h1Style,
+        headlineMedium: h2Style,
+        headlineSmall: h3Style,
 
-    titleLarge: titleStyle,
-    titleMedium: titleStyle,
-    titleSmall: labelStyle,
+        titleLarge: titleStyle,
+        titleMedium: titleStyle,
+        titleSmall: labelStyle,
 
-    bodyLarge: bodyStyle,
-    bodyMedium: bodyStyle,
-    bodySmall: bodySmallStyle,
+        bodyLarge: bodyStyle,
+        bodyMedium: bodyStyle,
+        bodySmall: bodySmallStyle,
 
-    labelLarge: labelStyle,
-    labelMedium: captionStyle,
-    labelSmall: microStyle,
-  );
+        labelLarge: labelStyle,
+        labelMedium: captionStyle,
+        labelSmall: microStyle,
+      );
 
   // ══════════════════════════════════════════════════════════════════════════
   // 18. LIGHT THEME
@@ -543,7 +540,7 @@ class ThixPolicy {
 
       brightness: Brightness.light,
 
-      fontFamily: fontFamily,
+      fontFamily: GoogleFonts.inter().fontFamily,
 
       colorScheme: colorScheme,
 
@@ -728,7 +725,7 @@ class ThixPolicy {
 
       brightness: Brightness.dark,
 
-      fontFamily: fontFamily,
+      fontFamily: GoogleFonts.inter().fontFamily,
 
       colorScheme: colorScheme,
 
@@ -873,9 +870,9 @@ class ThixPolicy {
 
   static const double titleMd = title;
 
-  static const TextStyle titleLgStyle = h3Style;
+  static TextStyle get titleLgStyle => h3Style;
 
-  static const TextStyle titleMdStyle = titleStyle;
+  static TextStyle get titleMdStyle => titleStyle;
 
   // ══════════════════════════════════════════════════════════════════════════
   // 21. DOMAIN HELPER
