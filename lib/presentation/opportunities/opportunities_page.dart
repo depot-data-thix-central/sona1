@@ -44,14 +44,17 @@ class _OpportunitiesPageState extends ConsumerState<OpportunitiesPage> {
     super.initState();
     _opportunitiesFuture = _service.listOpportunities();
   }
-
-    @override
+  @override
   Widget build(BuildContext context) {
+    // 🌟 VÉRIFICATION DU RÔLE ADMIN (Corrigée)
+    // On récupère directement l'utilisateur natif depuis Supabase
     final supabaseUser = Supabase.instance.client.auth.currentUser;
     final bool isAdmin = supabaseUser?.appMetadata?['role'] == 'admin' || supabaseUser?.userMetadata?['is_admin'] == true;
 
     return Scaffold(
-      backgroundColor: ThixPolicy.surfaceSoft
+      backgroundColor: ThixPolicy.surfaceSoft, // <-- La fameuse virgule est bien là
+      
+      // 🌟 BOUTON ESPACE ADMIN (Visible uniquement par les administrateurs)
       floatingActionButton: isAdmin
           ? FloatingActionButton.extended(
               onPressed: () {
@@ -64,6 +67,7 @@ class _OpportunitiesPageState extends ConsumerState<OpportunitiesPage> {
               label: const Text('Espace Admin', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
             )
           : null,
+          
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
@@ -151,6 +155,9 @@ class _OpportunitiesPageState extends ConsumerState<OpportunitiesPage> {
       ),
     );
   }
+
+    
+  
 
   // ============================================================
   // COMPOSANTS UI ENTREPRISE
