@@ -1,39 +1,80 @@
 import 'package:flutter/material.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// THIX DESIGN POLICY
-/// Source de vérité unique — même aspect Web + Mobile
-/// Ne pas surcharger selon la plateforme.
+/// THIX DESIGN SYSTEM v1
 /// ═══════════════════════════════════════════════════════════════
+///
+/// Source de vérité unique pour :
+/// - Web
+/// - Mobile
+/// - PWA
+/// - Android
+/// - iOS
+///
+/// PRINCIPES
+/// ───────────────────────────────────────────────────────────────
+/// 1. Aucun écran ne définit ses propres couleurs de marque.
+/// 2. Aucun écran ne définit ses propres tailles typographiques.
+/// 3. Aucun écran ne définit ses propres rayons standards.
+/// 4. Les composants utilisent les tokens THIX.
+/// 5. Web et Mobile utilisent les mêmes rôles visuels.
+/// 6. Les adaptations responsive ne changent pas l'identité.
+/// ═══════════════════════════════════════════════════════════════
+
 class ThixPolicy {
   ThixPolicy._();
 
-  // ─────────────────────────────────────────────────────────────
-  // COULEURS DE MARQUE
-  // ─────────────────────────────────────────────────────────────
+  // ═════════════════════════════════════════════════════════════
+  // 01. BRAND COLORS
+  // ═════════════════════════════════════════════════════════════
+
   static const Color primary = Color(0xFF2D6CDF);
   static const Color primaryDeep = Color(0xFF123B7A);
   static const Color inkDeep = Color(0xFF0A1F44);
+
   static const Color gold = Color(0xFFE3B23C);
   static const Color premiumAccent = Color(0xFFD4A017);
 
-  // Surfaces
+  // ─────────────────────────────────────────────────────────────
+  // SURFACES
+  // ─────────────────────────────────────────────────────────────
+
   static const Color surface = Color(0xFFF0F2F5);
+  static const Color surfaceSoft = Color(0xFFF7F8FA);
+  static const Color surfaceStrong = Color(0xFFE8ECF2);
+
   static const Color card = Color(0xFFFFFFFF);
+  static const Color cardElevated = Color(0xFFFFFFFF);
+
   static const Color border = Color(0xFFE2E8F0);
+  static const Color borderStrong = Color(0xFFCBD5E1);
+
   static const Color tint = Color(0xFFEEF3FF);
 
-  // Texte
+  // ─────────────────────────────────────────────────────────────
+  // TEXT
+  // ─────────────────────────────────────────────────────────────
+
   static const Color textMain = Color(0xFF10192E);
   static const Color textSecondary = Color(0xFF7386A8);
+  static const Color textMuted = Color(0xFF94A3B8);
+  static const Color textDisabled = Color(0xFFCBD5E1);
+
   static const Color onBrand = Colors.white;
 
-  // États
+  // ─────────────────────────────────────────────────────────────
+  // STATES
+  // ─────────────────────────────────────────────────────────────
+
   static const Color success = Color(0xFF22C55E);
   static const Color warning = Color(0xFFF59E0B);
   static const Color danger = Color(0xFFEF4444);
+  static const Color info = Color(0xFF0284C7);
 
-  // Domaines (constellation / services)
+  // ═════════════════════════════════════════════════════════════
+  // 02. DOMAIN COLORS
+  // ═════════════════════════════════════════════════════════════
+
   static const Color domainMedia = Color(0xFF7C3AED);
   static const Color domainMarket = Color(0xFFF97316);
   static const Color domainLearning = Color(0xFF2563EB);
@@ -47,105 +88,876 @@ class ThixPolicy {
   static const Color domainGov = Color(0xFF334155);
   static const Color domainReservation = Color(0xFF0D9488);
 
-  // ─────────────────────────────────────────────────────────────
-  // ESPACEMENTS (grille 4 / 8)
-  // ─────────────────────────────────────────────────────────────
+  // ═════════════════════════════════════════════════════════════
+  // 03. SPACING
+  // ═════════════════════════════════════════════════════════════
+  //
+  // Grille principale : 4 / 8
+  //
+  // ═════════════════════════════════════════════════════════════
+
+  static const double s2 = 2;
   static const double s4 = 4;
+  static const double s6 = 6;
   static const double s8 = 8;
   static const double s12 = 12;
   static const double s16 = 16;
   static const double s20 = 20;
   static const double s24 = 24;
+  static const double s28 = 28;
   static const double s32 = 32;
+  static const double s40 = 40;
+  static const double s48 = 48;
+  static const double s56 = 56;
+  static const double s64 = 64;
 
-  // ─────────────────────────────────────────────────────────────
-  // RAYONS
-  // ─────────────────────────────────────────────────────────────
+  // ═════════════════════════════════════════════════════════════
+  // 04. RADII
+  // ═════════════════════════════════════════════════════════════
+
+  static const double rXs = 8;
   static const double rSm = 12;
   static const double rMd = 16;
   static const double rLg = 20;
   static const double rXl = 24;
+  static const double r2Xl = 32;
   static const double rFull = 999;
 
+  // ═════════════════════════════════════════════════════════════
+  // 05. TYPOGRAPHY
+  // ═════════════════════════════════════════════════════════════
+  //
+  // IMPORTANT :
+  // Les écrans doivent utiliser les rôles ci-dessous.
+  //
+  // Ne pas faire :
+  //   fontSize: 17
+  //
+  // Faire :
+  //   style: ThixPolicy.cardTitle
+  //
+  // ═════════════════════════════════════════════════════════════
+
+  static const String fontFamily = 'Inter';
+
   // ─────────────────────────────────────────────────────────────
-  // TYPO
+  // SIZE TOKENS
   // ─────────────────────────────────────────────────────────────
-  static const double titleLg = 18;
-  static const double titleMd = 16;
+
+  static const double display = 28;
+
+  static const double h1 = 24;
+  static const double h2 = 20;
+  static const double h3 = 18;
+
+  static const double title = 16;
+
   static const double body = 14;
-  static const double caption = 12;
+  static const double bodySmall = 13;
+
+  static const double label = 12;
+  static const double caption = 11;
   static const double micro = 10;
 
   // ─────────────────────────────────────────────────────────────
-  // CONSTELLATION — identique Web + Mobile (en dur)
+  // WEIGHT TOKENS
   // ─────────────────────────────────────────────────────────────
-  static const double constellationStageHeight = 360;
-  static const double constellationMaxRadius = 148;
-  static const double constellationInnerFactor = 0.70; // nœuds impairs
-  static const double constellationHubRadius = 34;
-  static const double constellationHubMenuRadius = 58;
-  static const double constellationHubMenuNodeSize = 30;
-  
-  // 🌟 Valeurs réduites pour matcher avec THIX IA / THIX CHAT
-  static const double constellationNodeSize = 46.0;      // Réduit de 52 à 46
-  static const double constellationNodeIconSize = 20.0;  // Réduit de 22 à 20
-  static const double constellationLabelSize = 10.0;     // Réduit légèrement pour l'équilibre
-  static const double constellationNodeHalf = 23.0;      // Moitié parfaite de 46 (corrige l'ancien "35")
-  static const double constellationOuterPadding = 34;
+
+  static const FontWeight regular = FontWeight.w400;
+  static const FontWeight medium = FontWeight.w500;
+  static const FontWeight semiBold = FontWeight.w600;
+  static const FontWeight bold = FontWeight.w700;
 
   // ─────────────────────────────────────────────────────────────
-  // COMPOSANTS COMMUNS
+  // TEXT STYLES — RÔLES THIX
   // ─────────────────────────────────────────────────────────────
+
+  static const TextStyle displayStyle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: display,
+    fontWeight: bold,
+    height: 1.21,
+    color: textMain,
+  );
+
+  static const TextStyle h1Style = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: h1,
+    fontWeight: bold,
+    height: 1.25,
+    color: textMain,
+  );
+
+  static const TextStyle h2Style = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: h2,
+    fontWeight: bold,
+    height: 1.30,
+    color: textMain,
+  );
+
+  static const TextStyle h3Style = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: h3,
+    fontWeight: semiBold,
+    height: 1.33,
+    color: textMain,
+  );
+
+  static const TextStyle titleStyle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: title,
+    fontWeight: semiBold,
+    height: 1.38,
+    color: textMain,
+  );
+
+  static const TextStyle bodyStyle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: body,
+    fontWeight: regular,
+    height: 1.43,
+    color: textMain,
+  );
+
+  static const TextStyle bodyMediumStyle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: body,
+    fontWeight: medium,
+    height: 1.43,
+    color: textMain,
+  );
+
+  static const TextStyle bodySmallStyle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: bodySmall,
+    fontWeight: regular,
+    height: 1.38,
+    color: textSecondary,
+  );
+
+  static const TextStyle labelStyle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: label,
+    fontWeight: semiBold,
+    height: 1.33,
+    color: textMain,
+  );
+
+  static const TextStyle captionStyle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: caption,
+    fontWeight: medium,
+    height: 1.45,
+    color: textSecondary,
+  );
+
+  static const TextStyle microStyle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: micro,
+    fontWeight: medium,
+    height: 1.4,
+    color: textSecondary,
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // SEMANTIC TEXT STYLES
+  // ─────────────────────────────────────────────────────────────
+
+  /// Grand titre de page / Hero
+  static const TextStyle heroTitle = h1Style;
+
+  /// Titre de section
+  static const TextStyle sectionTitle = h3Style;
+
+  /// Titre de carte
+  static const TextStyle cardTitle = titleStyle;
+
+  /// Texte principal
+  static const TextStyle bodyText = bodyStyle;
+
+  /// Texte secondaire
+  static const TextStyle secondaryText = bodySmallStyle;
+
+  /// Label navigation / constellation
+  static const TextStyle navLabel = labelStyle;
+
+  /// Texte de bouton
+  static const TextStyle buttonText = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 14,
+    fontWeight: bold,
+    height: 1.25,
+    color: onBrand,
+  );
+
+  /// Texte de badge / chip
+  static const TextStyle chipText = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 12,
+    fontWeight: semiBold,
+    height: 1.2,
+    color: onBrand,
+  );
+
+  // ═════════════════════════════════════════════════════════════
+  // 06. COMPONENT SIZES
+  // ═════════════════════════════════════════════════════════════
+
   static const double minTapTarget = 44;
+
+  static const double buttonHeight = 48;
+  static const double buttonHeightSmall = 40;
+  static const double buttonHeightLarge = 52;
+
   static const double searchBarHeight = 48;
+  static const double inputHeight = 48;
+
+  static const double iconButtonSize = 44;
+
   static const double bottomNavHeight = 64;
   static const double appBarHeight = 72;
 
-  // ─────────────────────────────────────────────────────────────
-  // OMBRES
-  // ─────────────────────────────────────────────────────────────
-  static List<BoxShadow> shadowCard({double opacity = 0.08}) => [
-        BoxShadow(
-          color: inkDeep.withOpacity(opacity),
-          blurRadius: 16,
-          offset: const Offset(0, 6),
-        ),
-      ];
+  static const double fabSize = 56;
 
-  static List<BoxShadow> shadowSoft({double opacity = 0.06}) => [
-        BoxShadow(
-          color: inkDeep.withOpacity(opacity),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ];
+  // ═════════════════════════════════════════════════════════════
+  // 07. CONSTELLATION
+  // ═════════════════════════════════════════════════════════════
 
-  static List<BoxShadow> shadowNode({Color? color}) => [
-        BoxShadow(
-          color: (color ?? primary).withOpacity(0.18),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ];
+  static const double constellationStageHeight = 360;
 
-  // ─────────────────────────────────────────────────────────────
-  // DÉGRADÉS
-  // ─────────────────────────────────────────────────────────────
+  static const double constellationMaxRadius = 148;
+
+  static const double constellationInnerFactor = 0.70;
+
+  static const double constellationHubRadius = 34;
+
+  static const double constellationHubMenuRadius = 58;
+
+  static const double constellationHubMenuNodeSize = 30;
+
+  static const double constellationNodeSize = 46;
+
+  static const double constellationNodeIconSize = 20;
+
+  static const double constellationLabelSize = 12;
+
+  static const double constellationLabelLineHeight = 16;
+
+  static const FontWeight constellationLabelWeight = FontWeight.w600;
+
+  static const double constellationNodeHalf = 23;
+
+  static const double constellationOuterPadding = 34;
+
+  // ═════════════════════════════════════════════════════════════
+  // 08. CARD POLICY
+  // ═════════════════════════════════════════════════════════════
+
+  static const EdgeInsets cardPadding = EdgeInsets.all(s16);
+
+  static const EdgeInsets cardPaddingLarge = EdgeInsets.all(s20);
+
+  static const double cardRadius = rLg;
+
+  static const double cardBorderWidth = 1;
+
+  // ═════════════════════════════════════════════════════════════
+  // 09. INPUT POLICY
+  // ═════════════════════════════════════════════════════════════
+
+  static const EdgeInsets inputPadding = EdgeInsets.symmetric(
+    horizontal: s16,
+    vertical: s12,
+  );
+
+  static const double inputRadius = rMd;
+
+  // ═════════════════════════════════════════════════════════════
+  // 10. SHADOWS
+  // ═════════════════════════════════════════════════════════════
+
+  static List<BoxShadow> shadowCard({
+    double opacity = 0.08,
+  }) {
+    return [
+      BoxShadow(
+        color: inkDeep.withValues(alpha: opacity),
+        blurRadius: 16,
+        offset: const Offset(0, 6),
+      ),
+    ];
+  }
+
+  static List<BoxShadow> shadowSoft({
+    double opacity = 0.06,
+  }) {
+    return [
+      BoxShadow(
+        color: inkDeep.withValues(alpha: opacity),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ];
+  }
+
+  static List<BoxShadow> shadowNode({
+    Color? color,
+  }) {
+    return [
+      BoxShadow(
+        color: (color ?? primary).withValues(alpha: 0.18),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ];
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 11. GRADIENTS
+  // ═════════════════════════════════════════════════════════════
+
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0A1F44), Color(0xFF2D6CDF)],
+    colors: [
+      inkDeep,
+      primary,
+    ],
   );
 
   static const LinearGradient goldGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFE3B23C), Color(0xFFD4A017)],
+    colors: [
+      gold,
+      premiumAccent,
+    ],
   );
 
   static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0A1F44), Color(0xFF1E3A8A), Color(0xFF2563EB)],
+    colors: [
+      inkDeep,
+      Color(0xFF1E3A8A),
+      Color(0xFF2563EB),
+    ],
   );
+
+  // ═════════════════════════════════════════════════════════════
+  // 12. THEME — LIGHT
+  // ═════════════════════════════════════════════════════════════
+
+  static ThemeData lightTheme() {
+    final colorScheme = const ColorScheme.light(
+      primary: primary,
+      onPrimary: onBrand,
+      secondary: gold,
+      onSecondary: inkDeep,
+      surface: surface,
+      onSurface: textMain,
+      error: danger,
+      onError: Colors.white,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+
+      brightness: Brightness.light,
+
+      fontFamily: fontFamily,
+
+      colorScheme: colorScheme,
+
+      scaffoldBackgroundColor: surface,
+
+      splashFactory: InkRipple.splashFactory,
+
+      textTheme: _textTheme,
+
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: surface,
+        foregroundColor: textMain,
+        centerTitle: false,
+        toolbarHeight: appBarHeight,
+      ),
+
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: card,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(cardRadius),
+          side: const BorderSide(
+            color: border,
+            width: cardBorderWidth,
+          ),
+        ),
+      ),
+
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: card,
+
+        contentPadding: inputPadding,
+
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(inputRadius),
+          borderSide: const BorderSide(
+            color: border,
+          ),
+        ),
+
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(inputRadius),
+          borderSide: const BorderSide(
+            color: border,
+          ),
+        ),
+
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(inputRadius),
+          borderSide: const BorderSide(
+            color: primary,
+            width: 1.5,
+          ),
+        ),
+
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(inputRadius),
+          borderSide: const BorderSide(
+            color: danger,
+          ),
+        ),
+
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(inputRadius),
+          borderSide: const BorderSide(
+            color: danger,
+            width: 1.5,
+          ),
+        ),
+
+        hintStyle: bodySmallStyle.copyWith(
+          color: textSecondary,
+        ),
+
+        labelStyle: bodySmallStyle.copyWith(
+          color: textSecondary,
+        ),
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(
+            minTapTarget,
+            buttonHeight,
+          ),
+          backgroundColor: primary,
+          foregroundColor: onBrand,
+          elevation: 0,
+
+          padding: const EdgeInsets.symmetric(
+            horizontal: s20,
+          ),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(rMd),
+          ),
+
+          textStyle: buttonText,
+        ),
+      ),
+
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(
+            minTapTarget,
+            buttonHeight,
+          ),
+
+          foregroundColor: primary,
+
+          side: const BorderSide(
+            color: primary,
+          ),
+
+          padding: const EdgeInsets.symmetric(
+            horizontal: s20,
+          ),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(rMd),
+          ),
+
+          textStyle: buttonText.copyWith(
+            color: primary,
+          ),
+        ),
+      ),
+
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(
+            minTapTarget,
+            minTapTarget,
+          ),
+
+          foregroundColor: primary,
+
+          textStyle: buttonText.copyWith(
+            color: primary,
+          ),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(rSm),
+          ),
+        ),
+      ),
+
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: primary,
+        foregroundColor: onBrand,
+        elevation: 4,
+        shape: CircleBorder(),
+      ),
+
+      dividerTheme: const DividerThemeData(
+        color: border,
+        thickness: 1,
+        space: 1,
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 13. THEME — DARK
+  // ═════════════════════════════════════════════════════════════
+
+  static ThemeData darkTheme() {
+    const darkBackground = Color(0xFF0A1222);
+    const darkSurface = Color(0xFF101B30);
+    const darkCard = Color(0xFF14213A);
+    const darkBorder = Color(0xFF243451);
+
+    const darkText = Color(0xFFF8FAFC);
+    const darkSecondary = Color(0xFFA8B6CC);
+
+    final colorScheme = const ColorScheme.dark(
+      primary: primary,
+      onPrimary: onBrand,
+      secondary: gold,
+      onSecondary: inkDeep,
+      surface: darkSurface,
+      onSurface: darkText,
+      error: danger,
+      onError: Colors.white,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+
+      brightness: Brightness.dark,
+
+      fontFamily: fontFamily,
+
+      colorScheme: colorScheme,
+
+      scaffoldBackgroundColor: darkBackground,
+
+      textTheme: _textTheme.apply(
+        bodyColor: darkText,
+        displayColor: darkText,
+      ),
+
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: darkBackground,
+        foregroundColor: darkText,
+        centerTitle: false,
+        toolbarHeight: appBarHeight,
+      ),
+
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: darkCard,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(cardRadius),
+          side: const BorderSide(
+            color: darkBorder,
+          ),
+        ),
+      ),
+
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkCard,
+
+        contentPadding: inputPadding,
+
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(inputRadius),
+          borderSide: const BorderSide(
+            color: darkBorder,
+          ),
+        ),
+
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(inputRadius),
+          borderSide: const BorderSide(
+            color: darkBorder,
+          ),
+        ),
+
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(inputRadius),
+          borderSide: const BorderSide(
+            color: primary,
+            width: 1.5,
+          ),
+        ),
+
+        hintStyle: bodySmallStyle.copyWith(
+          color: darkSecondary,
+        ),
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(
+            minTapTarget,
+            buttonHeight,
+          ),
+          backgroundColor: primary,
+          foregroundColor: onBrand,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(
+            horizontal: s20,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(rMd),
+          ),
+          textStyle: buttonText,
+        ),
+      ),
+
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(
+            minTapTarget,
+            buttonHeight,
+          ),
+          foregroundColor: primary,
+          side: const BorderSide(
+            color: primary,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: s20,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(rMd),
+          ),
+          textStyle: buttonText.copyWith(
+            color: primary,
+          ),
+        ),
+      ),
+
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: primary,
+        foregroundColor: onBrand,
+        elevation: 4,
+        shape: CircleBorder(),
+      ),
+
+      dividerTheme: const DividerThemeData(
+        color: darkBorder,
+        thickness: 1,
+        space: 1,
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 14. TEXT THEME
+  // ═════════════════════════════════════════════════════════════
+
+  static const TextTheme _textTheme = TextTheme(
+    displayLarge: displayStyle,
+
+    headlineLarge: h1Style,
+    headlineMedium: h2Style,
+    headlineSmall: h3Style,
+
+    titleLarge: titleStyle,
+    titleMedium: titleStyle,
+    titleSmall: labelStyle,
+
+    bodyLarge: bodyStyle,
+    bodyMedium: bodyStyle,
+    bodySmall: bodySmallStyle,
+
+    labelLarge: labelStyle,
+    labelMedium: captionStyle,
+    labelSmall: microStyle,
+  );
+
+  // ═════════════════════════════════════════════════════════════
+  // 15. LEGACY ALIASES
+  // ═════════════════════════════════════════════════════════════
+  //
+  // Ces alias évitent de casser immédiatement les anciens écrans.
+  //
+  // Ils pourront être supprimés en v2.
+  // ═════════════════════════════════════════════════════════════
+
+  static const double titleLg = h3;
+  static const double titleMd = title;
+
+  static const TextStyle titleLgStyle = h3Style;
+  static const TextStyle titleMdStyle = titleStyle;
+
+  // ═════════════════════════════════════════════════════════════
+  // 16. DOMAIN HELPERS
+  // ═════════════════════════════════════════════════════════════
+
+  static Color domainColor(String domain) {
+    switch (domain.toLowerCase()) {
+      case 'media':
+        return domainMedia;
+
+      case 'market':
+        return domainMarket;
+
+      case 'learning':
+      case 'formation':
+      case 'formations':
+        return domainLearning;
+
+      case 'jobs':
+      case 'emploi':
+      case 'emplois':
+        return domainJobs;
+
+      case 'info':
+      case 'information':
+        return domainInfo;
+
+      case 'opportunity':
+      case 'opportunite':
+      case 'opportunités':
+        return domainOpportunity;
+
+      case 'events':
+      case 'evenement':
+      case 'événements':
+        return domainEvents;
+
+      case 'network':
+      case 'reseau':
+      case 'réseau':
+        return domainNetwork;
+
+      case 'health':
+      case 'sante':
+      case 'santé':
+        return domainHealth;
+
+      case 'money':
+        return domainMoney;
+
+      case 'gov':
+      case 'government':
+        return domainGov;
+
+      case 'reservation':
+      case 'réservation':
+        return domainReservation;
+
+      default:
+        return primary;
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 17. RESPONSIVE POLICY
+  // ═════════════════════════════════════════════════════════════
+  //
+  // IMPORTANT :
+  // Le responsive ne modifie PAS la hiérarchie typographique.
+  //
+  // Il modifie principalement :
+  // - largeur
+  // - padding
+  // - nombre de colonnes
+  // - densité
+  // - disposition
+  //
+  // ═════════════════════════════════════════════════════════════
+
+  static const double breakpointMobile = 600;
+  static const double breakpointTablet = 900;
+  static const double breakpointDesktop = 1200;
+
+  static bool isMobile(BuildContext context) {
+    return MediaQuery.sizeOf(context).width < breakpointMobile;
+  }
+
+  static bool isTablet(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+
+    return width >= breakpointMobile &&
+        width < breakpointDesktop;
+  }
+
+  static bool isDesktop(BuildContext context) {
+    return MediaQuery.sizeOf(context).width >= breakpointDesktop;
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 18. CONTENT WIDTH
+  // ═════════════════════════════════════════════════════════════
+
+  static double contentMaxWidth(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+
+    if (width >= breakpointDesktop) {
+      return 1200;
+    }
+
+    if (width >= breakpointTablet) {
+      return 960;
+    }
+
+    return double.infinity;
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 19. PAGE PADDING
+  // ═════════════════════════════════════════════════════════════
+
+  static EdgeInsets pagePadding(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+
+    if (width >= breakpointDesktop) {
+      return const EdgeInsets.symmetric(
+        horizontal: s32,
+      );
+    }
+
+    if (width >= breakpointTablet) {
+      return const EdgeInsets.symmetric(
+        horizontal: s24,
+      );
+    }
+
+    return const EdgeInsets.symmetric(
+      horizontal: s16,
+    );
+  }
 }
