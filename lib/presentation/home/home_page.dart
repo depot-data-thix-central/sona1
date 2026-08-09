@@ -16,7 +16,7 @@ import 'package:thix_id/services/thix_id_service.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 
 // THIX DESIGN SYSTEM v1
-import 'package:thix_id/design_system/thix_policy.dart';
+import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 // WIDGETS
 import 'widgets/home_background.dart';
