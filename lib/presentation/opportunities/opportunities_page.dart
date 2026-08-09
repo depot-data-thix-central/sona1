@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ✅ Design System THIX v1
 import 'package:thix_id/core/theme/thix_design_policy.dart';
@@ -44,16 +45,13 @@ class _OpportunitiesPageState extends ConsumerState<OpportunitiesPage> {
     _opportunitiesFuture = _service.listOpportunities();
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
-    // 🌟 VÉRIFICATION DU RÔLE ADMIN
-    final user = ref.watch(authControllerProvider).value;
-    // Remplace par la vraie logique de vérification de ton modèle User (ex: user?.role == 'admin')
-    final bool isAdmin = user?.appMetadata?['role'] == 'admin' || user?.userMetadata?['is_admin'] == true;
+    final supabaseUser = Supabase.instance.client.auth.currentUser;
+    final bool isAdmin = supabaseUser?.appMetadata?['role'] == 'admin' || supabaseUser?.userMetadata?['is_admin'] == true;
 
     return Scaffold(
-      backgroundColor: ThixPolicy.surfaceSoft,
-      // 🌟 BOUTON ESPACE ADMIN (Visible uniquement par les administrateurs)
+      backgroundColor: ThixPolicy.surfaceSoft
       floatingActionButton: isAdmin
           ? FloatingActionButton.extended(
               onPressed: () {
