@@ -54,8 +54,8 @@ class OpportunityService {
   }
 
   Future<List<OpportunityItem>> listOpportunities() async {
-    // 1) Try Supabase first so Admin content is visible.
     try {
+      // 1) On interroge Supabase en priorité
       final res = await SupabaseService.select(
         table,
         select: '*',
@@ -64,32 +64,28 @@ class OpportunityService {
         limit: 200,
       );
       final items = _mapRows(res);
-      if (items.isNotEmpty) {
-        await _cache(items);
-        return items;
-      }
+      
+      // On met à jour le cache local avec les vraies données (même si c'est vide)
+      // Ça va écraser les anciennes fausses données qui étaient en mémoire !
+      await _cache(items); 
+      return items;
+      
     } catch (e) {
       debugPrint('OpportunityService.listOpportunities supabase failed err=$e');
-    }
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_kOpps);
-      if (raw == null || raw.trim().isEmpty) {
-        final seeded = _seed();
-        await prefs.setString(_kOpps, OpportunityItem.encodeList(seeded));
-        return seeded;
+      
+      // 2) En cas de perte de connexion internet, on lit le cache local
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString(_kOpps);
+        if (raw != null && raw.trim().isNotEmpty) {
+          return OpportunityItem.decodeList(raw);
+        }
+      } catch (cacheErr) {
+        debugPrint('Lecture du cache échouée: $cacheErr');
       }
-      final items = OpportunityItem.decodeList(raw);
-      if (items.isEmpty) {
-        final seeded = _seed();
-        await prefs.setString(_kOpps, OpportunityItem.encodeList(seeded));
-        return seeded;
-      }
-      return items;
-    } catch (e) {
-      debugPrint('OpportunityService.listOpportunities failed err=$e');
-      return _seed();
+      
+      // Si tout échoue, on retourne une liste vide (plus de fausses données)
+      return []; 
     }
   }
 
@@ -229,60 +225,7 @@ class OpportunityService {
   }
 
   List<OpportunityItem> _seed() {
-    final now = DateTime.now();
-    DateTime d(int days) => DateTime(now.year, now.month, now.day).add(Duration(days: days));
-    return [
-      OpportunityItem(
-        id: 'opp_startup_grant',
-        title: 'Bourse Startup • Subvention Innovation 2024',
-        organizer: 'THIX Innovation Lab',
-        location: 'Kinshasa • Hybride',
-        category: 'Subvention',
-        rewardLabel: 'Jusqu’à 15 000 USD',
-        deadlineLabel: 'Clôture dans 10 jours',
-        deadline: d(10),
-        description:
-            'Programme de subvention pour projets tech/impact. Sélection accélérée pour profils THIX ID vérifiés. Pitch final devant jury + partenaires.',
-        eligibility: const ['Startup < 3 ans', 'MVP prêt', 'Équipe de 2+'],
-        applyUrl: 'https://thix.app/opportunities/opp_startup_grant/apply',
-        imageAssetPath: 'assets/images/entrepreneur_competition_grayscale_1778649621812.jpg',
-        createdAt: now.subtract(const Duration(hours: 8)),
-        updatedAt: now.subtract(const Duration(hours: 2)),
-      ),
-      OpportunityItem(
-        id: 'opp_scholarship_ai',
-        title: 'Bourse Formation • Data & IA (cohorte premium)',
-        organizer: 'Fondation Numérique',
-        location: 'En ligne',
-        category: 'Bourse',
-        rewardLabel: '100% frais + certification',
-        deadlineLabel: 'Clôture dans 21 jours',
-        deadline: d(21),
-        description:
-            'Bourse complète pour une cohorte Data/IA. Test en ligne + entretien. THIX ID requis pour sécuriser l’accès et réduire la fraude.',
-        eligibility: const ['Étudiant ou professionnel', 'Bonne connexion', 'Motivation'],
-        applyUrl: 'https://thix.app/opportunities/opp_scholarship_ai/apply',
-        imageAssetPath: 'assets/images/tech_conference_stage_audience_grayscale_1778649599691.jpg',
-        createdAt: now.subtract(const Duration(days: 1)),
-        updatedAt: now.subtract(const Duration(hours: 5)),
-      ),
-      OpportunityItem(
-        id: 'opp_pitch_competition',
-        title: 'Concours Pitch • THIX Challenge (finale)',
-        organizer: 'THIX Partners',
-        location: 'Pullman Grand Hotel',
-        category: 'Concours',
-        rewardLabel: 'Prix + accompagnement',
-        deadlineLabel: 'Clôture dans 5 jours',
-        deadline: d(5),
-        description:
-            'Concours de pitch avec short-list et coaching. Vérification THIX ID obligatoire pour candidater et accéder à la finale.',
-        eligibility: const ['Projet innovant', 'Pitch deck', 'THIX ID valide'],
-        applyUrl: 'https://thix.app/opportunities/opp_pitch_competition/apply',
-        imageAssetPath: 'assets/images/Office_team_grayscale_1775574009745.jpg',
-        createdAt: now.subtract(const Duration(days: 2)),
-        updatedAt: now.subtract(const Duration(days: 1, hours: 3)),
-      ),
-    ];
+    // On retourne une liste vide. Les fausses données sont supprimées.
+    return [];
   }
 }
