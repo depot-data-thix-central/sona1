@@ -3,15 +3,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as app_provider;
 import 'package:go_router/go_router.dart';
-
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/app_router.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
-
-import 'package:thix_id/design_system/thix_policy.dart';
+import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
