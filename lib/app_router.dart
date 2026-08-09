@@ -246,6 +246,7 @@ import 'presentation/admin/admin_articles_list_page.dart' as thix_admin_list;
 import 'presentation/admin/admin_article_form_page.dart' as thix_admin_form;
 import 'package:thix_id/presentation/thix_ia/thix_ia_screen.dart';
 import 'presentation/thix_weeding/thix_weeding_routes.dart';
+import 'package:thix_id/presentation/opportunities/opportunity_admin_dashboard.dart';
 import 'package:thix_id/presentation/opportunities/opportunity_admin_page.dart';
 
 class NoTransitionPage<T> extends Page<T> {
@@ -451,10 +452,14 @@ class AppRouter {
   builder: (c, s) => const CallPage(),
 ),
         GoRoute(
-  path: '/opportunities/admin', // Le chemin appelé par le bouton
-  name: 'opportunities_admin', // Optionnel, si tu utilises context.pushNamed
-  builder: (context, state) => const OpportunityAdminPage(),
+  path: '/opportunities/admin', 
+  builder: (context, state) => const OpportunityAdminDashboard(), // <-- LE NOUVEAU TABLEAU DE BORD
 ),
+GoRoute(
+  path: '/opportunities/admin/create', 
+  builder: (context, state) => const OpportunityAdminPage(), // <-- L'ANCIEN FORMULAIRE DE CRÉATION
+),
+
 
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => const NoTransitionPage(child: DocumentVaultPage())),
         GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => const NoTransitionPage(child: SettingsPage())),
