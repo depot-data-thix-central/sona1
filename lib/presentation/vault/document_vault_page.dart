@@ -1332,7 +1332,7 @@ class _EnvoyerTabState extends State<_EnvoyerTab> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ThixPolicy.gold,
                     foregroundColor: ThixPolicy.inkDeep,
-                    padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s24, vertical: ThixPolicy.s14),
+                    padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s24, vertical: ThixPolicy.s16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rMd)),
                   ),
                 ),
@@ -1996,7 +1996,7 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                 },
                 icon: _sending ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, size: 18),
                 label: Text(_sending ? 'Transmission...' : 'TRANSMETTRE', style: const TextStyle(fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius))),
+                style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: ThixPolicy.s16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius))),
               ),
             ],
           ),
