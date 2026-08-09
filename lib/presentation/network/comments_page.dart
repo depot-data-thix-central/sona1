@@ -13,6 +13,8 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:path_provider/path_provider.dart'; // 🌟 Ajout pour le path
+import 'package:path/path.dart' as p;             // 🌟 Ajout pour le path
 
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/models/comment.dart';
@@ -149,14 +151,23 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     }
   }
 
-  // ─── LOGIQUE AUDIO (Limite de 30 secondes stricte) ───
+  // ─── LOGIQUE AUDIO (Limite de 30 secondes stricte & Fix Mobile) ───
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
+        
+        // 🌟 FIX : Générer un vrai fichier pour le Mobile (Android/iOS)
+        String path = '';
+        if (!kIsWeb) {
+          final dir = await getTemporaryDirectory();
+          path = p.join(dir.path, 'comment_audio_${DateTime.now().millisecondsSinceEpoch}.m4a');
+        }
+
         await _audioRecorder.start(
           const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
-          path: '',
+          path: path,
         );
+
         setState(() {
           _isRecording = true;
           _recordDuration = 0;
@@ -177,6 +188,9 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       }
     } catch (e) {
       debugPrint('Erreur record: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors du démarrage du micro')));
+      }
     }
   }
 
