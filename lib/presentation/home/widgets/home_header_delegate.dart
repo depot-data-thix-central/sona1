@@ -11,7 +11,7 @@ import 'package:thix_id/presentation/common/notifications_sheet.dart';
 import 'package:thix_id/widgets/language_sheet.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
-import 'package:thix_id/design_system/thix_policy.dart';
+import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double safeTop;
