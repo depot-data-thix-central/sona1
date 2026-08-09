@@ -3,12 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // 🌟 Ajout de Supabase
 
 // ✅ Design System THIX v1
 import 'package:thix_id/core/theme/thix_design_policy.dart';
-
-import 'package:thix_id/models/opportunity_item.dart';
-import 'package:thix_id/services/opportunity_service.dart';
 
 class OpportunityAdminDashboard extends StatefulWidget {
   const OpportunityAdminDashboard({super.key});
@@ -18,11 +16,11 @@ class OpportunityAdminDashboard extends StatefulWidget {
 }
 
 class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
-  final OpportunityService _service = OpportunityService();
-  late Future<List<OpportunityItem>> _opportunitiesFuture;
+  // On utilise directement la liste brute de Supabase pour avoir accès au champ "status"
+  late Future<List<Map<String, dynamic>>> _opportunitiesFuture;
   
   String _currentFilter = 'Toutes';
-  final List<String> _filters = ['Toutes', 'Publiées', 'Brouillons', 'Expirées'];
+  final List<String> _filters = ['Toutes', 'Publiées', 'Brouillons', 'Urgent'];
 
   @override
   void initState() {
@@ -32,22 +30,26 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
 
   void _loadData() {
     setState(() {
-      _opportunitiesFuture = _service.listOpportunities();
+      // 🌟 REQUÊTE DIRECTE SUR SUPABASE
+      _opportunitiesFuture = Supabase.instance.client
+          .from('thix_opportunities')
+          .select('*')
+          .order('created_at', ascending: false);
     });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ACTIONS D'ADMINISTRATION
+  // ACTIONS D'ADMINISTRATION REELLES SUR SUPABASE
   // ─────────────────────────────────────────────────────────────────────────
 
-  Future<void> _deleteOpportunity(OpportunityItem item) async {
+  Future<void> _deleteOpportunity(Map<String, dynamic> item) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: ThixPolicy.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rLg)),
         title: const Text('Supprimer définitivement ?', style: TextStyle(color: ThixPolicy.danger, fontWeight: FontWeight.w800, fontSize: 18)),
-        content: Text('Êtes-vous sûr de vouloir supprimer "${item.title}" ? Cette action est irréversible.', style: const TextStyle(color: ThixPolicy.textMain)),
+        content: Text('Êtes-vous sûr de vouloir supprimer "${item['title']}" ? Cette action est irréversible.', style: const TextStyle(color: ThixPolicy.textMain)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler', style: TextStyle(color: ThixPolicy.textSecondary))),
           ElevatedButton(
@@ -61,35 +63,43 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
 
     if (confirm == true) {
       try {
-        // 🌟 APPEL SUPABASE POUR SUPPRIMER
-        // await Supabase.instance.client.from('thix_opportunities').delete().eq('id', item.id);
+        // 🌟 VRAIE SUPPRESSION SUPABASE DECOMMENTÉE
+        await Supabase.instance.client.from('thix_opportunities').delete().eq('id', item['id']);
         
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opportunité supprimée.'), backgroundColor: ThixPolicy.success));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opportunité supprimée avec succès.', style: TextStyle(color: Colors.white)), backgroundColor: ThixPolicy.success));
+        }
         _loadData(); // Rafraîchir la liste
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: ThixPolicy.danger));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)), backgroundColor: ThixPolicy.danger));
+        }
       }
     }
   }
 
-  Future<void> _updateStatus(OpportunityItem item, String newStatus) async {
+  Future<void> _updateStatus(Map<String, dynamic> item, String newStatus) async {
     try {
-      // 🌟 APPEL SUPABASE POUR METTRE À JOUR LE STATUT ('published', 'draft', 'countdown')
-      // await Supabase.instance.client.from('thix_opportunities').update({'status': newStatus}).eq('id', item.id);
+      // 🌟 VRAIE MISE A JOUR SUPABASE DECOMMENTÉE
+      await Supabase.instance.client.from('thix_opportunities').update({'status': newStatus}).eq('id', item['id']);
       
-      String msg = '';
+      String msg = 'Statut mis à jour.';
       if (newStatus == 'draft') msg = 'Déplacé vers les brouillons.';
       if (newStatus == 'published') msg = 'Opportunité publiée en ligne.';
       if (newStatus == 'countdown') msg = 'Compte à rebours d\'urgence activé !';
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: newStatus == 'countdown' ? ThixPolicy.warning : ThixPolicy.success));
-      _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, style: const TextStyle(color: Colors.white)), backgroundColor: newStatus == 'countdown' ? ThixPolicy.warning : ThixPolicy.success));
+      }
+      _loadData(); // Rafraîchit la vue
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: ThixPolicy.danger));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)), backgroundColor: ThixPolicy.danger));
+      }
     }
   }
 
-  void _showActionMenu(OpportunityItem item) {
+  void _showActionMenu(Map<String, dynamic> item) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -105,25 +115,33 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
           children: [
             Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: ThixPolicy.border, borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: ThixPolicy.s24),
-            Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: ThixPolicy.textMain)),
+            Text(item['title'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: ThixPolicy.textMain)),
             const SizedBox(height: ThixPolicy.s16),
             const Divider(height: 1, color: ThixPolicy.border),
             const SizedBox(height: ThixPolicy.s8),
 
             _buildActionItem(Icons.edit_rounded, 'Modifier l\'opportunité', ThixPolicy.textMain, () {
               Navigator.pop(ctx);
-              // context.push('/opportunities/admin/edit/${item.id}'); // Route vers ton formulaire avec données pré-remplies
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La page de modification (Edit) arrive bientôt !')));
             }),
             
-            _buildActionItem(Icons.visibility_off_rounded, 'Mettre en brouillon', ThixPolicy.textMain, () {
-              Navigator.pop(ctx);
-              _updateStatus(item, 'draft');
-            }),
+            if (item['status'] != 'draft')
+              _buildActionItem(Icons.visibility_off_rounded, 'Mettre en brouillon', ThixPolicy.textMain, () {
+                Navigator.pop(ctx);
+                _updateStatus(item, 'draft');
+              }),
             
-            _buildActionItem(Icons.timer_rounded, 'Activer le compte à rebours', ThixPolicy.warning, () {
-              Navigator.pop(ctx);
-              _updateStatus(item, 'countdown');
-            }),
+            if (item['status'] == 'draft')
+              _buildActionItem(Icons.public_rounded, 'Publier l\'opportunité', ThixPolicy.success, () {
+                Navigator.pop(ctx);
+                _updateStatus(item, 'published');
+              }),
+            
+            if (item['status'] != 'countdown')
+              _buildActionItem(Icons.timer_rounded, 'Activer le compte à rebours', ThixPolicy.warning, () {
+                Navigator.pop(ctx);
+                _updateStatus(item, 'countdown');
+              }),
 
             _buildActionItem(Icons.delete_outline_rounded, 'Supprimer définitivement', ThixPolicy.danger, () {
               Navigator.pop(ctx);
@@ -167,11 +185,10 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
         title: const Text('Gestion des Opportunités', style: TextStyle(color: ThixPolicy.textMain, fontSize: 16, fontWeight: FontWeight.w900)),
         bottom: PreferredSize(preferredSize: const Size.fromHeight(1), child: Container(color: ThixPolicy.border, height: 1)),
       ),
-      // Le bouton d'ajout flottant
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           HapticFeedback.selectionClick();
-          context.push('/opportunities/admin/create'); // Route vers le formulaire qu'on a créé tout à l'heure
+          context.push('/opportunities/admin/create'); 
         },
         backgroundColor: ThixPolicy.primary,
         foregroundColor: Colors.white,
@@ -215,19 +232,26 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
           
           // Liste des Opportunités
           Expanded(
-            child: FutureBuilder<List<OpportunityItem>>(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _opportunitiesFuture,
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: ThixPolicy.primary));
                 }
 
-                final list = snap.data ?? [];
+                final rawList = snap.data ?? [];
                 
-                // Ici tu devrais filtrer la liste en fonction de _currentFilter
-                // ex: if (_currentFilter == 'Brouillons') list = list.where((o) => o.status == 'draft').toList();
+                // 🌟 LE VRAI FILTRAGE DES DONNÉES
+                List<Map<String, dynamic>> filteredList = rawList;
+                if (_currentFilter == 'Publiées') {
+                  filteredList = rawList.where((o) => o['status'] == 'published').toList();
+                } else if (_currentFilter == 'Brouillons') {
+                  filteredList = rawList.where((o) => o['status'] == 'draft').toList();
+                } else if (_currentFilter == 'Urgent') {
+                  filteredList = rawList.where((o) => o['status'] == 'countdown').toList();
+                }
 
-                if (list.isEmpty) {
+                if (filteredList.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -243,9 +267,9 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
                 return ListView.builder(
                   padding: const EdgeInsets.all(ThixPolicy.s16),
                   physics: const BouncingScrollPhysics(),
-                  itemCount: list.length,
+                  itemCount: filteredList.length,
                   itemBuilder: (context, index) {
-                    return _buildAdminCard(list[index]);
+                    return _buildAdminCard(filteredList[index]);
                   },
                 );
               },
@@ -256,25 +280,29 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
     );
   }
 
-  Widget _buildAdminCard(OpportunityItem item) {
-    // 🌟 Simulation de statut pour l'UI (À adapter avec tes vraies données Supabase)
-    // On simule un statut en fonction du nom pour le test visuel
-    String status = 'published';
+  Widget _buildAdminCard(Map<String, dynamic> item) {
+    // Lecture des vraies valeurs de Supabase
+    String status = item['status'] ?? 'published';
     Color statusColor = ThixPolicy.success;
     String statusLabel = 'Publiée';
     IconData statusIcon = Icons.check_circle_rounded;
 
-    // Logique fictive pour l'exemple
-    if (item.title.contains('Brouillon')) {
-      status = 'draft';
+    if (status == 'draft') {
       statusColor = ThixPolicy.textSecondary;
       statusLabel = 'Brouillon';
       statusIcon = Icons.visibility_off_rounded;
-    } else if (item.deadline.isBefore(DateTime.now())) {
-      status = 'expired';
-      statusColor = ThixPolicy.danger;
-      statusLabel = 'Expirée';
-      statusIcon = Icons.cancel_rounded;
+    } else if (status == 'countdown') {
+      statusColor = ThixPolicy.warning;
+      statusLabel = 'Urgent (Décompte)';
+      statusIcon = Icons.timer_rounded;
+    }
+
+    final String title = item['title'] ?? 'Sans Titre';
+    final String organizer = item['organizer'] ?? 'Organisateur inconnu';
+    
+    DateTime deadlineDate = DateTime.now();
+    if (item['deadline'] != null) {
+      deadlineDate = DateTime.parse(item['deadline']);
     }
 
     return Container(
@@ -288,7 +316,6 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En-tête de la carte (Statut + Bouton Options)
           Padding(
             padding: const EdgeInsets.fromLTRB(ThixPolicy.s16, ThixPolicy.s12, 8, 0),
             child: Row(
@@ -313,19 +340,18 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
             ),
           ),
           
-          // Contenu principal
           Padding(
             padding: const EdgeInsets.fromLTRB(ThixPolicy.s16, 0, ThixPolicy.s16, ThixPolicy.s16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: ThixPolicy.textMain, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: ThixPolicy.textMain, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     const Icon(Icons.apartment_rounded, size: 14, color: ThixPolicy.textSecondary),
                     const SizedBox(width: 6),
-                    Expanded(child: Text(item.organizer, style: const TextStyle(fontSize: 12, color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600))),
+                    Expanded(child: Text(organizer, style: const TextStyle(fontSize: 12, color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600))),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -338,14 +364,7 @@ class _OpportunityAdminDashboardState extends State<OpportunityAdminDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Date limite', style: TextStyle(fontSize: 10, color: ThixPolicy.textMuted, fontWeight: FontWeight.w600)),
-                        Text(DateFormat('dd MMM yyyy', 'fr_FR').format(item.deadline), style: TextStyle(fontSize: 12, color: status == 'expired' ? ThixPolicy.danger : ThixPolicy.textMain, fontWeight: FontWeight.w800)),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text('Vues (Estimé)', style: TextStyle(fontSize: 10, color: ThixPolicy.textMuted, fontWeight: FontWeight.w600)),
-                        Text('1 240', style: const TextStyle(fontSize: 12, color: ThixPolicy.primary, fontWeight: FontWeight.w800)),
+                        Text(DateFormat('dd MMM yyyy', 'fr_FR').format(deadlineDate), style: const TextStyle(fontSize: 12, color: ThixPolicy.textMain, fontWeight: FontWeight.w800)),
                       ],
                     ),
                   ],
