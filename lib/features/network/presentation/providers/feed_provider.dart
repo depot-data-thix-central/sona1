@@ -6,16 +6,20 @@ import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
 import 'package:thix_id/features/network/presentation/providers/feed_ranker.dart';
 
-final feedProvider =
-    AsyncNotifierProvider<Feed, List<NetworkPost>>(Feed.new);
+final feedProvider = AsyncNotifierProvider<Feed, List<NetworkPost>>(Feed.new);
 
 class Feed extends AsyncNotifier<List<NetworkPost>> {
   String _currentType = 'all';
   bool _hasMore = true;
+  bool _isFetchingMore = false; // Verrou anti-spam pour le scroll
   Set<String> _connectionIds = {};
+  
+  // Le Curseur ! Il remplacera l'offset.
+  DateTime? _lastPostDate;
 
   bool get hasMore => _hasMore;
   String get currentType => _currentType;
+  bool get isFetchingMore => _isFetchingMore;
 
   Future<void> _ensureConnections() async {
     if (_connectionIds.isNotEmpty) return;
@@ -39,16 +43,26 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
   @override
   Future<List<NetworkPost>> build() async {
     _hasMore = true;
+    _lastPostDate = null;
+    _isFetchingMore = false;
+    
     try {
       await _ensureConnections();
       final service = ref.read(networkServiceProvider);
       final limit = _currentType == 'all' ? 50 : 20;
+      
+      // Appel avec le curseur (initialement null)
       final posts = await service.getFeedPosts(
         feedType: _currentType,
         limit: limit,
-        offset: 0,
+        lastCreatedAt: _lastPostDate, 
       );
+      
       _hasMore = posts.length >= limit;
+      if (posts.isNotEmpty) {
+        _lastPostDate = posts.last.createdAt; // Mise à jour du curseur
+      }
+      
       return _rank(posts);
     } catch (e) {
       debugPrint('🔥 Erreur dans Feed.build: $e');
@@ -61,17 +75,27 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     state = const AsyncLoading();
 
     try {
-      if (force) _connectionIds = {};
+      if (force) {
+        _connectionIds = {};
+      }
       await _ensureConnections();
+
+      _lastPostDate = null; // Réinitialisation du curseur
 
       final service = ref.read(networkServiceProvider);
       final limit = _currentType == 'all' ? 50 : 30;
+      
       final posts = await service.getFeedPosts(
         feedType: _currentType,
         limit: limit,
-        offset: 0,
+        lastCreatedAt: _lastPostDate,
       );
+      
       _hasMore = posts.length >= limit;
+      if (posts.isNotEmpty) {
+        _lastPostDate = posts.last.createdAt;
+      }
+      
       state = AsyncData(_rank(posts));
     } catch (e, stack) {
       debugPrint('🔥 Erreur dans Feed.loadFeed: $e');
@@ -85,24 +109,39 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
   }
 
   Future<void> loadMore() async {
-    if (!_hasMore) return;
+    // Bloque si on est déjà en train de charger, ou s'il n'y a plus rien
+    if (!_hasMore || _isFetchingMore) return;
+    
     final current = state.valueOrNull ?? [];
+    if (current.isEmpty) return;
+
+    _isFetchingMore = true;
+
     try {
       await _ensureConnections();
       final service = ref.read(networkServiceProvider);
       final limit = _currentType == 'all' ? 30 : 20;
+      
+      // On s'assure d'avoir le curseur du dernier post actuellement affiché
+      _lastPostDate = current.last.createdAt;
+      
       final more = await service.getFeedPosts(
         feedType: _currentType,
         limit: limit,
-        offset: current.length,
+        lastCreatedAt: _lastPostDate,
       );
+      
       _hasMore = more.length >= limit;
+      if (more.isNotEmpty) {
+        _lastPostDate = more.last.createdAt;
+      }
 
-      // Rank uniquement le nouveau batch (ordre du haut stable)
       final rankedMore = _rank(more);
       state = AsyncData([...current, ...rankedMore]);
     } catch (e) {
       debugPrint('🔥 Erreur dans Feed.loadMore: $e');
+    } finally {
+      _isFetchingMore = false; // Libère le verrou
     }
   }
 
@@ -112,7 +151,7 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
     try {
       await ref.read(networkServiceProvider).deletePost(postId);
     } catch (_) {
-      state = AsyncData(current);
+      state = AsyncData(current); // Rollback
     }
   }
 
@@ -132,7 +171,7 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
 
     final list = [...current];
     list[idx] = optimistic;
-    state = AsyncData(list);
+    state = AsyncData(list); // Mise à jour optimiste instantanée
 
     try {
       final service = ref.read(networkServiceProvider);
@@ -143,7 +182,7 @@ class Feed extends AsyncNotifier<List<NetworkPost>> {
       }
     } catch (e) {
       debugPrint('🔥 toggleLike rollback: $e');
-      state = AsyncData(current);
+      state = AsyncData(current); // Rollback en cas d'erreur réseau
     }
   }
 }
