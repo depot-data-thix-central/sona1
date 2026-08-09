@@ -570,6 +570,28 @@ class _DocumentVaultPageState extends State<DocumentVaultPage>
                   style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rSm))),
                 ),
                 const SizedBox(height: ThixPolicy.s12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => showQrDialog(context, title: title, value: docId.isNotEmpty ? docId : title),
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: ThixPolicy.primary),
+                        label: const Text('QR Code', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ThixPolicy.textMain)),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), side: const BorderSide(color: ThixPolicy.border), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rSm))),
+                      ),
+                    ),
+                    const SizedBox(width: ThixPolicy.s12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => showDocIdDialog(context, docId: docId.isNotEmpty ? docId : '—', title: title),
+                        icon: const Icon(Icons.badge_outlined, size: 16, color: ThixPolicy.primary),
+                        label: const Text('Identifiant', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ThixPolicy.textMain)),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), side: const BorderSide(color: ThixPolicy.border), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rSm))),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: ThixPolicy.s12),
                 Container(
                   decoration: BoxDecoration(color: ThixPolicy.surface, borderRadius: BorderRadius.circular(ThixPolicy.rMd), border: Border.all(color: ThixPolicy.border)),
                   child: SwitchListTile(
@@ -846,6 +868,90 @@ IconData _typeIcon(String? mime, String? docType) {
 }
 
 // =============================================================
+// DIALOGUES UTILITAIRES : QR CODE & IDENTIFIANT (restaurés)
+// =============================================================
+
+void showQrDialog(BuildContext context, {required String title, required String value}) {
+  showDialog(
+    context: context,
+    builder: (ctx) => Dialog(
+      backgroundColor: ThixPolicy.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rLg)),
+      child: Padding(
+        padding: const EdgeInsets.all(ThixPolicy.s24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, textAlign: TextAlign.center, style: const TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w800, fontSize: 15)),
+            const SizedBox(height: ThixPolicy.s16),
+            Container(
+              padding: const EdgeInsets.all(ThixPolicy.s12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(ThixPolicy.rMd),
+              ),
+              child: QrImageView(
+                data: value,
+                version: QrVersions.auto,
+                size: 200,
+                backgroundColor: Colors.white,
+                eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: ThixPolicy.inkDeep),
+                dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: ThixPolicy.primary),
+              ),
+            ),
+            const SizedBox(height: ThixPolicy.s12),
+            SelectableText(value, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: ThixPolicy.textSecondary)),
+            const SizedBox(height: ThixPolicy.s20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rSm))),
+                child: const Text('Fermer', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+void showDocIdDialog(BuildContext context, {required String docId, required String title}) {
+  showDialog(
+    context: context,
+    builder: (ctx) => Dialog(
+      backgroundColor: ThixPolicy.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rLg)),
+      child: Padding(
+        padding: const EdgeInsets.all(ThixPolicy.s24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(title, style: const TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w800, fontSize: 15)),
+            const SizedBox(height: ThixPolicy.s12),
+            Container(
+              padding: const EdgeInsets.all(ThixPolicy.s12),
+              decoration: BoxDecoration(color: ThixPolicy.surface, borderRadius: BorderRadius.circular(ThixPolicy.rMd), border: Border.all(color: ThixPolicy.border)),
+              child: SelectableText(docId, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: ThixPolicy.primary)),
+            ),
+            const SizedBox(height: ThixPolicy.s20),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Fermer', style: TextStyle(color: ThixPolicy.textSecondary)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// =============================================================
 // COMPOSANTS UI ENTERPRISE VAULT
 // =============================================================
 class FolderChip extends StatelessWidget {
@@ -892,6 +998,8 @@ class DocSquareCard extends StatelessWidget {
   final Future<String>? previewUrlFuture;
   final VoidCallback? onTap;
   final VoidCallback? onMore;
+  final VoidCallback? onShowQr;
+  final VoidCallback? onShowId;
 
   const DocSquareCard({
     super.key,
@@ -904,6 +1012,8 @@ class DocSquareCard extends StatelessWidget {
     this.previewUrlFuture,
     this.onTap,
     this.onMore,
+    this.onShowQr,
+    this.onShowId,
   });
 
   Widget _buildPreview() {
@@ -973,6 +1083,40 @@ class DocSquareCard extends StatelessWidget {
                   child: const Icon(Icons.more_vert_rounded, size: 16, color: ThixPolicy.textSecondary),
                 )
               ],
+            ),
+            const SizedBox(height: ThixPolicy.s8),
+            // Barre QR + Identifiant (restaurée depuis l'ancienne version)
+            Container(
+              decoration: BoxDecoration(
+                color: ThixPolicy.surface,
+                borderRadius: BorderRadius.circular(ThixPolicy.rSm),
+                border: Border.all(color: ThixPolicy.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(ThixPolicy.rSm)),
+                      onTap: onShowQr,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 6),
+                        child: Icon(Icons.qr_code_2_rounded, size: 16, color: ThixPolicy.primary),
+                      ),
+                    ),
+                  ),
+                  Container(width: 1, height: 14, color: ThixPolicy.border),
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(ThixPolicy.rSm)),
+                      onTap: onShowId,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 6),
+                        child: Icon(Icons.badge_outlined, size: 16, color: ThixPolicy.primary),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1236,7 +1380,7 @@ class _DepotTab extends StatelessWidget {
                   crossAxisCount: 2,
                   crossAxisSpacing: ThixPolicy.s12,
                   mainAxisSpacing: ThixPolicy.s12,
-                  childAspectRatio: 0.95,
+                  childAspectRatio: 0.82,
                 ),
                 itemBuilder: (context, i) {
                   final data = docs[i];
@@ -1260,6 +1404,8 @@ class _DepotTab extends StatelessWidget {
                     previewUrlFuture: isImage ? docsService.resolveRowDownloadUrl(data) : null,
                     onTap: () => onOpenDoc(data),
                     onMore: () => onMore(data),
+                    onShowQr: () => showQrDialog(context, title: title, value: docId.isNotEmpty ? docId : title),
+                    onShowId: () => showDocIdDialog(context, docId: docId.isNotEmpty ? docId : '—', title: title),
                   );
                 },
               );
@@ -1725,6 +1871,25 @@ class _UploadDocumentSheetState extends State<_UploadDocumentSheet> {
                 ],
               ),
               Text(widget.fileName, style: const TextStyle(color: ThixPolicy.primary, fontSize: 13, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              const Text(
+                'Identifiant unique généré automatiquement (THIX-DOC-MMAAAA-XXXXXX-XXX/CC)',
+                style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 11),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Icon(Icons.lock_outline_rounded, size: 12, color: ThixPolicy.textSecondary),
+                  SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Déposé en privé par défaut — rendez-le public plus tard depuis le menu du document.',
+                      style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 10),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: ThixPolicy.s16),
               DropdownButtonFormField<String?>(
                 value: _folderId,
@@ -1871,6 +2036,17 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
     }
   }
 
+  Future<void> _pickAvailableDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(context: context, initialDate: now, firstDate: now, lastDate: now.add(const Duration(days: 365 * 2)));
+    if (picked == null) return;
+    if (!mounted) return;
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    setState(() {
+      _availableFrom = DateTime(picked.year, picked.month, picked.day, time?.hour ?? 0, time?.minute ?? 0);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
@@ -1967,41 +2143,14 @@ class _SendDocumentSheetState extends State<_SendDocumentSheet> {
                   ],
                 ),
               ],
-              const SizedBox(height: ThixPolicy.s24),
-              ElevatedButton.icon(
-                onPressed: _sending ? null : () async {
-                  if (_selectedDocId == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez sélectionner une archive.'), backgroundColor: ThixPolicy.danger));
-                    return;
-                  }
-                  final recipients = _recipientsC.text.split(RegExp(r'[,;\s]+')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-                  if (recipients.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Indiquez au moins un destinataire.'), backgroundColor: ThixPolicy.danger));
-                    return;
-                  }
-
-                  setState(() => _sending = true);
-                  final selectedDoc = widget.documents.firstWhere((d) => d['id'].toString() == _selectedDocId);
-                  await widget.onSend(_SendPayload(
-                    documentId: _selectedDocId!,
-                    docIdLabel: (selectedDoc['generated_doc_id'] as String?) ?? (selectedDoc['doc_id'] as String?),
-                    recipients: recipients,
-                    subject: _subjectC.text.trim().isEmpty ? null : _subjectC.text.trim(),
-                    body: _bodyC.text.trim().isEmpty ? null : _bodyC.text.trim(),
-                    password: _passwordC.text.trim().isEmpty ? null : _passwordC.text.trim(),
-                    availableFrom: _availableFrom,
-                    autoDestructIn: _computeDuration(),
-                  ));
-                  if (mounted) setState(() => _sending = false);
-                },
-                icon: _sending ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, size: 18),
-                label: Text(_sending ? 'Transmission...' : 'TRANSMETTRE', style: const TextStyle(fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: ThixPolicy.s16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius))),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+              const SizedBox(height: ThixPolicy.s12),
+              OutlinedButton.icon(
+                onPressed: _pickAvailableDate,
+                icon: const Icon(Icons.schedule, size: 16),
+                label: Text(
+                  _availableFrom == null
+                      ? 'Disponible dès maintenant (choisir une date/heure différée)'
+                      : 'Disponible à partir du ${_availableFrom!.day}/${_availableFrom!.month}/${_availableFrom!.year} ${_availableFrom!.hour.toString().padLeft(2, '0')}:${_availableFrom!.minute.toString().padLeft(2, '0')}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.inputRadius)
