@@ -2,7 +2,6 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // 🌟 Indispensable pour BackgroundIsolateBinaryMessenger
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,22 +10,6 @@ import 'package:thix_id/features/network/data/network_service_provider.dart';
 
 // ✅ Design System THIX v1
 import 'package:thix_id/core/theme/thix_design_policy.dart';
-
-// Top-level pour compute sécurisé sur mobile/desktop et web
-Future<Uint8List> compressImageBytes(Uint8List bytes) async {
-  if (kIsWeb) return bytes;
-  
-  // 🌟 FIX CLÉ : Empêche l'UnimplementedError dans un Isolate séparé
-  BackgroundIsolateBinaryMessenger.ensureInitialized();
-
-  return await FlutterImageCompress.compressWithList(
-    bytes,
-    minHeight: 1080,
-    minWidth: 1080,
-    quality: 85,
-    rotate: 0,
-  );
-}
 
 class CreateStoryDialog extends ConsumerStatefulWidget {
   const CreateStoryDialog({super.key});
@@ -132,9 +115,23 @@ class _CreateStoryDialogState extends ConsumerState<CreateStoryDialog> {
       String? mediaUrl;
       if (_mediaBytes != null) {
         Uint8List uploadBytes = _mediaBytes!;
-        if (_mediaType == 'image') {
-          uploadBytes = await compute(compressImageBytes, _mediaBytes!);
+        
+        // Compression directe sécurisée (évite les erreurs d'Isolate sur Web et Mobile)
+        if (_mediaType == 'image' && !kIsWeb) {
+          try {
+            uploadBytes = await FlutterImageCompress.compressWithList(
+              _mediaBytes!,
+              minHeight: 1080,
+              minWidth: 1080,
+              quality: 85,
+              rotate: 0,
+            );
+          } catch (compressError) {
+            debugPrint('⚠️ Erreur compression (fallback original) : $compressError');
+            uploadBytes = _mediaBytes!;
+          }
         }
+
         mediaUrl = await service.uploadImageBytes(uploadBytes, fileExtension: _mediaExt ?? 'jpg', bucket: 'stories');
       }
       await service.createStory(mediaUrl, text: text, duration: _duration, mediaType: _mediaType ?? 'text');
