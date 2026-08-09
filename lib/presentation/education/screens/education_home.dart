@@ -57,7 +57,6 @@ class EducationHome extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: ThixPolicy.surfaceSoft,
-      // Suppression de l'AppBar globale Scaffold pour des headers personnalisés par onglet
       body: Stack(
         children: [
           IndexedStack(
@@ -276,8 +275,14 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
             error: (_, __) => const SliverToBoxAdapter(child: Center(child: Text('Erreur de chargement.'))),
             data: (paginated) {
               final formations = paginated.items;
+              
+              // Découpage des listes pour simuler la diversité des sections
               final recentFormations = formations.take(5).toList();
-              final recommended = [...formations]..sort((a, b) => b.rating.compareTo(a.rating));
+              final upcomingFormations = formations.skip(2).take(4).toList(); // À venir
+              final topFormations = [...formations]..sort((a, b) => b.rating.compareTo(a.rating)); // Top
+              final trendingFormations = formations.reversed.take(5).toList(); // Tendances
+              final languageFormations = formations.skip(1).take(4).toList(); // Langues
+              final shortPrograms = formations.skip(3).take(5).toList(); // Programmes courts
 
               return SliverList(
                 delegate: SliverChildListDelegate([
@@ -286,7 +291,7 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
                   
                   const SizedBox(height: ThixPolicy.s24),
 
-                  // ─── HERO CAROUSEL NOUVEAUTÉS ───
+                  // ─── HERO CAROUSEL NOUVEAUTÉS (Agrandie) ───
                   Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20), child: _HeroCarousel(recentFormations: recentFormations)),
                   
                   const SizedBox(height: ThixPolicy.s32),
@@ -315,8 +320,28 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
 
                   const SizedBox(height: ThixPolicy.s32),
 
-                  // ─── RECOMMANDÉS ───
-                  if (recommended.isNotEmpty) ...[
+                  // ─── À VENIR (Compact, pas de mock-up) ───
+                  if (upcomingFormations.isNotEmpty) ...[
+                    const _SectionHeader(title: 'À venir prochainement'),
+                    const SizedBox(height: ThixPolicy.s16),
+                    SizedBox(
+                      height: 80,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: upcomingFormations.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s12),
+                        itemBuilder: (_, i) {
+                          final f = upcomingFormations[i];
+                          return _CompactFormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}'));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: ThixPolicy.s32),
+                  ],
+
+                  // ─── TOP DES FORMATIONS ───
+                  if (topFormations.isNotEmpty) ...[
                     _SectionHeader(title: 'Top des formations', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 1),
                     const SizedBox(height: ThixPolicy.s16),
                     SizedBox(
@@ -324,11 +349,71 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
                       child: ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
                         scrollDirection: Axis.horizontal,
-                        itemCount: recommended.length > 6 ? 6 : recommended.length,
+                        itemCount: topFormations.length > 6 ? 6 : topFormations.length,
                         separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s16),
                         itemBuilder: (_, i) {
-                          final f = recommended[i];
-                          return SizedBox(width: 220, child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}')));
+                          final f = topFormations[i];
+                          return SizedBox(width: 200, child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}')));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: ThixPolicy.s32),
+                  ],
+
+                  // ─── TENDANCES ACTUELLES (Section A) ───
+                  if (trendingFormations.isNotEmpty) ...[
+                    _SectionHeader(title: 'Tendances actuelles', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 1),
+                    const SizedBox(height: ThixPolicy.s16),
+                    SizedBox(
+                      height: 260,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: trendingFormations.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s16),
+                        itemBuilder: (_, i) {
+                          final f = trendingFormations[i];
+                          return SizedBox(width: 200, child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}')));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: ThixPolicy.s32),
+                  ],
+
+                  // ─── LANGUES (Milieu, Compact, même taille que À venir) ───
+                  if (languageFormations.isNotEmpty) ...[
+                    const _SectionHeader(title: 'Apprendre une langue'),
+                    const SizedBox(height: ThixPolicy.s16),
+                    SizedBox(
+                      height: 80,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: languageFormations.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s12),
+                        itemBuilder: (_, i) {
+                          final f = languageFormations[i];
+                          return _CompactFormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}'));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: ThixPolicy.s32),
+                  ],
+
+                  // ─── PROGRAMMES COURTS (Section B) ───
+                  if (shortPrograms.isNotEmpty) ...[
+                    _SectionHeader(title: 'Programmes courts', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 1),
+                    const SizedBox(height: ThixPolicy.s16),
+                    SizedBox(
+                      height: 260,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: shortPrograms.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s16),
+                        itemBuilder: (_, i) {
+                          final f = shortPrograms[i];
+                          return SizedBox(width: 200, child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}')));
                         },
                       ),
                     ),
@@ -348,6 +433,68 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
 // ============================================================================
 // COMPOSANTS DE L'ACCUEIL
 // ============================================================================
+
+// 🌟 NOUVEAU COMPOSANT : CARTE COMPACTE SANS MOCKUP IMAGE
+class _CompactFormationCard extends StatelessWidget {
+  final Formation formation;
+  final VoidCallback onTap;
+
+  const _CompactFormationCard({required this.formation, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 280,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: ThixPolicy.card,
+          borderRadius: BorderRadius.circular(ThixPolicy.rMd),
+          border: Border.all(color: ThixPolicy.border),
+          boxShadow: ThixPolicy.shadowSoft(),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: ThixPolicy.tint,
+                borderRadius: BorderRadius.circular(ThixPolicy.rSm),
+              ),
+              // Un simple icône épuré pour éviter le mockup cassé "Image non disponible"
+              child: const Icon(Icons.school_rounded, color: ThixPolicy.domainLearning, size: 28),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    formation.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: ThixPolicy.textMain, height: 1.2),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formation.instructorName ?? 'THIX Academy',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onSeeAll;
@@ -458,7 +605,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
     return Column(
       children: [
         SizedBox(
-          height: 180,
+          height: 230, // 🌟 Agrandissement de la bannière Hero (180 -> 230)
           child: PageView.builder(
             controller: _controller,
             itemCount: widget.recentFormations.length,
@@ -478,16 +625,16 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                       borderRadius: BorderRadius.circular(ThixPolicy.rLg),
                       gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [Colors.black.withOpacity(0.8), Colors.black.withOpacity(0.2)]),
                     ),
-                    padding: const EdgeInsets.all(ThixPolicy.s20),
+                    padding: const EdgeInsets.all(ThixPolicy.s24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: ThixPolicy.primary, borderRadius: BorderRadius.circular(6)), child: const Text('NOUVEAU', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5))),
-                        const SizedBox(height: ThixPolicy.s12),
-                        Text(f.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, height: 1.2, letterSpacing: -0.5)),
+                        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: ThixPolicy.domainLearning, borderRadius: BorderRadius.circular(6)), child: const Text('NOUVEAU', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5))),
+                        const SizedBox(height: ThixPolicy.s16),
+                        Text(f.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, height: 1.2, letterSpacing: -0.5)),
                         const SizedBox(height: ThixPolicy.s8),
-                        Text(f.instructorName ?? 'THIX Academy', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
+                        Text(f.instructorName ?? 'THIX Academy', style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
