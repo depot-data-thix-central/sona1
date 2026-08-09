@@ -14,7 +14,6 @@ class OpportunityService {
   static const _kApplications = 'thix_opportunity_applications_v1';
 
   /// Supabase Storage bucket for opportunity images.
-  /// Create it in Supabase → Storage (public recommended).
   static const String imageBucket = 'thix_opportunity_images';
 
   /// Upload an image to Supabase Storage and return a public URL.
@@ -53,9 +52,10 @@ class OpportunityService {
     }
   }
 
+  /// Récupère la liste des opportunités publiques (exclut les brouillons pour les utilisateurs normaux)
   Future<List<OpportunityItem>> listOpportunities() async {
     try {
-      // 1) On interroge Supabase en priorité
+      // On interroge Supabase en filtrant pour ne renvoyer que les offres actives
       final res = await SupabaseService.select(
         table,
         select: '*',
@@ -63,33 +63,37 @@ class OpportunityService {
         ascending: false,
         limit: 200,
       );
-      final items = _mapRows(res);
       
-      // On met à jour le cache local avec les vraies données (même si c'est vide)
-      // Ça va écraser les anciennes fausses données qui étaient en mémoire !
+      // Filtrage dynamique pour exclure les 'draft' (brouillons) côté client si la base renvoie tout
+      final filteredRows = res.where((row) {
+        final status = row['status'] ?? 'published';
+        return status == 'published' || status == 'countdown';
+      }).toList();
+
+      final items = _mapRows(filteredRows);
       await _cache(items); 
       return items;
       
     } catch (e) {
       debugPrint('OpportunityService.listOpportunities supabase failed err=$e');
       
-      // 2) En cas de perte de connexion internet, on lit le cache local
+      // En cas de hors-ligne, lecture du cache local
       try {
         final prefs = await SharedPreferences.getInstance();
         final raw = prefs.getString(_kOpps);
-        if (raw != null && raw.trim().isNotEmpty) {
+        if (raw != null && raw.trim().isEmpty == false) {
           return OpportunityItem.decodeList(raw);
         }
       } catch (cacheErr) {
         debugPrint('Lecture du cache échouée: $cacheErr');
       }
       
-      // Si tout échoue, on retourne une liste vide (plus de fausses données)
       return []; 
     }
   }
 
-    Future<void> createOpportunity(OpportunityItem item) async {
+  /// Crée une nouvelle opportunité depuis l'Espace Admin
+  Future<void> createOpportunity(OpportunityItem item) async {
     try {
       final payload = <String, dynamic>{
         'title': item.title,
@@ -103,9 +107,7 @@ class OpportunityService {
         'eligibility': item.eligibility,
         'apply_url': item.applyUrl,
         if (item.imageAssetPath != null && item.imageAssetPath!.trim().isNotEmpty) 'image_url': item.imageAssetPath,
-        
-        // 🌟 L'ERREUR ÉTAIT ICI. On remplace 'pending' par 'published'
-        'status': 'published', 
+        'status': 'published', // Corrigé pour correspondre à la contrainte SQL Supabase
       };
       await SupabaseService.insert(table, payload);
     } catch (e) {
@@ -114,10 +116,28 @@ class OpportunityService {
     }
   }
 
-
+  /// Récupère une opportunité spécifique par son ID
   Future<OpportunityItem?> fetchOpportunity(String id) async {
     final v = id.trim();
     if (v.isEmpty) return null;
+    
+    try {
+      final res = await SupabaseService.select(
+        table,
+        select: '*',
+      );
+      final match = res.firstWhere(
+        (r) => (r['id'] ?? '').toString() == v,
+        orElse: () => {},
+      );
+      if (match.isNotEmpty) {
+        return _mapRows([match]).first;
+      }
+    } catch (e) {
+      debugPrint('OpportunityService.fetchOpportunity error: $e');
+    }
+
+    // Fallback sur la liste globale si échec
     final all = await listOpportunities();
     for (final o in all) {
       if (o.id == v) return o;
@@ -125,6 +145,7 @@ class OpportunityService {
     return null;
   }
 
+  /// Soumet une candidature à une opportunité
   Future<void> submitApplication({
     required String opportunityId,
     required String applicantThixId,
@@ -209,8 +230,6 @@ class OpportunityService {
         description: description,
         eligibility: eligibility,
         applyUrl: applyUrl,
-        // In app UI we currently use Image.asset. If Supabase provides URLs, we still store it here.
-        // The UI will be adapted later to support network images.
         imageAssetPath: imageUrl.isEmpty ? null : imageUrl,
         createdAt: parseDate(r['created_at'] ?? r['createdAt']),
         updatedAt: parseDate(r['updated_at'] ?? r['updatedAt']),
@@ -225,10 +244,5 @@ class OpportunityService {
     } catch (e) {
       debugPrint('OpportunityService cache failed err=$e');
     }
-  }
-
-  List<OpportunityItem> _seed() {
-    // On retourne une liste vide. Les fausses données sont supprimées.
-    return [];
   }
 }
