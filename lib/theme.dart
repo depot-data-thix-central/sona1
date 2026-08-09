@@ -1,41 +1,30 @@
 import 'package:flutter/material.dart';
-
-import 'package:thix_id/design_system/thix_policy.dart';
+import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 /// ============================================================================
 /// THIX LEGACY THEME BRIDGE
 /// ============================================================================
 ///
-/// IMPORTANT
-/// ---------------------------------------------------------------------------
-/// Ce fichier n'est plus la source de vérité du Design System.
+/// ⚠️ NOT THE SOURCE OF TRUTH
 ///
-/// La source de vérité est :
+/// The official THIX Design System is:
 ///
-///     design_system/thix_policy.dart
+///     lib/design_system/thix_policy.dart
 ///
-/// Ce fichier existe uniquement pour préserver les anciennes API utilisées
-/// par les pages historiques de THIX.
+/// This file exists only for backward compatibility with legacy modules.
 ///
-/// Nouvelle UI :
+/// NEW CODE:
+///     Use ThixPolicy.
+///     Use Theme.of(context).
 ///
-///     → utiliser ThixPolicy
-///     → utiliser Theme.of(context)
-///
-/// Ancienne UI :
-///
-///     → LearningCyberColors
-///     → MarketColors
-///     → ThixHomeColors
-///     → etc.
-///
-/// Ces classes seront progressivement dépréciées.
+/// Do not add new design tokens here.
+/// Do not create a second theme here.
 /// ============================================================================
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // LEARNING / CYBER
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 @immutable
 class LearningCyberColors {
@@ -60,11 +49,6 @@ class LearningCyberColors {
   static const Color black = Colors.black;
   static const Color white = Colors.white;
 }
-
-
-// ============================================================================
-// LEARNING / CYBER GRADIENTS
-// ============================================================================
 
 @immutable
 class LearningCyberGradients {
@@ -111,9 +95,9 @@ class LearningCyberGradients {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // INSTITUTIONAL
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 @immutable
 class InstitutionalColors {
@@ -126,9 +110,9 @@ class InstitutionalColors {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // ADMIN CYBER
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 @immutable
 class AdminCyberColors {
@@ -150,7 +134,6 @@ class AdminCyberColors {
   static const Color danger = LearningCyberColors.danger;
 }
 
-
 @immutable
 class AdminCyberGradients {
   const AdminCyberGradients._();
@@ -165,9 +148,9 @@ class AdminCyberGradients {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // MARKET
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 @immutable
 class MarketColors {
@@ -183,9 +166,9 @@ class MarketColors {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // THIX HOME
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 @immutable
 class ThixHomeColors {
@@ -219,9 +202,9 @@ class ThixHomeColors {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // LIGHT MODE LEGACY
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 @immutable
 class LightModeColors {
@@ -252,9 +235,9 @@ class LightModeColors {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // DARK MODE LEGACY
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 @immutable
 class DarkModeColors {
@@ -263,6 +246,7 @@ class DarkModeColors {
   static const Color background = ThixPolicy.inkDeep;
 
   static const Color primary = Color(0xFF0B1220);
+
   static const Color cyberDarkBlue = Color(0xFF0D1B2A);
 
   static const Color emergencyRed = ThixPolicy.danger;
@@ -279,9 +263,9 @@ class DarkModeColors {
 }
 
 
-// ============================================================================
-// EMERGENCY MEDICAL
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
+// EMERGENCY
+// ════════════════════════════════════════════════════════════════════════════
 
 @immutable
 class EmergencyMedicalSheetColors {
@@ -289,7 +273,6 @@ class EmergencyMedicalSheetColors {
 
   static const Color stroke = Color(0xFF1E3A8A);
 }
-
 
 @immutable
 class EmergencyMedicalSheetGradients {
@@ -307,11 +290,6 @@ class EmergencyMedicalSheetGradients {
   }
 }
 
-
-// ============================================================================
-// EMERGENCY URGENCY
-// ============================================================================
-
 @immutable
 class EmergencyUrgencyScaleColors {
   const EmergencyUrgencyScaleColors._();
@@ -321,11 +299,6 @@ class EmergencyUrgencyScaleColors {
   static const Color urgent = Color(0xFFF97316);
   static const Color critical = ThixPolicy.danger;
 }
-
-
-// ============================================================================
-// EMERGENCY URGENT
-// ============================================================================
 
 @immutable
 class EmergencyUrgentColors {
@@ -343,7 +316,6 @@ class EmergencyUrgentColors {
   static const Color textDim = LearningCyberColors.textDim;
 
   static const Color danger = LearningCyberColors.danger;
-
   static const Color amber = ThixPolicy.warning;
   static const Color cyan = LearningCyberColors.neonCyan;
 
@@ -357,7 +329,6 @@ class EmergencyUrgentColors {
     return const Color(0xCC020617);
   }
 }
-
 
 @immutable
 class EmergencyUrgentGradients {
@@ -387,17 +358,16 @@ class EmergencyUrgentGradients {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // LEGACY THEME GETTERS
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 //
-// IMPORTANT:
-// Ces deux getters permettent aux anciens imports de continuer à fonctionner:
+// Ces getters permettent aux anciennes pages de continuer à utiliser:
 //
 //     theme: lightTheme
 //     darkTheme: darkTheme
 //
-// Mais ils utilisent désormais THIX DESIGN SYSTEM v1.
+// Mais le ThemeData vient maintenant de ThixPolicy.
 //
 
 ThemeData get lightTheme => ThixPolicy.lightTheme();
@@ -405,9 +375,9 @@ ThemeData get lightTheme => ThixPolicy.lightTheme();
 ThemeData get darkTheme => ThixPolicy.darkTheme();
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // LEGACY SPACING
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 class AppSpacing {
   const AppSpacing._();
@@ -435,9 +405,9 @@ class AppSpacing {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // LEGACY RADIUS
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 class AppRadius {
   const AppRadius._();
@@ -450,9 +420,9 @@ class AppRadius {
 }
 
 
-// ============================================================================
-// CONTEXT EXTENSION
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
+// CONTEXT EXTENSIONS
+// ════════════════════════════════════════════════════════════════════════════
 
 extension ThixThemeX on BuildContext {
   TextTheme get textStyles {
@@ -461,9 +431,9 @@ extension ThixThemeX on BuildContext {
 }
 
 
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 // TEXT STYLE EXTENSIONS
-// ============================================================================
+// ════════════════════════════════════════════════════════════════════════════
 
 extension ThixTextStyleX on TextStyle {
   TextStyle get semiBold {
