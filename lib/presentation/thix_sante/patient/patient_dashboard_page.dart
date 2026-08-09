@@ -1,6 +1,7 @@
 // lib/presentation/thix_sante/patient/patient_dashboard_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -34,19 +35,24 @@ import 'screens/nutrition_page.dart';
 import 'screens/activite_physique_page.dart';
 import 'screens/gestion_stress_page.dart';
 
+// =========================================================================
+// DESIGN SYSTEM PREMIUM - NIVEAU ENTREPRISE
+// =========================================================================
 class _C {
-  static const bg = Color(0xFFF4F7FB);
+  static const bg = Color(0xFFF8FAFC); // Fond très clair et moderne
   static const white = Color(0xFFFFFFFF);
-  static const navy = Color(0xFF0F172A);
-  static const textMuted = Color(0xFF64748B);
-  static const emerald = Color(0xFF10B981);
-  static const sky = Color(0xFF0EA5E9);
-  static const violet = Color(0xFF8B5CF6);
-  static const red = Color(0xFFEF4444);
-  static const amber = Color(0xFFF59E0B);
+  static const navy = Color(0xFF0F172A); // Texte principal très sombre
+  static const slate = Color(0xFF334155); // Texte secondaire
+  static const textMuted = Color(0xFF64748B); // Texte tertiaire
+  
+  static const primary = Color(0xFF2563EB); // Bleu médical premium
+  static const emerald = Color(0xFF059669); // Vert santé/succès
+  static const violet = Color(0xFF7C3AED); // Violet tech/IA
+  static const red = Color(0xFFDC2626); // Rouge urgence
+  static const amber = Color(0xFFD97706); // Orange alertes
+  
   static const border = Color(0xFFE2E8F0);
-  static const fabBg = Color(0xFF06B6D4);
-  static const primary = Color(0xFF3B82F6); // Ajout de la couleur manquante
+  static const borderLight = Color(0xFFF1F5F9);
 }
 
 // ---------------- Données réelles ----------------
@@ -100,7 +106,6 @@ final patientProfileProvider = FutureProvider<PatientProfile>((ref) async {
   return PatientProfile(name: (metaName != null && metaName.isNotEmpty) ? metaName : 'Patient');
 });
 
-// Modèle de service avec sous-titre
 class ServiceItem {
   final String title;
   final String subtitle;
@@ -117,39 +122,39 @@ class PatientDashboardPage extends ConsumerStatefulWidget {
 }
 
 class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
-  // Définition des services avec des sous-titres génériques (Pas de fausses données)
   late final List<ServiceItem> _dossierServices = [
-    ServiceItem('Ordonnances', 'Vos prescriptions', Icons.receipt_long_rounded, _C.violet, const MesOrdonnancesPage()),
-    ServiceItem('Résultats', 'Analyses & labo', Icons.biotech_rounded, _C.sky, const ResultatsExamensPage()),
-    ServiceItem('Vaccination', 'Carnet à jour', Icons.vaccines_rounded, _C.emerald, const CarnetVaccinationPage()),
-    ServiceItem('Dossier Médical', 'Historique complet', Icons.folder_shared_rounded, _C.sky, const DossierMedicalPage()),
-    ServiceItem('Assurance', 'Couverture santé', Icons.shield_rounded, _C.navy, const AssuranceSantePage()),
-    ServiceItem('Partage', 'Accès médecins', Icons.share_rounded, _C.emerald, const DossierPartagePage()),
+    ServiceItem('Ordonnances', 'Prescriptions', Icons.receipt_long_rounded, _C.violet, const MesOrdonnancesPage()),
+    ServiceItem('Résultats', 'Labo & Imagerie', Icons.biotech_rounded, _C.primary, const ResultatsExamensPage()),
+    ServiceItem('Vaccins', 'Carnet à jour', Icons.vaccines_rounded, _C.emerald, const CarnetVaccinationPage()),
+    ServiceItem('Historique', 'Dossier complet', Icons.folder_shared_rounded, _C.slate, const DossierMedicalPage()),
+    ServiceItem('Assurance', 'Couverture', Icons.shield_rounded, _C.navy, const AssuranceSantePage()),
+    ServiceItem('Partage', 'Accès médecins', Icons.share_rounded, _C.primary, const DossierPartagePage()),
   ];
 
   late final List<ServiceItem> _careServices = [
-    ServiceItem('Médicaments', 'Trouver en pharmacie', Icons.medication_rounded, _C.violet, const TrouverMedicamentPage()),
-    ServiceItem('Second Avis', 'Avis d\'experts', Icons.people_alt_rounded, _C.sky, const SecondAvisPage()),
-    ServiceItem('Don de sang', 'Centres de collecte', Icons.bloodtype_rounded, _C.red, const DonSangPage()),
-    ServiceItem('Consulter', 'Prendre rendez-vous', Icons.medical_services_rounded, _C.sky, const ConsulterMedecinPage()),
-    ServiceItem('Épidémies', 'Alertes sanitaires', Icons.coronavirus_rounded, _C.red, const EpidemiesPage()),
+    ServiceItem('Médicaments', 'En pharmacie', Icons.medication_rounded, _C.violet, const TrouverMedicamentPage()),
+    ServiceItem('Second Avis', 'Experts médicaux', Icons.people_alt_rounded, _C.primary, const SecondAvisPage()),
+    ServiceItem('Don de sang', 'Centres proches', Icons.bloodtype_rounded, _C.red, const DonSangPage()),
+    ServiceItem('Rendez-vous', 'Planification', Icons.medical_services_rounded, _C.emerald, const ConsulterMedecinPage()),
+    ServiceItem('Épidémies', 'Alertes locales', Icons.coronavirus_rounded, _C.amber, const EpidemiesPage()),
   ];
 
   late final List<ServiceItem> _familyServices = [
-    ServiceItem('Famille', 'Gérer les profils', Icons.family_restroom_rounded, _C.violet, const DossierFamillePage()),
-    ServiceItem('Grossesse', 'Suivi de maternité', Icons.pregnant_woman_rounded, const Color(0xFFEC4899), const SuiviGrossessePage()),
-    ServiceItem('Enfants', 'Suivi pédiatrique', Icons.child_care_rounded, _C.sky, const SanteEnfantsPage()),
-    ServiceItem('Rappels', 'Prochains vaccins', Icons.notifications_active_rounded, _C.amber, const RappelsVaccinPage()),
+    ServiceItem('Profils', 'Gérer la famille', Icons.family_restroom_rounded, _C.violet, const DossierFamillePage()),
+    ServiceItem('Maternité', 'Suivi grossesse', Icons.pregnant_woman_rounded, const Color(0xFFDB2777), const SuiviGrossessePage()),
+    ServiceItem('Pédiatrie', 'Santé enfants', Icons.child_care_rounded, _C.primary, const SanteEnfantsPage()),
+    ServiceItem('Rappels', 'Prochains soins', Icons.notifications_active_rounded, _C.amber, const RappelsVaccinPage()),
   ];
 
   late final List<ServiceItem> _wellbeingServices = [
     ServiceItem('Nutrition', 'Suivi alimentaire', Icons.restaurant_rounded, _C.amber, const NutritionPage()),
-    ServiceItem('Activité', 'Exercices physiques', Icons.directions_run_rounded, _C.emerald, const ActivitePhysiquePage()),
-    ServiceItem('Santé Mentale', 'Soutien psychologique', Icons.psychology_rounded, _C.violet, const BienEtreMentalPage()),
-    ServiceItem('Gestion Stress', 'Relaxation', Icons.self_improvement_rounded, _C.sky, const GestionStressPage()),
+    ServiceItem('Activité', 'Sport & Fitness', Icons.directions_run_rounded, _C.emerald, const ActivitePhysiquePage()),
+    ServiceItem('Psychologie', 'Santé mentale', Icons.psychology_rounded, _C.violet, const BienEtreMentalPage()),
+    ServiceItem('Relaxation', 'Gestion du stress', Icons.self_improvement_rounded, _C.primary, const GestionStressPage()),
   ];
 
   void _go(Widget page) {
+    HapticFeedback.lightImpact();
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
@@ -162,173 +167,149 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
       backgroundColor: _C.bg,
       body: Stack(
         children: [
-          Column(
-            children: [
-              // EN-TÊTE FIXE (Nom + Mon Suivi en cercles)
-              _buildFixedHeader(profile, stats),
-              
-              // CONTENU DÉFILANT
-              Expanded(
-                child: RefreshIndicator(
-                  color: _C.sky,
-                  backgroundColor: _C.white,
-                  onRefresh: () async {
-                    ref.invalidate(dashboardStatsProvider);
-                    ref.invalidate(patientProfileProvider);
-                  },
-                  child: ListView(
-                    padding: const EdgeInsets.only(top: 16, bottom: 120),
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                    children: [
-                      // Section "Trouver des soins" principale
-                      _buildSectionHeaderWithLocation('Trouver des soins', 'Dar es Salaam'),
-                      const SizedBox(height: 16),
-                      _buildPharmacyCard(),
-                      const SizedBox(height: 12),
-                      _buildHospitalCard(),
+          RefreshIndicator(
+            color: _C.primary,
+            backgroundColor: _C.white,
+            onRefresh: () async {
+              ref.invalidate(dashboardStatsProvider);
+              ref.invalidate(patientProfileProvider);
+            },
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              slivers: [
+                // 1. HEADER (SliverAppBar propre)
+                _buildModernHeader(profile),
+                
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      // 2. STATISTIQUES (Carte compacte)
+                      _buildCompactStatsCard(stats),
+                      const SizedBox(height: 24),
                       
+                      // 3. ACTIONS RAPIDES (Bannières)
+                      _buildQuickActionBanners(),
                       const SizedBox(height: 32),
-                      _buildSectionTitle('Mon dossier'),
-                      _horizontalServiceRow(_dossierServices),
                       
+                      // 4. GRILLES DE SERVICES (Compactes et lisibles)
+                      _buildSectionTitle('Dossier Médical'),
+                      _buildServiceGrid(_dossierServices),
                       const SizedBox(height: 32),
-                      _buildSectionTitle('Autres soins'),
-                      _horizontalServiceRow(_careServices),
                       
+                      _buildSectionTitle('Parcours de Soins'),
+                      _buildServiceGrid(_careServices),
                       const SizedBox(height: 32),
+                      
                       _buildSectionTitle('Famille & Proches'),
-                      _horizontalServiceRow(_familyServices),
-                      
+                      _buildServiceGrid(_familyServices),
                       const SizedBox(height: 32),
+                      
                       _buildSectionTitle('Bien-être & Prévention'),
-                      _horizontalServiceRow(_wellbeingServices),
-                    ],
+                      _buildServiceGrid(_wellbeingServices),
+                    ]),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           
-          // BOTTOM NAVIGATION FLOTTANTE
-          _buildFloatingBottomNav(),
+          // BOTTOM NAVIGATION FLOTTANTE (Premium)
+          _buildPremiumBottomNav(),
         ],
       ),
     );
   }
 
   // =========================================================================
-  // 1. PARTIE HAUTE FIXE (NOM + MON SUIVI)
+  // 1. HEADER MODERNE (SliverAppBar)
   // =========================================================================
-  Widget _buildFixedHeader(AsyncValue<PatientProfile> profileAsync, AsyncValue<DashboardStats> statsAsync) {
-    final fullName = profileAsync.valueOrNull?.name ?? 'Alex';
+  Widget _buildModernHeader(AsyncValue<PatientProfile> profileAsync) {
+    final fullName = profileAsync.valueOrNull?.name ?? 'Patient';
     final firstName = fullName.split(' ').first;
     final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: _C.white,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(color: Color(0x0A000000), blurRadius: 15, offset: Offset(0, 5))
-        ]
-      ),
-      child: SafeArea(
-        bottom: false,
+    return SliverAppBar(
+      backgroundColor: _C.bg,
+      pinned: true,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      shadowColor: _C.navy.withOpacity(0.1),
+      collapsedHeight: 70,
+      expandedHeight: 70,
+      automaticallyImplyLeading: false,
+      flexibleSpace: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
             children: [
-              // Ligne 1 : Avatar, Nom, Boutons
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Stack(
-                    children: [
-                      Container(
-                        height: 48, width: 48,
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: _C.emerald.withOpacity(0.5), width: 1.5),
-                        ),
-                        child: ClipOval(
-                          child: (avatarUrl != null && avatarUrl.isNotEmpty)
-                              ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar())
-                              : _defaultAvatar(),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 2, right: 2,
-                        child: Container(
-                          height: 12, width: 12,
-                          decoration: BoxDecoration(color: _C.emerald, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              // Avatar
+              Container(
+                height: 44, width: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _C.white,
+                  border: Border.all(color: _C.border, width: 1.5),
+                  image: (avatarUrl != null && avatarUrl.isNotEmpty) 
+                      ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover) 
+                      : null,
+                ),
+                child: (avatarUrl == null || avatarUrl.isEmpty) 
+                    ? const Icon(Icons.person_rounded, color: _C.textMuted, size: 24) 
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              
+              // Texte
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Bonjour, $firstName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
+                    const Row(
                       children: [
-                        Text('Bonjour $firstName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
-                        const SizedBox(height: 2),
-                        const Row(
-                          children: [
-                            Icon(Icons.verified_rounded, size: 12, color: _C.sky),
-                            SizedBox(width: 4),
-                            Text('Dossier sécurisé', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _C.textMuted)),
-                          ],
-                        ),
+                        Icon(Icons.shield_rounded, size: 12, color: _C.emerald),
+                        SizedBox(width: 4),
+                        Text('Espace sécurisé', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _C.textMuted)),
                       ],
                     ),
-                  ),
-                  InkWell(
-                    onTap: () => _go(const UrgencesProchesPage()),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(20)),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.bolt_rounded, size: 14, color: _C.red),
-                          SizedBox(width: 4),
-                          Text('SOS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: _C.red, letterSpacing: 0.5)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Stack(
-                    children: [
-                      Container(
-                        height: 38, width: 38,
-                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _C.border)),
-                        child: const Icon(Icons.notifications_none_rounded, color: _C.navy, size: 20),
-                      ),
-                      Positioned(
-                        top: 0, right: 0,
-                        child: Container(height: 10, width: 10, decoration: BoxDecoration(color: _C.red, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2))),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
               
-              const SizedBox(height: 24),
-              
-              // Ligne 2 : Mon Suivi (Les 4 cercles)
-              statsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: _C.sky)),
-                error: (_, __) => const SizedBox(),
-                data: (d) => Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildStatCircle('Consults.', d.consultations, _C.primary),
-                    _buildStatCircle('Examens', d.examens, _C.emerald),
-                    _buildStatCircle('Traitements', d.medicaments, _C.violet),
-                    _buildStatCircle('RDV', d.rdvs, _C.amber),
-                  ],
+              // Actions (SOS + Notifs)
+              InkWell(
+                onTap: () => _go(const UrgencesProchesPage()),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _C.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _C.red.withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.bolt_rounded, size: 16, color: _C.red),
+                      SizedBox(width: 4),
+                      Text('SOS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: _C.red)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              InkWell(
+                onTap: () {},
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  height: 40, width: 40,
+                  decoration: BoxDecoration(
+                    color: _C.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _C.border),
+                  ),
+                  child: const Icon(Icons.notifications_none_rounded, color: _C.navy, size: 20),
                 ),
               ),
             ],
@@ -338,189 +319,111 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     );
   }
 
-  Widget _defaultAvatar() => Container(color: _C.bg, child: const Icon(Icons.person, color: _C.textMuted));
+  // =========================================================================
+  // 2. CARTE STATISTIQUES COMPACTE (Remplacement des gros cercles)
+  // =========================================================================
+  Widget _buildCompactStatsCard(AsyncValue<DashboardStats> statsAsync) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      decoration: BoxDecoration(
+        color: _C.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _C.borderLight),
+        boxShadow: [BoxShadow(color: _C.navy.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
+      ),
+      child: statsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: _C.primary)),
+        error: (_, __) => const Center(child: Text('Erreur de chargement', style: TextStyle(color: _C.textMuted))),
+        data: (d) => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem('Consultations', d.consultations, _C.primary, Icons.stethoscope),
+            _buildStatDivider(),
+            _buildStatItem('Examens', d.examens, _C.emerald, Icons.science_rounded),
+            _buildStatDivider(),
+            _buildStatItem('Traitements', d.medicaments, _C.violet, Icons.medication_rounded),
+            _buildStatDivider(),
+            _buildStatItem('Rendez-vous', d.rdvs, _C.amber, Icons.calendar_today_rounded),
+          ],
+        ),
+      ),
+    );
+  }
 
-  // Les cercles de "Mon Suivi"
-  Widget _buildStatCircle(String label, int value, Color color) {
+  Widget _buildStatItem(String label, int value, Color color, IconData icon) {
     return Column(
       children: [
-        Container(
-          height: 56, width: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: color.withOpacity(0.3), width: 3),
-            color: color.withOpacity(0.05),
-          ),
-          child: Center(
-            child: Text(
-              '$value',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color),
-            ),
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text('$value', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _C.textMuted, letterSpacing: 0.2)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _C.textMuted)),
       ],
     );
   }
 
+  Widget _buildStatDivider() {
+    return Container(height: 30, width: 1, color: _C.borderLight);
+  }
+
   // =========================================================================
-  // 2. CARTES D'ACCUEIL (TROUVER DES SOINS)
+  // 3. BANNIÈRES D'ACTIONS RAPIDES
   // =========================================================================
-  Widget _buildSectionHeaderWithLocation(String title, String location) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.5)),
-          Row(
-            children: [
-              const Icon(Icons.location_on_outlined, size: 14, color: _C.textMuted),
-              const SizedBox(width: 4),
-              Text(location, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
-            ],
+  Widget _buildQuickActionBanners() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildBanner(
+            title: 'Pharmacies',
+            subtitle: 'Trouver de garde',
+            icon: Icons.local_pharmacy_rounded,
+            bgColor: const Color(0xFFF0FDF4),
+            iconColor: _C.emerald,
+            onTap: () => _go(const PharmaciesProchesPage()),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPharmacyCard() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: _C.border)),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                Container(
-                  height: 64, width: 64,
-                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
-                  child: const Icon(Icons.add_rounded, color: _C.emerald, size: 32),
-                ),
-                Positioned(bottom: -2, right: -2, child: Container(height: 14, width: 14, decoration: BoxDecoration(color: _C.emerald, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2)))),
-              ],
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(child: Text('Pharmacies de garde', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12)),
-                        child: Row(
-                          children: [
-                            Container(height: 6, width: 6, decoration: const BoxDecoration(color: _C.emerald, shape: BoxShape.circle)),
-                            const SizedBox(width: 4),
-                            const Text('LIVE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _C.emerald)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Text('Ouvertes', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _C.emerald)),
-                      const Text(' • Localisez les plus proches', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _go(const PharmaciesProchesPage()),
-                          child: Container(
-                            height: 36,
-                            decoration: BoxDecoration(color: _C.navy, borderRadius: BorderRadius.circular(18)),
-                            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                              Icon(Icons.near_me_rounded, color: _C.white, size: 14),
-                              SizedBox(width: 6),
-                              Text('Rechercher', style: TextStyle(color: _C.white, fontSize: 13, fontWeight: FontWeight.w700)),
-                            ]),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildBanner(
+            title: 'Hôpitaux',
+            subtitle: 'Réseau de soins',
+            icon: Icons.local_hospital_rounded,
+            bgColor: const Color(0xFFEFF6FF),
+            iconColor: _C.primary,
+            onTap: () => _go(const TrouverHopitalPage()),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildHospitalCard() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+  Widget _buildBanner({required String title, required String subtitle, required IconData icon, required Color bgColor, required Color iconColor, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: _C.border)),
-        child: Row(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: iconColor.withOpacity(0.1)),
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                Container(
-                  height: 64, width: 64,
-                  decoration: BoxDecoration(color: _C.navy, borderRadius: BorderRadius.circular(16)),
-                  child: const Icon(Icons.domain_rounded, color: _C.white, size: 28),
-                ),
-                Positioned(bottom: -2, right: -2, child: Container(height: 14, width: 14, decoration: BoxDecoration(color: _C.amber, shape: BoxShape.circle, border: Border.all(color: _C.white, width: 2)))),
-              ],
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: _C.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: iconColor.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Hôpitaux & Cliniques', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.2)),
-                  const SizedBox(height: 4),
-                  const Text('Réseau de soins • SAMU & Urgences', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _C.textMuted)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _go(const TrouverHopitalPage()),
-                          child: Container(
-                            height: 36,
-                            decoration: BoxDecoration(color: _C.white, border: Border.all(color: _C.border), borderRadius: BorderRadius.circular(18)),
-                            child: const Center(child: Text('Voir la liste', style: TextStyle(color: _C.navy, fontSize: 13, fontWeight: FontWeight.w700))),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _go(const UrgencesProchesPage()),
-                          child: Container(
-                            height: 36,
-                            decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(18)),
-                            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                              Icon(Icons.access_time_rounded, color: _C.red, size: 14),
-                              SizedBox(width: 6),
-                              Text('Urgence', style: TextStyle(color: _C.red, fontSize: 13, fontWeight: FontWeight.w700)),
-                            ]),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 12),
+            Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.3)),
+            const SizedBox(height: 2),
+            Text(subtitle, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: iconColor)),
           ],
         ),
       ),
@@ -528,123 +431,118 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   // =========================================================================
-  // 3. CARTES VERTICALES DE SERVICES (COMME SUR LA CAPTURE)
+  // 4. GRILLES DE SERVICES COMPACTES
   // =========================================================================
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.3)),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _C.navy, letterSpacing: -0.3)),
     );
   }
 
-  Widget _horizontalServiceRow(List<ServiceItem> items) {
-    return SizedBox(
-      height: 160, // Plus haut pour donner l'aspect de carte verticale
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, i) {
-          final it = items[i];
-          return InkWell(
-            onTap: () => _go(it.page),
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
-              width: 140, // Assez large pour que le texte respire
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _C.white, 
-                borderRadius: BorderRadius.circular(24), 
-                border: Border.all(color: _C.border)
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Icône en haut à gauche (Squircle)
-                  Container(
-                    height: 48, width: 48,
-                    decoration: BoxDecoration(
-                      color: it.color.withOpacity(0.1), 
-                      borderRadius: BorderRadius.circular(14)
-                    ),
-                    child: Icon(it.icon, color: it.color, size: 24),
-                  ),
-                  const Spacer(),
-                  // Textes en bas
-                  Text(
-                    it.title, 
-                    maxLines: 1, 
-                    overflow: TextOverflow.ellipsis, 
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _C.navy, height: 1.2)
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    it.subtitle, 
-                    maxLines: 1, 
-                    overflow: TextOverflow.ellipsis, 
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _C.textMuted)
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+  Widget _buildServiceGrid(List<ServiceItem> items) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 2.6, // Ratio parfait pour icône + 2 lignes de texte
       ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final it = items[index];
+        return InkWell(
+          onTap: () => _go(it.page),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: _C.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _C.borderLight),
+              boxShadow: [BoxShadow(color: _C.navy.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 38, width: 38,
+                  decoration: BoxDecoration(
+                    color: it.color.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(it.icon, color: it.color, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _C.navy, letterSpacing: -0.2)),
+                      const SizedBox(height: 2),
+                      Text(it.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _C.textMuted)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   // =========================================================================
-  // 4. BOTTOM NAVIGATION BAR FLOTTANTE
+  // 5. BOTTOM NAVIGATION PREMIUM (Pillule sombre)
   // =========================================================================
-  Widget _buildFloatingBottomNav() {
+  Widget _buildPremiumBottomNav() {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
-        child: SizedBox(
-          height: 80, 
+        padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: _C.navy, // Fond sombre premium
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [BoxShadow(color: _C.navy.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+          ),
           child: Stack(
-            alignment: Alignment.bottomCenter,
             clipBehavior: Clip.none,
             children: [
-              Container(
-                height: 64,
-                decoration: BoxDecoration(
-                  color: _C.white,
-                  borderRadius: BorderRadius.circular(32),
-                  boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20, offset: Offset(0, 10))]
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _navItem(Icons.home_rounded, 'Accueil', true, () {}),
-                    _navItem(Icons.folder_shared_rounded, 'Dossier', false, () => _go(const DossierMedicalPage())),
-                    const SizedBox(width: 60), 
-                    _navItem(Icons.search_rounded, 'Soins', false, () => _go(const TrouverHopitalPage())),
-                    _navItem(Icons.people_alt_rounded, 'Famille', false, () => _go(const DossierFamillePage())),
-                  ],
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _premiumNavItem(Icons.home_rounded, 'Accueil', true, () {}),
+                  _premiumNavItem(Icons.folder_shared_rounded, 'Dossier', false, () => _go(const DossierMedicalPage())),
+                  const SizedBox(width: 50), // Espace pour le FAB IA
+                  _premiumNavItem(Icons.search_rounded, 'Soins', false, () => _go(const TrouverHopitalPage())),
+                  _premiumNavItem(Icons.people_alt_rounded, 'Famille', false, () => _go(const DossierFamillePage())),
+                ],
               ),
+              // Bouton IA Central Flottant
               Positioned(
-                top: 0,
-                child: GestureDetector(
-                  onTap: () => _go(const AssistantIAPage()),
-                  child: Container(
-                    height: 60, width: 60,
-                    decoration: BoxDecoration(
-                      color: _C.fabBg,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _C.bg, width: 4),
-                      boxShadow: [BoxShadow(color: _C.fabBg.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))]
+                top: -20,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _go(const AssistantIAPage()),
+                    child: Container(
+                      height: 64, width: 64,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [_C.primary, Color(0xFF0EA5E9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: _C.bg, width: 4),
+                        boxShadow: [BoxShadow(color: _C.primary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
+                      ),
+                      child: const Icon(Icons.auto_awesome_rounded, color: _C.white, size: 28),
                     ),
-                    child: const Icon(Icons.auto_awesome_rounded, color: _C.white, size: 28),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 8,
-                child: Container(height: 4, width: 4, decoration: const BoxDecoration(color: _C.emerald, shape: BoxShape.circle)),
               ),
             ],
           ),
@@ -653,16 +551,19 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool active, VoidCallback onTap) {
+  Widget _premiumNavItem(IconData icon, String label, bool active, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 24, color: active ? _C.navy : _C.textMuted.withOpacity(0.5)),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? _C.navy : _C.textMuted)),
-        ],
+      child: SizedBox(
+        width: 50,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: active ? _C.white : _C.textMuted),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(fontSize: 9, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? _C.white : _C.textMuted)),
+          ],
+        ),
       ),
     );
   }
