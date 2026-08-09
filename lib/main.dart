@@ -3,82 +3,173 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as app_provider;
 import 'package:go_router/go_router.dart';
+
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/app_router.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
-import 'package:thix_id/theme.dart';
+
+import 'package:thix_id/design_system/thix_policy.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try { await SupabaseConfig.initialize(); } catch (e) { debugPrint('Supabase init error: $e'); }
-  runApp(const ProviderScope(child: MyApp()));
+
+  try {
+    await SupabaseConfig.initialize();
+  } catch (e) {
+    debugPrint('Supabase init error: $e');
+  }
+
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
-  @override ConsumerState<MyApp> createState() => _MyAppState();
+
+  @override
+  ConsumerState<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends ConsumerState<MyApp> {
   late final AuthController _auth;
   late final LocaleController _locale;
+
   GoRouter? _router;
+
   bool _ready = false;
 
   @override
   void initState() {
     super.initState();
+
     _locale = LocaleController()..init();
+
     _auth = AuthController.instance;
+
     _initAuth();
   }
 
   Future<void> _initAuth() async {
-    try { await _auth.init(); } catch (_) {}
-    final merged = Listenable.merge([_auth, _locale]);
-    _router = AppRouter.create(_auth, extraRefreshListenable: merged);
-    if (mounted) setState(() => _ready = true);
+    try {
+      await _auth.init();
+    } catch (e) {
+      debugPrint('Auth initialization error: $e');
+    }
+
+    final merged = Listenable.merge([
+      _auth,
+      _locale,
+    ]);
+
+    _router = AppRouter.create(
+      _auth,
+      extraRefreshListenable: merged,
+    );
+
+    if (mounted) {
+      setState(() {
+        _ready = true;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_ready || _router == null) {
-      return const MaterialApp(home: Scaffold(body: Center(child: CircularProgressIndicator())));
+      return _buildLoadingApp();
     }
+
     return app_provider.MultiProvider(
       providers: [
-        app_provider.ChangeNotifierProvider<AuthController>.value(value: _auth),
-        app_provider.ChangeNotifierProvider<LocaleController>.value(value: _locale),
-        app_provider.Provider<ProfileService>(create: (_) => ProfileService()),
+        app_provider.ChangeNotifierProvider<AuthController>.value(
+          value: _auth,
+        ),
+
+        app_provider.ChangeNotifierProvider<LocaleController>.value(
+          value: _locale,
+        ),
+
+        app_provider.Provider<ProfileService>(
+          create: (_) => ProfileService(),
+        ),
       ],
+
       child: MaterialApp.router(
-        title: 'THIX ID CENTRAL', 
+        title: 'THIX ID CENTRAL',
+
         debugShowCheckedModeBanner: false,
-        theme: lightTheme, 
-        darkTheme: darkTheme, 
+
+        // ═══════════════════════════════════════════════════════════════
+        // THIX DESIGN SYSTEM v1
+        // ═══════════════════════════════════════════════════════════════
+
+        theme: ThixPolicy.lightTheme(),
+
+        darkTheme: ThixPolicy.darkTheme(),
+
+        themeMode: ThemeMode.system,
+
+        // ═══════════════════════════════════════════════════════════════
+        // ROUTER
+        // ═══════════════════════════════════════════════════════════════
+
         routerConfig: _router!,
-        locale: _locale.locale, 
+
+        // ═══════════════════════════════════════════════════════════════
+        // LOCALIZATION
+        // ═══════════════════════════════════════════════════════════════
+
+        locale: _locale.locale,
+
         supportedLocales: LocaleController.supportedLocales,
+
         localizationsDelegates: const [
-          AppLocalizations.delegate, 
-          GlobalMaterialLocalizations.delegate, 
-          GlobalWidgetsLocalizations.delegate, 
-          GlobalCupertinoLocalizations.delegate
+          AppLocalizations.delegate,
+
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
         ],
-        // Fige uniquement l'échelle de texte (accessibilité système ignorée),
-        // sans forcer de devicePixelRatio — pour garder un rendu net et
-        // fidèle à la densité réelle de chaque écran.
+
+        // ═══════════════════════════════════════════════════════════════
+        // GLOBAL BUILDER
+        // ═══════════════════════════════════════════════════════════════
+        //
+        // IMPORTANT:
+        // Nous ne bloquons plus le TextScaler système.
+        //
+        // THIX définit le rendu par défaut via TextTheme,
+        // mais respecte les préférences d'accessibilité de l'utilisateur.
+        //
+        // ═══════════════════════════════════════════════════════════════
+
         builder: (context, child) {
-          return MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: const TextScaler.linear(1.0),
-            ),
-            child: child!,
-          );
+          return child ?? const SizedBox.shrink();
         },
+      ),
+    );
+  }
+
+  Widget _buildLoadingApp() {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+
+      theme: ThixPolicy.lightTheme(),
+
+      darkTheme: ThixPolicy.darkTheme(),
+
+      themeMode: ThemeMode.system,
+
+      home: const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       ),
     );
   }
