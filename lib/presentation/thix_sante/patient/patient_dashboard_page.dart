@@ -321,7 +321,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
         data: (d) => Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildStatItem('Consultations', d.consultations, ThixPolicy.primary, Icons.stethoscope),
+            __buildStatItem('Consultations', d.consultations, ThixPolicy.primary, Icons.medical_services_rounded),
             _buildStatDivider(),
             _buildStatItem('Examens', d.examens, ThixPolicy.success, Icons.science_rounded),
             _buildStatDivider(),
