@@ -1,7 +1,7 @@
 // lib/presentation/home/widgets/home_search.dart
 import 'package:flutter/material.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
-import 'package:thix_id/design_system/thix_policy.dart';
+import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 class HomeSearch extends StatelessWidget {
   final TextEditingController controller;
