@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
-import 'package:thix_id/core/theme/thix_design_policy.dart
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 
 class HomePersonalised extends StatelessWidget {
   const HomePersonalised({super.key});
