@@ -1,5 +1,4 @@
 // lib/presentation/ai/thix_ia_screen.dart
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,8 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // ✅ Design System THIX v1
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
-// (Assure-toi d'importer ton service AI correctement)
-// import '../../services/ai/ai_service.dart'; 
+// 🌟 Ton vrai service IA
+import '../../services/ai/ai_service.dart'; 
 
 class ThixIaScreen extends ConsumerStatefulWidget {
   const ThixIaScreen({super.key});
@@ -23,28 +22,30 @@ class _ThixIaScreenState extends ConsumerState<ThixIaScreen> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
-  // late final AiService _aiService;
+  // 🌟 Vrai service activé
+  late final AiService _aiService;
+  final AiProvider _selectedProvider = AiProvider.mistral; 
   
   final List<Map<String, dynamic>> _messages = [];
   bool _isLoading = false;
-  bool _useTavilyWebSearch = true; // Activer la recherche live par défaut
+  bool _useTavilyWebSearch = true; 
   
   String _userName = "Partenaire";
 
-  // Prompt système ultra-spécialisé
+  // 🌟 PROMPT ENTREPRISE (Focus RDC, OHADA, Afrique)
+  // L'instruction demande explicitement d'éviter les astérisques pour un rendu propre
   final String _enterpriseSystemPrompt = """
 Tu es THIX IA, un assistant exécutif et conseiller stratégique d'entreprise de haut niveau. 
 Ton expertise principale couvre le marché de la République Démocratique du Congo (RDC), 
 le droit OHADA, l'écosystème tech est-africain, et les réalités économiques du continent africain.
-Tes réponses doivent être professionnelles, précises, sourcées si possible (via Tavily), 
-et directement applicables par un entrepreneur ou un décideur.
-Évite les longues introductions. Utilise le Markdown pour structurer tes réponses.
+Tes réponses doivent être professionnelles, précises et directement applicables par un entrepreneur ou un décideur.
+N'utilise JAMAIS d'astérisques (*) dans tes réponses. Utilise des tirets (-), des numéros (1, 2, 3) et des sauts de ligne pour structurer les longs textes.
 """;
 
   @override
   void initState() {
     super.initState();
-    // _aiService = AiService(Supabase.instance.client);
+    _aiService = AiService(Supabase.instance.client);
     _loadUserName();
   }
 
@@ -74,6 +75,7 @@ et directement applicables par un entrepreneur ou un décideur.
     super.dispose();
   }
 
+  // 🌟 VRAIE FONCTION D'ENVOI (Sans Mocks)
   Future<void> _sendMessage({String? textOverride}) async {
     final text = textOverride ?? _messageController.text.trim();
     if (text.isEmpty) return;
@@ -87,36 +89,38 @@ et directement applicables par un entrepreneur ou un décideur.
     _scrollToBottom();
 
     try {
-      // 🌟 Simulation de l'appel au service avec Tavily & Prompt Entreprise
-      /*
+      // Injection de la consigne de recherche Live si activée
+      final String currentPrompt = _useTavilyWebSearch
+          ? "$_enterpriseSystemPrompt\nIMPORTANT : Effectue une recherche web (Live Search) pour obtenir des données d'actualité en temps réel avant de formuler ta réponse."
+          : _enterpriseSystemPrompt;
+
+      // 🌟 Appel réel à ton backend (Mistral / Tavily)
       final response = await _aiService.askAi(
         prompt: text,
-        provider: AiProvider.mistral,
-        useWebSearch: _useTavilyWebSearch, // Couplage Tavily
-        systemPrompt: _enterpriseSystemPrompt,
+        provider: _selectedProvider,
+        systemPrompt: currentPrompt,
       );
-      */
-      
-      // MOCK POUR LE DESIGN
-      await Future.delayed(const Duration(seconds: 2));
-      final response = "Voici une analyse basée sur les données récentes du marché congolais...\n\n(L'intégration avec Mistral & Tavily se fera via votre AiService).";
+
+      // Nettoyage de sécurité au cas où l'IA mettrait quand même des astérisques
+      final cleanResponse = response.replaceAll('*', '');
 
       if (mounted) {
         setState(() {
           _messages.add({
             'role': 'ai', 
-            'text': response,
+            'text': cleanResponse,
             'time': DateTime.now(),
             'usedWeb': _useTavilyWebSearch,
           });
         });
       }
     } catch (e) {
+      debugPrint("Erreur THIX IA: $e");
       if (mounted) {
         setState(() {
           _messages.add({
             'role': 'ai', 
-            'text': 'Erreur de connexion sécurisée au serveur THIX.',
+            'text': 'Erreur de connexion sécurisée au serveur THIX. Veuillez vérifier votre connexion.',
             'isError': true,
             'time': DateTime.now(),
           });
@@ -196,7 +200,7 @@ et directement applicables par un entrepreneur ou un décideur.
   }
 
   // ─────────────────────────────────────────────────────────────
-  // DRAWER HISTORIQUE DES DISCUSSIONS
+  // DRAWER HISTORIQUE (Prêt à être connecté à Supabase)
   // ─────────────────────────────────────────────────────────────
   Widget _buildHistoryDrawer() {
     return Drawer(
@@ -220,10 +224,8 @@ et directement applicables par un entrepreneur ou un décideur.
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: ThixPolicy.s12),
                 children: [
-                  _historyItem('Aujourd\'hui', 'Analyse du marché minier au Katanga', true),
-                  _historyItem('Aujourd\'hui', 'Révision contrat de partenariat (OHADA)', false),
-                  _historyItem('Hier', 'Tendances Fintech en Afrique de l\'Est', false),
-                  _historyItem('Il y a 3 jours', 'Prévisions fiscales RDC 2026', false),
+                  _historyItem('Session Actuelle', 'Discussion en cours', true),
+                  // Ici, tu pourras faire un .map() sur tes données Supabase thix_ia_sessions
                 ],
               ),
             ),
@@ -242,7 +244,6 @@ et directement applicables par un entrepreneur ou un décideur.
       tileColor: isActive ? ThixPolicy.tint : Colors.transparent,
       onTap: () {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chargement de la conversation...')));
       },
     );
   }
@@ -252,10 +253,10 @@ et directement applicables par un entrepreneur ou un décideur.
   // ─────────────────────────────────────────────────────────────
   Widget _buildEnterpriseWelcome() {
     final actions = [
-      {"icon": Icons.gavel_rounded, "title": "Droit OHADA", "desc": "Rédiger une clause juridique"},
-      {"icon": Icons.trending_up_rounded, "title": "Marché RDC", "desc": "Analyse sectorielle Live"},
-      {"icon": Icons.language_rounded, "title": "Tech Afrique", "desc": "Tendances innovations 2026"},
-      {"icon": Icons.document_scanner_rounded, "title": "Synthèse", "desc": "Résumer un long document"},
+      {"icon": Icons.gavel_rounded, "title": "Droit OHADA", "desc": "Quels sont les avantages de créer une SAS en RDC selon le droit OHADA ?"},
+      {"icon": Icons.trending_up_rounded, "title": "Marché RDC", "desc": "Donne-moi une analyse sectorielle des opportunités Tech à Kinshasa en 2026."},
+      {"icon": Icons.language_rounded, "title": "Tech Afrique", "desc": "Quelles sont les grandes tendances de la Fintech en Afrique de l'Est cette année ?"},
+      {"icon": Icons.lightbulb_outline_rounded, "title": "Stratégie", "desc": "Comment structurer un Business Plan pour lever des fonds auprès d'investisseurs africains ?"},
     ];
 
     return Center(
@@ -275,7 +276,6 @@ et directement applicables par un entrepreneur ou un décideur.
             const Text('Votre conseiller stratégique est prêt.\nComment puis-je vous assister aujourd\'hui ?', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: ThixPolicy.textSecondary, height: 1.4)),
             const SizedBox(height: ThixPolicy.s32),
             
-            // Grille de suggestions
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -283,7 +283,7 @@ et directement applicables par un entrepreneur ou un décideur.
                 crossAxisCount: 2,
                 crossAxisSpacing: ThixPolicy.s12,
                 mainAxisSpacing: ThixPolicy.s12,
-                childAspectRatio: 2.2,
+                childAspectRatio: 1.5, // Ajusté pour lire le texte complet
               ),
               itemCount: actions.length,
               itemBuilder: (ctx, i) {
@@ -292,22 +292,17 @@ et directement applicables par un entrepreneur ou un décideur.
                   onTap: () => _sendMessage(textOverride: a["desc"] as String),
                   borderRadius: BorderRadius.circular(ThixPolicy.rMd),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s12, vertical: 8),
+                    padding: const EdgeInsets.all(ThixPolicy.s12),
                     decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(ThixPolicy.rMd), border: Border.all(color: ThixPolicy.border), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(a["icon"] as IconData, color: ThixPolicy.primary, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(a["title"] as String, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: ThixPolicy.textMain)),
-                              Text(a["desc"] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: ThixPolicy.textSecondary)),
-                            ],
-                          ),
-                        ),
+                        const SizedBox(height: 8),
+                        Text(a["title"] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: ThixPolicy.textMain)),
+                        const SizedBox(height: 4),
+                        Expanded(child: Text(a["desc"] as String, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: ThixPolicy.textSecondary, height: 1.3))),
                       ],
                     ),
                   ),
@@ -321,7 +316,7 @@ et directement applicables par un entrepreneur ou un décideur.
   }
 
   // ─────────────────────────────────────────────────────────────
-  // LISTE DES MESSAGES (BULLLES PREMIUM)
+  // LISTE DES MESSAGES (CAPACITÉ TEXTES LONGS)
   // ─────────────────────────────────────────────────────────────
   Widget _buildChatList() {
     return ListView.builder(
@@ -338,7 +333,7 @@ et directement applicables par un entrepreneur ou un décideur.
           return Align(
             alignment: Alignment.centerRight,
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85), // Plus large pour les questions longues
               child: Container(
                 margin: const EdgeInsets.only(bottom: ThixPolicy.s16),
                 padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s12),
@@ -354,7 +349,7 @@ et directement applicables par un entrepreneur ou un décideur.
           return Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.9),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.92), // Très large pour bien lire les longs rapports
               child: Container(
                 margin: const EdgeInsets.only(bottom: ThixPolicy.s24),
                 child: Row(
@@ -398,20 +393,17 @@ et directement applicables par un entrepreneur ou un décideur.
                               border: Border.all(color: isError ? ThixPolicy.danger.withOpacity(0.3) : ThixPolicy.border),
                               boxShadow: ThixPolicy.shadowSoft(opacity: 0.02),
                             ),
-                            // NOTE : Idéalement, remplacer SelectableText par MarkdownBody(data: msg['text']!) ici.
-                            child: SelectableText(msg['text']!, style: TextStyle(color: isError ? ThixPolicy.danger : ThixPolicy.textMain, fontSize: 14, height: 1.5)),
+                            // SelectableText permet de scroller et copier les très longs textes sans casser l'UI
+                            child: SelectableText(msg['text']!, style: TextStyle(color: isError ? ThixPolicy.danger : ThixPolicy.textMain, fontSize: 14, height: 1.6)),
                           ),
                           const SizedBox(height: 4),
-                          // Outils de la bulle (Copier, etc.)
                           if (!isError)
                             Row(
                               children: [
                                 _bubbleAction(Icons.copy_rounded, "Copier", () {
                                   Clipboard.setData(ClipboardData(text: msg['text']));
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Texte copié')));
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Texte de l\'IA copié')));
                                 }),
-                                const SizedBox(width: 16),
-                                _bubbleAction(Icons.refresh_rounded, "Régénérer", () {}),
                               ],
                             ),
                         ],
@@ -430,13 +422,14 @@ et directement applicables par un entrepreneur ou un décideur.
   Widget _bubbleAction(IconData icon, String label, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(ThixPolicy.rSm),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
         child: Row(
           children: [
             Icon(icon, size: 12, color: ThixPolicy.textSecondary),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: ThixPolicy.textSecondary)),
+            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ThixPolicy.textSecondary)),
           ],
         ),
       ),
@@ -448,16 +441,16 @@ et directement applicables par un entrepreneur ou un décideur.
       padding: const EdgeInsets.only(left: 56, bottom: 16),
       child: Row(
         children: const [
-          SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: ThixPolicy.primary)),
+          SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2.5, color: ThixPolicy.primary)),
           SizedBox(width: 12),
-          Text("Analyse en cours...", style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, fontStyle: FontStyle.italic)),
+          Text("Génération de l'analyse...", style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 13, fontWeight: FontWeight.w600, fontStyle: FontStyle.italic)),
         ],
       ),
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // BARRE DE SAISIE AVEC OPTION RECHERCHE WEB (TAVILY)
+  // BARRE DE SAISIE (GESTION DES LONGS TEXTES)
   // ─────────────────────────────────────────────────────────────
   Widget _buildPremiumInputArea() {
     return Container(
@@ -470,7 +463,6 @@ et directement applicables par un entrepreneur ou un décideur.
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header Input : Toggle Tavily
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0, left: 4),
             child: Row(
@@ -492,7 +484,7 @@ et directement applicables par un entrepreneur ou un décideur.
                       children: [
                         Icon(Icons.language_rounded, size: 14, color: _useTavilyWebSearch ? ThixPolicy.primary : ThixPolicy.textSecondary),
                         const SizedBox(width: 6),
-                        Text('Recherche Live', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _useTavilyWebSearch ? ThixPolicy.primary : ThixPolicy.textSecondary)),
+                        Text('Recherche Live (Tavily)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _useTavilyWebSearch ? ThixPolicy.primary : ThixPolicy.textSecondary)),
                       ],
                     ),
                   ),
@@ -506,7 +498,9 @@ et directement applicables par un entrepreneur ou un décideur.
             children: [
               IconButton(
                 icon: const Icon(Icons.attach_file_rounded, color: ThixPolicy.textSecondary),
-                onPressed: () {},
+                onPressed: () {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pièces jointes bientôt disponibles')));
+                },
               ),
               Expanded(
                 child: Container(
@@ -519,17 +513,20 @@ et directement applicables par un entrepreneur ou un décideur.
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          maxLines: 5,
-                          minLines: 1,
-                          style: const TextStyle(fontSize: 14, color: ThixPolicy.textMain),
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            hintText: 'Demandez à l\'expert THIX...',
-                            hintStyle: TextStyle(color: ThixPolicy.textSecondary, fontSize: 13),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        // TextField avec Scrollbar intégrée pour les très longs prompts de l'utilisateur
+                        child: Scrollbar(
+                          child: TextField(
+                            controller: _messageController,
+                            maxLines: 7, // Permet de saisir des pavés de texte confortablement
+                            minLines: 1,
+                            style: const TextStyle(fontSize: 14, color: ThixPolicy.textMain),
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              hintText: 'Demandez à l\'expert THIX...',
+                              hintStyle: TextStyle(color: ThixPolicy.textSecondary, fontSize: 14),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
                           ),
                         ),
                       ),
