@@ -89,7 +89,7 @@ class OpportunityService {
     }
   }
 
-  Future<void> createOpportunity(OpportunityItem item) async {
+    Future<void> createOpportunity(OpportunityItem item) async {
     try {
       final payload = <String, dynamic>{
         'title': item.title,
@@ -103,7 +103,9 @@ class OpportunityService {
         'eligibility': item.eligibility,
         'apply_url': item.applyUrl,
         if (item.imageAssetPath != null && item.imageAssetPath!.trim().isNotEmpty) 'image_url': item.imageAssetPath,
-        'status': 'pending',
+        
+        // 🌟 L'ERREUR ÉTAIT ICI. On remplace 'pending' par 'published'
+        'status': 'published', 
       };
       await SupabaseService.insert(table, payload);
     } catch (e) {
@@ -111,6 +113,7 @@ class OpportunityService {
       rethrow;
     }
   }
+
 
   Future<OpportunityItem?> fetchOpportunity(String id) async {
     final v = id.trim();
