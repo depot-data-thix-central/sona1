@@ -53,7 +53,7 @@ class _HomePagePremiumState extends State<HomePagePremium> {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // LOGIQUE MÉTIER (Maintenue intacte)
+  // LOGIQUE MÉTIER & RECHERCHE
   // ══════════════════════════════════════════════════════════════════════════
 
   Future<void> _handleHomeSearchVerify() async {
@@ -104,6 +104,10 @@ class _HomePagePremiumState extends State<HomePagePremium> {
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // NAVIGATION & ACTIONS
+  // ══════════════════════════════════════════════════════════════════════════
+
   void _onProfileTap() {
     HapticFeedback.mediumImpact();
     final user = Supabase.instance.client.auth.currentUser;
@@ -114,13 +118,51 @@ class _HomePagePremiumState extends State<HomePagePremium> {
     } 
   }
 
-  // ... (Garde ici toutes tes autres fonctions de navigation : _openThixAi, _openEmergency, _handleServiceTap, etc.) ...
-  void _openThixChat() { /* ... */ }
-  void _openDocumentVault() { /* ... */ }
-  void _openEmergency() { /* ... */ }
-  void _handleServiceTap(String serviceKey) { /* ... */ }
+  Future<void> _openThixAi() async {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.push('/thix_ia');
+      return;
+    }
+    context.push(AppRoutes.login);
+  }
+
+  Future<void> _openThixChat() async {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.go(AppRoutes.chat);
+    } else {
+      context.push(AppRoutes.login);
+    }
+  }
+
+  Future<void> _openEmergency() async {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.push('/thix-urgent');
+      return;
+    }
+    if (!mounted) return;
+    context.push(AppRoutes.login);
+  }
+
+  void _openDocumentVault() {
+    final auth = context.read<AuthController>();
+    if (auth.isAuthenticated) {
+      context.push(AppRoutes.vault);
+    } else {
+      context.push(AppRoutes.login);
+    }
+  }
+
   void _openScanQr() => ThixIdentitySheets.showQrScanSheet(context);
-  void _openMiniApps() { /* ... */ }
+
+  void _openMiniApps() {
+    final l10n = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.t('home_mini_apps_coming_soon')))
+    );
+  }
 
   Future<void> _handleRequestAccount() async {
     final auth = context.read<AuthController>();
@@ -128,9 +170,59 @@ class _HomePagePremiumState extends State<HomePagePremium> {
       context: context, 
       backgroundColor: Colors.transparent, 
       isScrollControlled: true, 
-      builder: () => const AccountRequestSheet()
+      builder: (context) => const AccountRequestSheet() // L'erreur du builder est corrigée ici
     );
-    // Logique existante...
+    
+    switch (res) { 
+      case AccountRequestChoice.personal: 
+        if (auth.isAuthenticated) { await auth.signOut(); } 
+        if (mounted) { context.push(AppRoutes.personalReg); } 
+        return; 
+      case null: 
+        return; 
+    }
+  }
+
+  void _handleServiceTap(String serviceKey) {
+    final uid = context.read<AuthController>().currentUser?.id;
+    if (uid != null) {
+      final counters = NotificationCountersService();
+      ThixSection? section;
+      switch (serviceKey) {
+        case 'thixMedia': section = ThixSection.media; break;
+        case 'thixMarket': section = ThixSection.market; break;
+        case 'formations': section = ThixSection.formations; break;
+        case 'emplois': section = ThixSection.jobs; break;
+        case 'thixInfo': section = ThixSection.info; break;
+        case 'opportunites': section = ThixSection.opportunities; break;
+        case 'evenements': section = ThixSection.events; break;
+        case 'reseauPro': section = ThixSection.network; break;
+        case 'thixSante': section = ThixSection.health; break;
+        case 'thixMoney': section = ThixSection.money; break;
+        case 'monPays': section = ThixSection.monPays; break;
+        case 'reservation': section = ThixSection.reservation; break;
+      }
+      if (section != null) {
+        counters.markSectionSeen(uid: uid, section: section);
+      }
+    }
+    
+    switch (serviceKey) {
+      case 'thixMedia': context.push(AppRoutes.thixMedia); break;
+      case 'thixMarket': context.push(AppRoutes.thixMarket); break;
+      case 'formations': context.push(AppRoutes.trainingHome); break;
+      case 'emplois': context.push(AppRoutes.jobs); break;
+      case 'thixInfo': context.push(AppRoutes.thixInfo); break;
+      case 'opportunites': context.push(AppRoutes.opportunities); break;
+      case 'evenements': context.push('/thix-event'); break;
+      case 'reseauPro': context.go(AppRoutes.network); break;
+      case 'thixSante': context.push(AppRoutes.thixSante); break;
+      case 'thixMoney': context.push(AppRoutes.thixMoney); break;
+      case 'monPays': context.push(AppRoutes.monPays); break;
+      case 'reservation': context.push(AppRoutes.reservation); break;
+      case 'thixUrgent': context.push(AppRoutes.thixUrgent); break;
+      default: break;
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
