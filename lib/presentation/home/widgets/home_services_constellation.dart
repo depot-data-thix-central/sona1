@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/services/notification_counters_service.dart';
-import 'package:thix_id/core/theme/thix_design_policy.dart
+import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 class _ServiceNodeData {
   final String key;
   final IconData icon;
