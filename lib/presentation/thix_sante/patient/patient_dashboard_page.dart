@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ✅ Design System THIX v1
+// ✅ Design System THIX v1 (conservé pour spacing/radius si besoin)
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 // Imports des pages (inchangés)
@@ -37,6 +37,70 @@ import 'screens/bien_etre_mental_page.dart';
 import 'screens/nutrition_page.dart';
 import 'screens/activite_physique_page.dart';
 import 'screens/gestion_stress_page.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PALETTE CLINIQUE THIX SANTÉ
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Inspirée des standards du secteur santé numérique (Doctolib, Ada Health,
+// MyChart/Epic, Teladoc) : le bleu-sarcelle (teal) est la couleur dominante
+// du secteur médical car il évoque à la fois la propreté clinique, le calme
+// et la confiance — contrairement au bleu corporate générique ou aux
+// dégradés sombres de type "app fintech".
+//
+// Le rouge est réservé STRICTEMENT aux actions d'urgence réelle (SOS,
+// don de sang) pour ne jamais banaliser le signal d'alerte.
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _Med {
+  _Med._();
+
+  // Primaires — bleu-sarcelle clinique
+  static const Color primary = Color(0xFF0E7C86);
+  static const Color primaryDark = Color(0xFF0B5F68);
+  static const Color primaryDeep = Color(0xFF083E44);
+  static const Color primarySoft = Color(0xFFE3F2F3);
+
+  // Secondaire — bleu confiance (dossiers, admin)
+  static const Color trustBlue = Color(0xFF2D6CDF);
+  static const Color trustBlueSoft = Color(0xFFEAF1FC);
+
+  // Accents fonctionnels
+  static const Color sage = Color(0xFF3F9C6D);       // bien-être / validé
+  static const Color sageSoft = Color(0xFFE6F4EC);
+  static const Color amber = Color(0xFFC98A1E);       // rappels / attention
+  static const Color amberSoft = Color(0xFFFBF1E0);
+  static const Color violet = Color(0xFF6D5BD0);      // spécialités / mental
+  static const Color violetSoft = Color(0xFFEEEBFB);
+  static const Color rose = Color(0xFFC5455B);        // maternité (doux, non alarmant)
+  static const Color roseSoft = Color(0xFFFAEAED);
+  static const Color emergency = Color(0xFFCC3333);   // urgence réelle uniquement
+  static const Color emergencySoft = Color(0xFFFBEAEA);
+  static const Color slate = Color(0xFF556270);        // historique / neutre
+
+  // Surfaces
+  static const Color bgApp = Color(0xFFF4F8F8);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color border = Color(0xFFE1EAEA);
+  static const Color divider = Color(0xFFEDF3F3);
+
+  // Texte
+  static const Color textPrimary = Color(0xFF122325);
+  static const Color textSecondary = Color(0xFF5E7477);
+  static const Color textMuted = Color(0xFF93A6A8);
+
+  static const LinearGradient statsGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primaryDeep, primary],
+  );
+
+  static const LinearGradient aiGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primaryDark, primary],
+  );
+}
 
 // ---------------- Données réelles ----------------
 class DashboardStats {
@@ -94,8 +158,9 @@ class ServiceItem {
   final String subtitle;
   final IconData icon;
   final Color color;
+  final Color bgColor;
   final Widget page;
-  ServiceItem(this.title, this.subtitle, this.icon, this.color, this.page);
+  ServiceItem(this.title, this.subtitle, this.icon, this.color, this.bgColor, this.page);
 }
 
 class PatientDashboardPage extends ConsumerStatefulWidget {
@@ -105,36 +170,36 @@ class PatientDashboardPage extends ConsumerStatefulWidget {
 }
 
 class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
-  // Couleurs unifiées pour un look professionnel
+  // Palette médicale appliquée par catégorie de service
   late final List<ServiceItem> _dossierServices = [
-    ServiceItem('Ordonnances', 'Prescriptions', Icons.receipt_long_rounded, ThixPolicy.inkDeep, const MesOrdonnancesPage()),
-    ServiceItem('Résultats', 'Labo & Imagerie', Icons.biotech_rounded, ThixPolicy.primaryDeep, const ResultatsExamensPage()),
-    ServiceItem('Vaccins', 'Carnet à jour', Icons.vaccines_rounded, ThixPolicy.success, const CarnetVaccinationPage()),
-    ServiceItem('Historique', 'Dossier complet', Icons.folder_shared_rounded, ThixPolicy.inkDeep, const DossierMedicalPage()),
-    ServiceItem('Assurance', 'Couverture', Icons.shield_rounded, ThixPolicy.primary, const AssuranceSantePage()),
-    ServiceItem('Partage', 'Accès médecins', Icons.share_rounded, ThixPolicy.textSecondary, const DossierPartagePage()),
+    ServiceItem('Ordonnances', 'Prescriptions actives', Icons.receipt_long_rounded, _Med.primaryDark, _Med.primarySoft, const MesOrdonnancesPage()),
+    ServiceItem('Résultats', 'Labo & imagerie', Icons.biotech_rounded, _Med.trustBlue, _Med.trustBlueSoft, const ResultatsExamensPage()),
+    ServiceItem('Vaccins', 'Carnet à jour', Icons.vaccines_rounded, _Med.sage, _Med.sageSoft, const CarnetVaccinationPage()),
+    ServiceItem('Historique', 'Dossier complet', Icons.folder_shared_rounded, _Med.slate, _Med.divider, const DossierMedicalPage()),
+    ServiceItem('Assurance', 'Couverture santé', Icons.shield_rounded, _Med.trustBlue, _Med.trustBlueSoft, const AssuranceSantePage()),
+    ServiceItem('Partage', 'Accès médecins', Icons.share_rounded, _Med.violet, _Med.violetSoft, const DossierPartagePage()),
   ];
 
   late final List<ServiceItem> _careServices = [
-    ServiceItem('Médicaments', 'En pharmacie', Icons.medication_rounded, ThixPolicy.inkDeep, const TrouverMedicamentPage()),
-    ServiceItem('Second Avis', 'Experts médicaux', Icons.people_alt_rounded, ThixPolicy.primaryDeep, const SecondAvisPage()),
-    ServiceItem('Don de sang', 'Centres proches', Icons.bloodtype_rounded, ThixPolicy.danger, const DonSangPage()),
-    ServiceItem('Rendez-vous', 'Planification', Icons.medical_services_rounded, ThixPolicy.success, const ConsulterMedecinPage()),
-    ServiceItem('Épidémies', 'Alertes locales', Icons.coronavirus_rounded, ThixPolicy.warning, const EpidemiesPage()),
+    ServiceItem('Médicaments', 'Disponibilité pharmacie', Icons.medication_rounded, _Med.primaryDark, _Med.primarySoft, const TrouverMedicamentPage()),
+    ServiceItem('Second Avis', 'Experts médicaux', Icons.people_alt_rounded, _Med.violet, _Med.violetSoft, const SecondAvisPage()),
+    ServiceItem('Don de sang', 'Centres proches', Icons.bloodtype_rounded, _Med.emergency, _Med.emergencySoft, const DonSangPage()),
+    ServiceItem('Rendez-vous', 'Planification', Icons.medical_services_rounded, _Med.sage, _Med.sageSoft, const ConsulterMedecinPage()),
+    ServiceItem('Épidémies', 'Alertes locales', Icons.coronavirus_rounded, _Med.amber, _Med.amberSoft, const EpidemiesPage()),
   ];
 
   late final List<ServiceItem> _familyServices = [
-    ServiceItem('Profils', 'Gérer la famille', Icons.family_restroom_rounded, ThixPolicy.inkDeep, const DossierFamillePage()),
-    ServiceItem('Maternité', 'Suivi grossesse', Icons.pregnant_woman_rounded, ThixPolicy.danger, const SuiviGrossessePage()),
-    ServiceItem('Pédiatrie', 'Santé enfants', Icons.child_care_rounded, ThixPolicy.primary, const SanteEnfantsPage()),
-    ServiceItem('Rappels', 'Prochains soins', Icons.notifications_active_rounded, ThixPolicy.warning, const RappelsVaccinPage()),
+    ServiceItem('Profils', 'Gérer la famille', Icons.family_restroom_rounded, _Med.primaryDark, _Med.primarySoft, const DossierFamillePage()),
+    ServiceItem('Maternité', 'Suivi grossesse', Icons.pregnant_woman_rounded, _Med.rose, _Med.roseSoft, const SuiviGrossessePage()),
+    ServiceItem('Pédiatrie', 'Santé enfants', Icons.child_care_rounded, _Med.trustBlue, _Med.trustBlueSoft, const SanteEnfantsPage()),
+    ServiceItem('Rappels', 'Prochains soins', Icons.notifications_active_rounded, _Med.amber, _Med.amberSoft, const RappelsVaccinPage()),
   ];
 
   late final List<ServiceItem> _wellbeingServices = [
-    ServiceItem('Nutrition', 'Suivi alimentaire', Icons.restaurant_rounded, ThixPolicy.warning, const NutritionPage()),
-    ServiceItem('Activité', 'Sport & Fitness', Icons.directions_run_rounded, ThixPolicy.success, const ActivitePhysiquePage()),
-    ServiceItem('Psychologie', 'Santé mentale', Icons.psychology_rounded, ThixPolicy.inkDeep, const BienEtreMentalPage()),
-    ServiceItem('Relaxation', 'Gestion du stress', Icons.self_improvement_rounded, ThixPolicy.primaryDeep, const GestionStressPage()),
+    ServiceItem('Nutrition', 'Suivi alimentaire', Icons.restaurant_rounded, _Med.amber, _Med.amberSoft, const NutritionPage()),
+    ServiceItem('Activité', 'Sport & fitness', Icons.directions_run_rounded, _Med.sage, _Med.sageSoft, const ActivitePhysiquePage()),
+    ServiceItem('Psychologie', 'Santé mentale', Icons.psychology_rounded, _Med.violet, _Med.violetSoft, const BienEtreMentalPage()),
+    ServiceItem('Relaxation', 'Gestion du stress', Icons.self_improvement_rounded, _Med.primaryDark, _Med.primarySoft, const GestionStressPage()),
   ];
 
   void _go(Widget page) {
@@ -148,12 +213,12 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     final stats = ref.watch(dashboardStatsProvider);
 
     return Scaffold(
-      backgroundColor: ThixPolicy.surfaceSoft,
+      backgroundColor: _Med.bgApp,
       body: Stack(
         children: [
           RefreshIndicator(
-            color: ThixPolicy.primary,
-            backgroundColor: ThixPolicy.card,
+            color: _Med.primary,
+            backgroundColor: _Med.surface,
             onRefresh: () async {
               ref.invalidate(dashboardStatsProvider);
               ref.invalidate(patientProfileProvider);
@@ -161,127 +226,133 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               slivers: [
-                _buildEnterpriseHeader(profile),
-                
+                _buildClinicalHeader(profile),
+
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 130),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      // 1. CARTE PREMIUM (STATISTIQUES)
-                      _buildPremiumStatsCard(stats),
+                      // 1. CARTE DE SYNTHÈSE SANTÉ
+                      _buildHealthSummaryCard(stats),
+                      const SizedBox(height: 28),
+
+                      // 2. ACCÈS RAPIDE
+                      _buildSectionTitle('Accès rapide'),
+                      _buildQuickAccessRow(),
                       const SizedBox(height: 32),
-                      
-                      // 2. ACTIONS URGENTES (Design épuré, sans gros blocs pastel)
-                      _buildSectionTitle('Accès Rapide', actionText: 'Tout voir'),
-                      _buildUrgentActions(),
-                      const SizedBox(height: 36),
-                      
-                      // 3. GRILLES DE SERVICES (Design Entreprise structuré)
-                      _buildSectionTitle('Dossier Médical'),
-                      _buildEnterpriseGrid(_dossierServices),
-                      const SizedBox(height: 36),
-                      
-                      _buildSectionTitle('Parcours de Soins'),
-                      _buildEnterpriseGrid(_careServices),
-                      const SizedBox(height: 36),
-                      
-                      _buildSectionTitle('Famille & Proches'),
-                      _buildEnterpriseGrid(_familyServices),
-                      const SizedBox(height: 36),
-                      
-                      _buildSectionTitle('Bien-être & Prévention'),
-                      _buildEnterpriseGrid(_wellbeingServices),
+
+                      // 3. SECTIONS DE SERVICES
+                      _buildSectionTitle('Dossier médical'),
+                      _buildServiceList(_dossierServices),
+                      const SizedBox(height: 28),
+
+                      _buildSectionTitle('Parcours de soins'),
+                      _buildServiceList(_careServices),
+                      const SizedBox(height: 28),
+
+                      _buildSectionTitle('Famille & proches'),
+                      _buildServiceList(_familyServices),
+                      const SizedBox(height: 28),
+
+                      _buildSectionTitle('Bien-être & prévention'),
+                      _buildServiceList(_wellbeingServices),
                     ]),
                   ),
                 ),
               ],
             ),
           ),
-          
-          // NAVIGATION FLOTTANTE
-          _buildPremiumBottomNav(),
+
+          _buildClinicalBottomNav(),
         ],
       ),
     );
   }
 
   // =========================================================================
-  // 1. EN-TÊTE (HEADER) ULTRA-CLEAN
+  // 1. EN-TÊTE CLINIQUE
   // =========================================================================
-  Widget _buildEnterpriseHeader(AsyncValue<PatientProfile> profileAsync) {
+  Widget _buildClinicalHeader(AsyncValue<PatientProfile> profileAsync) {
     final fullName = profileAsync.valueOrNull?.name ?? 'Patient';
     final firstName = fullName.split(' ').first;
     final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
 
     return SliverAppBar(
-      backgroundColor: ThixPolicy.surfaceSoft,
+      backgroundColor: _Med.bgApp,
       pinned: true,
       elevation: 0,
       scrolledUnderElevation: 0,
-      collapsedHeight: 75,
-      expandedHeight: 75,
+      collapsedHeight: 88,
+      expandedHeight: 88,
       automaticallyImplyLeading: false,
       flexibleSpace: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Avatar avec contour premium
-              Container(
-                height: 48, width: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: ThixPolicy.card,
-                  border: Border.all(color: ThixPolicy.borderStrong, width: 1),
-                  image: (avatarUrl != null && avatarUrl.isNotEmpty) 
-                      ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover) 
-                      : null,
-                ),
-                child: (avatarUrl == null || avatarUrl.isEmpty) 
-                    ? const Icon(Icons.person_outline_rounded, color: ThixPolicy.textSecondary, size: 24) 
-                    : null,
-              ),
-              const SizedBox(width: 16),
-              
-              // Salutation
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Bonjour, $firstName', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: ThixPolicy.inkDeep, letterSpacing: -0.5)),
-                    const SizedBox(height: 2),
-                    Row(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    height: 44, width: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _Med.primarySoft,
+                      border: Border.all(color: _Med.primary.withOpacity(0.18), width: 1.4),
+                      image: (avatarUrl != null && avatarUrl.isNotEmpty)
+                          ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover)
+                          : null,
+                    ),
+                    child: (avatarUrl == null || avatarUrl.isEmpty)
+                        ? const Icon(Icons.person_outline_rounded, color: _Med.primary, size: 22)
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(height: 6, width: 6, decoration: const BoxDecoration(color: ThixPolicy.success, shape: BoxShape.circle)),
-                        const SizedBox(width: 6),
-                        const Text('Dossier sécurisé (E2E)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ThixPolicy.textSecondary)),
+                        Text(
+                          'Bonjour, $firstName',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _Med.textPrimary, letterSpacing: -0.3),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(Icons.verified_user_rounded, size: 12, color: _Med.sage),
+                            const SizedBox(width: 4),
+                            const Text('Connexion chiffrée', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _Med.textSecondary)),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              
-              // Bouton SOS Premium
-              InkWell(
-                onTap: () => _go(const UrgencesProchesPage()),
-                borderRadius: BorderRadius.circular(ThixPolicy.rFull),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: ThixPolicy.danger.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(ThixPolicy.rFull),
-                    border: Border.all(color: ThixPolicy.danger.withOpacity(0.2)),
                   ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.emergency_rounded, size: 16, color: ThixPolicy.danger),
-                      SizedBox(width: 6),
-                      Text('SOS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: ThixPolicy.danger, letterSpacing: 0.5)),
-                    ],
+                  const SizedBox(width: 10),
+                  InkWell(
+                    onTap: () => _go(const UrgencesProchesPage()),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: _Med.emergency,
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: [BoxShadow(color: _Med.emergency.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 4))],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.emergency_rounded, size: 15, color: Colors.white),
+                          SizedBox(width: 5),
+                          Text('SOS', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.4)),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -291,20 +362,15 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   // =========================================================================
-  // 2. CARTE NOIRE PREMIUM (STATISTIQUES)
+  // 2. CARTE DE SYNTHÈSE SANTÉ (teal clinique, plus dark navy)
   // =========================================================================
-  Widget _buildPremiumStatsCard(AsyncValue<DashboardStats> statsAsync) {
+  Widget _buildHealthSummaryCard(AsyncValue<DashboardStats> statsAsync) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
       decoration: BoxDecoration(
-        // Un dégradé sombre très classe type "Carte Premium"
-        gradient: const LinearGradient(
-          colors: [ThixPolicy.inkDeep, Color(0xFF1E293B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: ThixPolicy.inkDeep.withOpacity(0.25), blurRadius: 20, offset: const Offset(0, 10))],
+        gradient: _Med.statsGradient,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [BoxShadow(color: _Med.primaryDeep.withOpacity(0.22), blurRadius: 22, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,34 +378,39 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Synthèse Santé', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-              Icon(Icons.health_and_safety_rounded, color: Colors.white.withOpacity(0.5), size: 20),
+              const Row(
+                children: [
+                  Icon(Icons.monitor_heart_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Text('Synthèse santé', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.1)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(999)),
+                child: const Text('30 derniers jours', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+              ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           statsAsync.when(
-            loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: Colors.white))),
-            error: (_, __) => const Text('Erreur de chargement', style: TextStyle(color: ThixPolicy.danger)),
-            data: (d) => Column(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 26),
+              child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white))),
+            ),
+            error: (_, __) => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('Erreur de chargement', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            ),
+            data: (d) => Row(
               children: [
-                Row(
-                  children: [
-                    _buildDarkStatItem('Consultations', d.consultations),
-                    _buildDarkDivider(),
-                    _buildDarkStatItem('Examens Labo', d.examens),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Divider(color: Colors.white.withOpacity(0.1), height: 1),
-                ),
-                Row(
-                  children: [
-                    _buildDarkStatItem('Traitements', d.medicaments),
-                    _buildDarkDivider(),
-                    _buildDarkStatItem('Rendez-vous', d.rdvs),
-                  ],
-                ),
+                _statTile(Icons.medical_information_rounded, 'Consultations', d.consultations),
+                _statDivider(),
+                _statTile(Icons.biotech_rounded, 'Examens', d.examens),
+                _statDivider(),
+                _statTile(Icons.medication_liquid_rounded, 'Traitements', d.medicaments),
+                _statDivider(),
+                _statTile(Icons.event_available_rounded, 'RDV', d.rdvs),
               ],
             ),
           ),
@@ -348,47 +419,53 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     );
   }
 
-  Widget _buildDarkStatItem(String label, int value) {
+  Widget _statTile(IconData icon, String label, int value) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$value', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, height: 1)),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.6))),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(9)),
+            child: Icon(icon, color: Colors.white, size: 15),
+          ),
+          const SizedBox(height: 10),
+          Text('$value', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Colors.white, height: 1)),
+          const SizedBox(height: 3),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.72))),
         ],
       ),
     );
   }
 
-  Widget _buildDarkDivider() {
-    return Container(height: 40, width: 1, color: Colors.white.withOpacity(0.1), margin: const EdgeInsets.symmetric(horizontal: 16));
+  Widget _statDivider() {
+    return Container(height: 46, width: 1, color: Colors.white.withOpacity(0.14), margin: const EdgeInsets.symmetric(horizontal: 10));
   }
 
   // =========================================================================
-  // 3. ACTIONS RAPIDES (Design épuré et sérieux)
+  // 3. ACCÈS RAPIDE
   // =========================================================================
-  Widget _buildUrgentActions() {
+  Widget _buildQuickAccessRow() {
     return Row(
       children: [
         Expanded(
-          child: _buildEnterpriseActionCard(
+          child: _quickAccessCard(
             title: 'Pharmacies',
-            subtitle: 'Trouver de garde',
+            subtitle: 'De garde à proximité',
             icon: Icons.local_pharmacy_rounded,
-            iconBgColor: ThixPolicy.success.withOpacity(0.1),
-            iconColor: ThixPolicy.success,
+            iconColor: _Med.sage,
+            iconBg: _Med.sageSoft,
             onTap: () => _go(const PharmaciesProchesPage()),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
-          child: _buildEnterpriseActionCard(
+          child: _quickAccessCard(
             title: 'Hôpitaux',
             subtitle: 'Réseau de soins',
-            icon: Icons.domain_rounded,
-            iconBgColor: ThixPolicy.primary.withOpacity(0.1),
-            iconColor: ThixPolicy.primary,
+            icon: Icons.local_hospital_rounded,
+            iconColor: _Med.trustBlue,
+            iconBg: _Med.trustBlueSoft,
             onTap: () => _go(const TrouverHopitalPage()),
           ),
         ),
@@ -396,30 +473,36 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     );
   }
 
-  Widget _buildEnterpriseActionCard({required String title, required String subtitle, required IconData icon, required Color iconBgColor, required Color iconColor, required VoidCallback onTap}) {
+  Widget _quickAccessCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: ThixPolicy.card, // Fond blanc pur
+          color: _Med.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ThixPolicy.border),
-          boxShadow: [BoxShadow(color: ThixPolicy.inkDeep.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+          border: Border.all(color: _Med.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: iconColor, size: 22),
+              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(11)),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: ThixPolicy.inkDeep, letterSpacing: -0.3)),
+            const SizedBox(height: 14),
+            Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _Med.textPrimary, letterSpacing: -0.2)),
             const SizedBox(height: 2),
-            Text(subtitle, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ThixPolicy.textSecondary)),
+            Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: _Med.textSecondary)),
           ],
         ),
       ),
@@ -427,84 +510,90 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   // =========================================================================
-  // 4. GRILLES DE SERVICES (Design Liste Structurée / Grille Fine)
+  // 4. TITRES DE SECTION
   // =========================================================================
-  Widget _buildSectionTitle(String title, {String? actionText}) {
+  Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: ThixPolicy.inkDeep, letterSpacing: -0.5)),
-          if (actionText != null)
-            Text(actionText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ThixPolicy.primary)),
+          Container(width: 4, height: 16, decoration: BoxDecoration(color: _Med.primary, borderRadius: BorderRadius.circular(999))),
+          const SizedBox(width: 9),
+          Text(title, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: _Med.textPrimary, letterSpacing: -0.3)),
         ],
       ),
     );
   }
 
-  Widget _buildEnterpriseGrid(List<ServiceItem> items) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 2.4, // Ratio allongé pour un aspect "bouton de menu"
+  // =========================================================================
+  // 5. LISTES DE SERVICES — pattern "ligne clinique" avec chevron
+  // =========================================================================
+  Widget _buildServiceList(List<ServiceItem> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _Med.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _Med.border),
       ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final it = items[index];
-        return InkWell(
-          onTap: () => _go(it.page),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: ThixPolicy.card,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: ThixPolicy.border),
+      child: Column(
+        children: List.generate(items.length, (index) {
+          final it = items[index];
+          final isLast = index == items.length - 1;
+          return InkWell(
+            onTap: () => _go(it.page),
+            borderRadius: BorderRadius.vertical(
+              top: index == 0 ? const Radius.circular(16) : Radius.zero,
+              bottom: isLast ? const Radius.circular(16) : Radius.zero,
             ),
-            child: Row(
-              children: [
-                Icon(it.icon, color: it.color, size: 24),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: ThixPolicy.inkDeep, letterSpacing: -0.2)),
-                      const SizedBox(height: 2),
-                      Text(it.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: ThixPolicy.textSecondary)),
-                    ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              decoration: BoxDecoration(
+                border: isLast ? null : const Border(bottom: BorderSide(color: _Med.divider, width: 1)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38, height: 38,
+                    decoration: BoxDecoration(color: it.bgColor, borderRadius: BorderRadius.circular(10)),
+                    alignment: Alignment.center,
+                    child: Icon(it.icon, color: it.color, size: 19),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _Med.textPrimary, letterSpacing: -0.15)),
+                        const SizedBox(height: 1),
+                        Text(it.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _Med.textSecondary)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, size: 20, color: _Med.textMuted),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        }),
+      ),
     );
   }
 
   // =========================================================================
-  // 5. BOTTOM NAVIGATION PREMIUM (Pillule sombre)
+  // 6. NAVIGATION BASSE — clinique, claire, FAB IA teal discret
   // =========================================================================
-  Widget _buildPremiumBottomNav() {
+  Widget _buildClinicalBottomNav() {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+        padding: const EdgeInsets.only(bottom: 20, left: 18, right: 18),
         child: Container(
-          height: 64,
+          height: 66,
           decoration: BoxDecoration(
-            color: ThixPolicy.inkDeep,
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: [BoxShadow(color: ThixPolicy.inkDeep.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 12))],
+            color: _Med.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: _Med.border),
+            boxShadow: [BoxShadow(color: _Med.primaryDeep.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           child: Stack(
             clipBehavior: Clip.none,
@@ -512,30 +601,29 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _premiumNavItem(Icons.home_filled, 'Accueil', true, () {}),
-                  _premiumNavItem(Icons.folder_shared_rounded, 'Dossier', false, () => _go(const DossierMedicalPage())),
-                  const SizedBox(width: 50), // Espace pour le FAB IA
-                  _premiumNavItem(Icons.search_rounded, 'Soins', false, () => _go(const TrouverHopitalPage())),
-                  _premiumNavItem(Icons.people_alt_rounded, 'Famille', false, () => _go(const DossierFamillePage())),
+                  _navItem(Icons.home_rounded, 'Accueil', true, () {}),
+                  _navItem(Icons.folder_shared_rounded, 'Dossier', false, () => _go(const DossierMedicalPage())),
+                  const SizedBox(width: 54), // Espace pour le FAB IA
+                  _navItem(Icons.search_rounded, 'Soins', false, () => _go(const TrouverHopitalPage())),
+                  _navItem(Icons.people_alt_rounded, 'Famille', false, () => _go(const DossierFamillePage())),
                 ],
               ),
-              // Bouton IA Central Flottant (Dégradé ThixPolicy)
               Positioned(
-                top: -24,
+                top: -18,
                 left: 0,
                 right: 0,
                 child: Center(
                   child: GestureDetector(
                     onTap: () => _go(const AssistantIAPage()),
                     child: Container(
-                      height: 64, width: 64,
+                      height: 58, width: 58,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [ThixPolicy.primary, ThixPolicy.primaryDeep], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        gradient: _Med.aiGradient,
                         shape: BoxShape.circle,
-                        border: Border.all(color: ThixPolicy.surfaceSoft, width: 4),
-                        boxShadow: [BoxShadow(color: ThixPolicy.primary.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 8))],
+                        border: Border.all(color: _Med.bgApp, width: 4),
+                        boxShadow: [BoxShadow(color: _Med.primary.withOpacity(0.32), blurRadius: 16, offset: const Offset(0, 6))],
                       ),
-                      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+                      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
                     ),
                   ),
                 ),
@@ -547,17 +635,26 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
     );
   }
 
-  Widget _premiumNavItem(IconData icon, String label, bool active, VoidCallback onTap) {
+  Widget _navItem(IconData icon, String label, bool active, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
       child: SizedBox(
-        width: 54,
+        width: 56,
+        height: 66,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 22, color: active ? Colors.white : ThixPolicy.textSecondary.withOpacity(0.7)),
+            Icon(icon, size: 21, color: active ? _Med.primary : _Med.textMuted),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? Colors.white : ThixPolicy.textSecondary.withOpacity(0.7))),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                color: active ? _Med.primary : _Med.textMuted,
+              ),
+            ),
           ],
         ),
       ),
