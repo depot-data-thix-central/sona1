@@ -371,7 +371,7 @@ class _ActivitePhysiquePageState extends ConsumerState<ActivitePhysiquePage> {
             decoration: BoxDecoration(
               color: _C.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _C.borderLight),
+              border: Border.all(color: ThixPolicy.border),
             ),
             child: Row(
               children: [
