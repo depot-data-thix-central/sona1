@@ -1,7 +1,7 @@
 // lib/presentation/home/widgets/home_background.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:thix_id/design_system/thix_policy.dart';
+import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 class HomeSoftBackground extends StatelessWidget {
   const HomeSoftBackground({super.key});
