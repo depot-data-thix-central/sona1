@@ -323,7 +323,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Messagerie', style: TextStyle(color: ThixPolicy.textMain, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+              // Changement du titre ici !
+              const Text('THIX Chat', style: TextStyle(color: ThixPolicy.textMain, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
               Row(
                 children: [
                   _iconButton(icon: Icons.swap_vert_rounded, badge: pending > 0, onTap: () => context.pushNamed('chatEscalationReceived')),
@@ -407,7 +408,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               ],
             ),
             const SizedBox(height: 4),
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: ThixPolicy.textSecondary)),
+            // Correction couleur pour meilleure visibilité
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixPolicy.textMain)),
           ],
         ),
       ),
@@ -674,13 +676,22 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
+  // Conversion en temps local garantie
   String _fmt(DateTime d) {
+    final localDate = d.toLocal(); // Fix: Conversion vers le fuseau horaire de l'utilisateur
     final now = DateTime.now();
-    final day = DateTime(d.year, d.month, d.day);
+    final day = DateTime(localDate.year, localDate.month, localDate.day);
     final today = DateTime(now.year, now.month, now.day);
-    if (day == today) return DateFormat('HH:mm').format(d);
-    if (day == today.subtract(const Duration(days: 1))) return 'Hier';
-    if (now.difference(d).inDays < 7) return DateFormat('EEEE', 'fr_FR').format(d);
-    return DateFormat('dd/MM/yy').format(d);
+    
+    if (day == today) {
+      return DateFormat('HH:mm').format(localDate);
+    }
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Hier';
+    }
+    if (now.difference(localDate).inDays < 7) {
+      return DateFormat('EEEE', 'fr_FR').format(localDate);
+    }
+    return DateFormat('dd/MM/yy').format(localDate);
   }
 }
