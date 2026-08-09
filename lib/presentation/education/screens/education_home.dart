@@ -1,21 +1,24 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ✅ Import de la Policy de Design
+// ✅ Design System THIX v1
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 import '../providers/education_provider.dart' hide certificatesProvider;
 import '../providers/certificate_provider.dart';
 import '../widgets/common/education_category_chip.dart';
 import '../widgets/common/formation_card.dart';
-import '../widgets/common/edu_image.dart';
 import '../models/category.dart';
 import '../models/formation.dart';
 import '../models/certificate.dart';
 
+// ============================================================================
+// PROVIDERS
+// ============================================================================
 final _eduTabIndexProvider = StateProvider<int>((ref) => 0);
 
 final _unreadNotificationsProvider = FutureProvider.autoDispose<int>((ref) async {
@@ -33,243 +36,111 @@ final _unreadNotificationsProvider = FutureProvider.autoDispose<int>((ref) async
   }
 });
 
+// ============================================================================
+// PAGE PRINCIPALE (HUB E-LEARNING)
+// ============================================================================
 class EducationHome extends ConsumerWidget {
   const EducationHome({super.key});
 
-  static const _titles = ['Accueil', 'Mes cours', 'Apprendre', 'Certificats', 'Bibliothèque', 'Profil'];
-  static const _navIcons = [
-    Icons.home_rounded,
-    Icons.menu_book_rounded,
-    Icons.school_rounded,
-    Icons.workspace_premium_rounded,
-    Icons.library_books_rounded,
-    Icons.person_rounded,
-  ];
+  // UX Enterprise : 5 onglets maximum dans une barre de navigation
   static const _pages = [
     _HomePage(),
+    _ExplorePage(),
     _MyLearningPage(),
-    _AllFormationsPage(),
     _CertificatesPage(),
-    _LibraryPage(),
     _ProfilePage(),
   ];
-
-  void _openMoreMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      useRootNavigator: true,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: ThixPolicy.border, borderRadius: BorderRadius.circular(4))),
-            const SizedBox(height: 20),
-            _MenuTile(icon: Icons.card_giftcard_rounded, label: 'Cours gratuits', color: ThixPolicy.success, onTap: () {
-              Navigator.pop(context);
-              context.push('/education/free-courses');
-            }),
-            _MenuTile(icon: Icons.videocam_rounded, label: 'Webinaires', color: ThixPolicy.primary, onTap: () {
-              Navigator.pop(context);
-              context.push('/education/webinars');
-            }),
-            _MenuTile(icon: Icons.groups_rounded, label: 'Mentorat', color: ThixPolicy.warning, onTap: () {
-              Navigator.pop(context);
-              context.push('/education/mentorat');
-            }),
-            _MenuTile(icon: Icons.event_rounded, label: 'Événements', color: ThixPolicy.primaryDeep, onTap: () {
-              Navigator.pop(context);
-              context.push('/education/events');
-            }),
-            _MenuTile(icon: Icons.support_agent_rounded, label: 'Aide & support', color: ThixPolicy.textSecondary, onTap: () {
-              Navigator.pop(context);
-              context.push('/education/help');
-            }),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = ref.watch(_eduTabIndexProvider);
-    final user = Supabase.instance.client.auth.currentUser;
-    final unreadAsync = ref.watch(_unreadNotificationsProvider);
 
     return Scaffold(
-      backgroundColor: ThixPolicy.surface,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(72),
-        child: Container(
-          color: Colors.white,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-              child: Row(
-                children: [
-                  _IconBtn(icon: Icons.menu_rounded, onTap: () => _openMoreMenu(context)),
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(gradient: ThixPolicy.brandGradient, borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.school_rounded, color: Colors.white, size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          selectedIndex == 0 ? 'THIX FORMATION' : _titles[selectedIndex].toUpperCase(),
-                          style: const TextStyle(color: ThixPolicy.textMain, fontSize: 16, fontWeight: FontWeight.w800),
-                        ),
-                        if (selectedIndex == 0)
-                          const Text(
-                            'Apprenez. Progressez. Réussissez.',
-                            style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 11.5),
-                          ),
-                      ],
-                    ),
-                  ),
-                  _IconBtn(icon: Icons.search_rounded, onTap: () => context.push('/education/search')),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _IconBtn(icon: Icons.notifications_none_rounded, onTap: () => context.push('/notifications')),
-                      unreadAsync.maybeWhen(
-                        data: (count) => count > 0
-                            ? Positioned(
-                                right: 6,
-                                top: 6,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                                  decoration: const BoxDecoration(color: ThixPolicy.danger, shape: BoxShape.circle),
-                                  child: Text(
-                                    count > 9 ? '9+' : '$count',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                        orElse: () => const SizedBox.shrink(),
-                      ),
-                    ],
-                  ),
-                  GestureDetector(
-                    onTap: () => ref.read(_eduTabIndexProvider.notifier).state = 5,
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: ThixPolicy.tint,
-                      backgroundImage: user?.userMetadata?['avatar_url'] != null
-                          ? NetworkImage(user!.userMetadata!['avatar_url'])
-                          : null,
-                      child: user?.userMetadata?['avatar_url'] == null
-                          ? const Icon(Icons.person_rounded, color: ThixPolicy.primaryDeep, size: 18)
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      backgroundColor: ThixPolicy.surfaceSoft,
+      // Suppression de l'AppBar globale Scaffold pour des headers personnalisés par onglet
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: selectedIndex,
+            children: _pages,
           ),
-        ),
-      ),
-      body: IndexedStack(index: selectedIndex, children: _pages),
-      bottomNavigationBar: _BottomNav(selectedIndex: selectedIndex),
-    );
-  }
-}
-
-class _IconBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _IconBtn({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: SizedBox(
-        width: 44.0,
-        height: 44.0,
-        child: Icon(icon, color: ThixPolicy.primaryDeep, size: 22),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _FloatingBottomNav(selectedIndex: selectedIndex),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _BottomNav extends ConsumerWidget {
+// ============================================================================
+// BOTTOM NAVIGATION FLOTTANTE PREMIUM
+// ============================================================================
+class _FloatingBottomNav extends ConsumerWidget {
   final int selectedIndex;
-  const _BottomNav({required this.selectedIndex});
+  const _FloatingBottomNav({required this.selectedIndex});
+
+  static const _items = [
+    (Icons.home_rounded, 'Accueil'),
+    (Icons.explore_rounded, 'Découvrir'),
+    (Icons.play_circle_filled_rounded, 'Mes cours'),
+    (Icons.workspace_premium_rounded, 'Certificats'),
+    (Icons.person_rounded, 'Profil'),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: ThixPolicy.shadowCard()),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(ThixPolicy.s16, 0, ThixPolicy.s16, ThixPolicy.s16),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: ThixPolicy.card,
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: ThixPolicy.border),
+            boxShadow: [
+              BoxShadow(color: ThixPolicy.inkDeep.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8)),
+            ],
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(EducationHome._titles.length, (i) {
-              final isCenter = i == 2;
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(_items.length, (i) {
               final isSelected = selectedIndex == i;
-              return isCenter
-                  ? GestureDetector(
-                      onTap: () => ref.read(_eduTabIndexProvider.notifier).state = i,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              gradient: ThixPolicy.brandGradient,
-                              shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: ThixPolicy.primary.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
-                            ),
-                            child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(EducationHome._titles[i], style: const TextStyle(fontSize: 9, color: ThixPolicy.primary, fontWeight: FontWeight.w800)),
-                        ],
+              final item = _items[i];
+              return InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  ref.read(_eduTabIndexProvider.notifier).state = i;
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        item.$1,
+                        color: isSelected ? ThixPolicy.domainLearning : ThixPolicy.textSecondary,
+                        size: isSelected ? 24 : 22,
                       ),
-                    )
-                  : InkWell(
-                      onTap: () => ref.read(_eduTabIndexProvider.notifier).state = i,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(EducationHome._navIcons[i], color: isSelected ? ThixPolicy.primary : ThixPolicy.textSecondary, size: 20),
-                            const SizedBox(height: 2),
-                            Text(
-                              EducationHome._titles[i],
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: isSelected ? ThixPolicy.primary : ThixPolicy.textSecondary,
-                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 2),
+                      Text(
+                        item.$2,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected ? ThixPolicy.domainLearning : ThixPolicy.textSecondary,
                         ),
                       ),
-                    );
+                    ],
+                  ),
+                ),
+              );
             }),
           ),
         ),
@@ -278,39 +149,9 @@ class _BottomNav extends ConsumerWidget {
   }
 }
 
-class _MenuTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _MenuTile({required this.icon, required this.label, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: ThixPolicy.textMain)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================== ACCUEIL ==============================
-
+// ============================================================================
+// ONGLET 1 : ACCUEIL
+// ============================================================================
 class _HomePage extends ConsumerStatefulWidget {
   const _HomePage();
   @override
@@ -326,159 +167,187 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels > _scrollController.position.maxScrollExtent - 300) {
-      ref.read(formationsProvider.notifier).loadMore();
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels > _scrollController.position.maxScrollExtent - 300) {
+        ref.read(formationsProvider.notifier).loadMore();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final categoriesAsync = ref.watch(categoriesProvider);
+    final user = Supabase.instance.client.auth.currentUser;
+    final unreadAsync = ref.watch(_unreadNotificationsProvider);
     final formationsAsync = ref.watch(formationsProvider);
-    final userId = ref.watch(currentUserIdProvider).value;
+    final categoriesAsync = ref.watch(categoriesProvider);
 
-    return formationsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: ThixPolicy.primary)),
-      error: (_, __) => const Center(child: Text('Une erreur est survenue.', style: TextStyle(color: ThixPolicy.textSecondary))),
-      data: (paginated) {
-        final formations = paginated.items;
-        
-        // 🌟 NOUVEAU : Récupération dynamique des 5 dernières formations
-        final recentFormations = formations.take(5).toList();
-        
-        final recommended = [...formations]..sort((a, b) => b.rating.compareTo(a.rating));
-
-        return RefreshIndicator(
-          color: ThixPolicy.primary,
-          backgroundColor: Colors.white,
-          onRefresh: () async {
-            ref.invalidate(formationsProvider);
-            ref.invalidate(categoriesProvider);
-            if (userId != null) ref.invalidate(myEnrollmentsProvider(userId));
-          },
-          child: CustomScrollView(
-            controller: _scrollController,
-            cacheExtent: 600,
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 🌟 On passe la liste dynamique au HeroCarousel
-                    Padding(padding: const EdgeInsets.fromLTRB(16, 14, 16, 0), child: _HeroCarousel(recentFormations: recentFormations)),
-                    const SizedBox(height: 18),
-                    const _QuickActionsRow(),
-                    const SizedBox(height: 22),
-                    _SectionHeader(title: 'Catégories', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 2),
-                    const SizedBox(height: 10),
-                    categoriesAsync.when(
-                      data: (cats) => SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        scrollDirection: Axis.horizontal,
+    return RefreshIndicator(
+      color: ThixPolicy.domainLearning,
+      backgroundColor: ThixPolicy.card,
+      onRefresh: () async {
+        ref.invalidate(formationsProvider);
+        ref.invalidate(categoriesProvider);
+        if (user != null) ref.invalidate(myEnrollmentsProvider(user.id));
+      },
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        slivers: [
+          // ─── HEADER PREMIUM AVEC RECHERCHE ───
+          SliverToBoxAdapter(
+            child: Container(
+              padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top + ThixPolicy.s20, bottom: ThixPolicy.s24),
+              decoration: const BoxDecoration(
+                color: ThixPolicy.card,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(ThixPolicy.rXl)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: ThixPolicy.tint,
+                          backgroundImage: user?.userMetadata?['avatar_url'] != null ? NetworkImage(user!.userMetadata!['avatar_url']) : null,
+                          child: user?.userMetadata?['avatar_url'] == null ? const Icon(Icons.person, color: ThixPolicy.primaryDeep) : null,
+                        ),
+                        const SizedBox(width: ThixPolicy.s12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Bonjour, ${user?.userMetadata?['full_name']?.split(' ')[0] ?? 'Apprenant'}', style: ThixPolicy.h3Style.copyWith(color: ThixPolicy.textMain)),
+                              Text('Que voulez-vous apprendre aujourd\'hui ?', style: ThixPolicy.bodySmallStyle),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => context.push('/notifications'),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ThixPolicy.border)),
+                                child: const Icon(Icons.notifications_none_rounded, color: ThixPolicy.textMain, size: 22),
+                              ),
+                              unreadAsync.maybeWhen(
+                                data: (count) => count > 0 ? Positioned(right: -2, top: -2, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: ThixPolicy.danger, shape: BoxShape.circle), child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))) : const SizedBox.shrink(),
+                                orElse: () => const SizedBox.shrink(),
+                              )
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: ThixPolicy.s20),
+                  // Fausse barre de recherche
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+                    child: GestureDetector(
+                      onTap: () => context.push('/education/search'),
+                      child: Container(
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
+                        decoration: BoxDecoration(color: ThixPolicy.surface, borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), border: Border.all(color: ThixPolicy.border)),
                         child: Row(
                           children: [
-                            EducationCategoryChip(
-                              label: 'Tous',
-                              isSelected: ref.read(formationsProvider.notifier).currentCategory == null,
-                              onTap: () => ref.read(formationsProvider.notifier).filterByCategory(null),
-                            ),
-                            ...cats.map((cat) => Padding(
-                                  padding: const EdgeInsets.only(left: 8),
-                                  child: EducationCategoryChip(
-                                    label: cat.name,
-                                    isSelected: ref.read(formationsProvider.notifier).currentCategory == cat.id,
-                                    onTap: () => ref.read(formationsProvider.notifier).filterByCategory(cat.id),
-                                  ),
-                                )),
+                            const Icon(Icons.search_rounded, color: ThixPolicy.textSecondary, size: 22),
+                            const SizedBox(width: ThixPolicy.s12),
+                            const Text('Rechercher une formation, une compétence...', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
-                      loading: () => const SizedBox(height: 36),
-                      error: (_, __) => const SizedBox.shrink(),
                     ),
-                    const SizedBox(height: 22),
-                    if (recommended.isNotEmpty) ...[
-                      _SectionHeader(title: 'Recommandées pour vous', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 2),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        height: 230,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: recommended.length > 8 ? 8 : recommended.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 12),
-                          itemBuilder: (_, i) {
-                            final f = recommended[i];
-                            return SizedBox(
-                              width: 150,
-                              child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}')),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                    ],
-                    if (userId != null)
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _ProgressRow(userId: userId)),
-                    const SizedBox(height: 22),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: _SectionHeader(title: 'Toutes les formations'),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ),
-              ),
-              SylvainPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.70,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (c, i) {
-                      if (i >= formations.length) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      final f = formations[i];
-                      return FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}'));
-                    },
-                    childCount: formations.length + (paginated.hasMore ? 1 : 0),
-                  ),
-                ),
+                ],
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-            ],
+            ),
           ),
-        );
-      },
+          
+          const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s20)),
+
+          formationsAsync.when(
+            loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator(color: ThixPolicy.domainLearning))),
+            error: (_, __) => const SliverToBoxAdapter(child: Center(child: Text('Erreur de chargement.'))),
+            data: (paginated) {
+              final formations = paginated.items;
+              final recentFormations = formations.take(5).toList();
+              final recommended = [...formations]..sort((a, b) => b.rating.compareTo(a.rating));
+
+              return SliverList(
+                delegate: SliverChildListDelegate([
+                  // ─── REPRISE D'APPRENTISSAGE (Priorité 1) ───
+                  if (user != null) Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20), child: _ContinueLearningCard(userId: user.id)),
+                  
+                  const SizedBox(height: ThixPolicy.s24),
+
+                  // ─── HERO CAROUSEL NOUVEAUTÉS ───
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20), child: _HeroCarousel(recentFormations: recentFormations)),
+                  
+                  const SizedBox(height: ThixPolicy.s32),
+
+                  // ─── CATÉGORIES ───
+                  _SectionHeader(title: 'Explorer par catégorie', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 1),
+                  const SizedBox(height: ThixPolicy.s16),
+                  categoriesAsync.when(
+                    data: (cats) => SizedBox(
+                      height: 40,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: cats.length + 1,
+                        separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s8),
+                        itemBuilder: (_, i) {
+                          if (i == 0) return EducationCategoryChip(label: 'Tous', isSelected: ref.read(formationsProvider.notifier).currentCategory == null, onTap: () => ref.read(formationsProvider.notifier).filterByCategory(null));
+                          final cat = cats[i - 1];
+                          return EducationCategoryChip(label: cat.name, isSelected: ref.read(formationsProvider.notifier).currentCategory == cat.id, onTap: () => ref.read(formationsProvider.notifier).filterByCategory(cat.id));
+                        },
+                      ),
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+
+                  const SizedBox(height: ThixPolicy.s32),
+
+                  // ─── RECOMMANDÉS ───
+                  if (recommended.isNotEmpty) ...[
+                    _SectionHeader(title: 'Top des formations', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 1),
+                    const SizedBox(height: ThixPolicy.s16),
+                    SizedBox(
+                      height: 260,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: recommended.length > 6 ? 6 : recommended.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s16),
+                        itemBuilder: (_, i) {
+                          final f = recommended[i];
+                          return SizedBox(width: 220, child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}')));
+                        },
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 120), // Espace pour la bottom nav
+                ]),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
 
-class SylvainPadding extends StatelessWidget {
-  final EdgeInsetsGeometry padding;
-  final Widget sliver;
-  const SylvainPadding({required this.padding, required this.sliver});
-  @override
-  Widget build(BuildContext context) => SliverPadding(padding: padding, sliver: sliver);
-}
-
+// ============================================================================
+// COMPOSANTS DE L'ACCUEIL
+// ============================================================================
 class _SectionHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onSeeAll;
@@ -486,21 +355,89 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: ThixPolicy.textMain)),
-        if (onSeeAll != null)
-          GestureDetector(
-            onTap: onSeeAll,
-            child: const Text('Voir tout', style: TextStyle(color: ThixPolicy.primary, fontWeight: FontWeight.w700, fontSize: 13)),
-          ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: ThixPolicy.textMain, letterSpacing: -0.5)),
+          if (onSeeAll != null)
+            GestureDetector(
+              onTap: onSeeAll,
+              child: const Text('Tout voir', style: TextStyle(color: ThixPolicy.domainLearning, fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
+        ],
+      ),
     );
   }
 }
 
-// ============================== HERO (DYNAMIQUE) ==============================
+class _ContinueLearningCard extends ConsumerWidget {
+  final String userId;
+  const _ContinueLearningCard({required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enrollAsync = ref.watch(myEnrollmentsProvider(userId));
+    return enrollAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (list) {
+        final inProgress = list.where((e) => e.formation != null && (e.progress ?? 0) > 0 && (e.progress ?? 0) < 1).toList();
+        if (inProgress.isEmpty) return const SizedBox.shrink(); // Ne s'affiche que s'il y a un cours en cours
+        
+        final current = inProgress.first;
+        final f = current.formation!;
+        final pct = ((current.progress ?? 0) * 100).round();
+
+        return GestureDetector(
+          onTap: () => context.push('/education/formation/${f.id}'),
+          child: Container(
+            padding: const EdgeInsets.all(ThixPolicy.s20),
+            decoration: BoxDecoration(
+              color: ThixPolicy.inkDeep,
+              borderRadius: BorderRadius.circular(ThixPolicy.rXl),
+              boxShadow: ThixPolicy.shadowCard(),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Reprendre le cours', style: TextStyle(color: ThixPolicy.gold, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                      const SizedBox(height: ThixPolicy.s8),
+                      Text(f.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.2)),
+                      const SizedBox(height: ThixPolicy.s16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(value: current.progress, minHeight: 6, backgroundColor: Colors.white.withOpacity(0.2), color: ThixPolicy.gold),
+                            ),
+                          ),
+                          const SizedBox(width: ThixPolicy.s12),
+                          Text('$pct%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: ThixPolicy.s20),
+                Container(
+                  width: 50, height: 50,
+                  decoration: const BoxDecoration(color: ThixPolicy.gold, shape: BoxShape.circle),
+                  child: const Icon(Icons.play_arrow_rounded, color: ThixPolicy.inkDeep, size: 28),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 class _HeroCarousel extends StatefulWidget {
   final List<Formation> recentFormations;
@@ -510,45 +447,9 @@ class _HeroCarousel extends StatefulWidget {
   State<_HeroCarousel> createState() => _HeroCarouselState();
 }
 
-class _HeroCarouselState extends State<_HeroCarousel> with WidgetsBindingObserver {
+class _HeroCarouselState extends State<_HeroCarousel> {
   final _controller = PageController();
-  Timer? _timer;
   int _page = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _startTimer();
-  }
-
-  void _startTimer() {
-    _timer?.cancel();
-    if (widget.recentFormations.length <= 1) return;
-    
-    _timer = Timer.periodic(const Duration(seconds: 8), (_) {
-      if (!mounted || !_controller.hasClients) return;
-      _page = (_page + 1) % widget.recentFormations.length;
-      _controller.animateToPage(_page, duration: const Duration(milliseconds: 450), curve: Curves.easeInOut);
-    });
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      _timer?.cancel();
-    } else if (state == AppLifecycleState.resumed) {
-      _startTimer();
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _timer?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -557,7 +458,7 @@ class _HeroCarouselState extends State<_HeroCarousel> with WidgetsBindingObserve
     return Column(
       children: [
         SizedBox(
-          height: 160,
+          height: 180,
           child: PageView.builder(
             controller: _controller,
             itemCount: widget.recentFormations.length,
@@ -567,65 +468,41 @@ class _HeroCarouselState extends State<_HeroCarousel> with WidgetsBindingObserve
               return GestureDetector(
                 onTap: () => context.push('/education/formation/${f.id}'),
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    gradient: ThixPolicy.heroGradient, 
-                    borderRadius: BorderRadius.circular(20),
-                    image: f.imageUrl != null 
-                        ? DecorationImage(
-                            image: NetworkImage(f.imageUrl!),
-                            fit: BoxFit.cover,
-                            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.55), BlendMode.darken),
-                          )
-                        : null,
+                    borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+                    image: f.imageUrl != null ? DecorationImage(image: NetworkImage(f.imageUrl!), fit: BoxFit.cover) : null,
                   ),
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(color: ThixPolicy.gold, borderRadius: BorderRadius.circular(8)),
-                              child: const Text('NOUVEAU', style: TextStyle(color: ThixPolicy.inkDeep, fontSize: 10, fontWeight: FontWeight.w800)),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(f.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.w800, height: 1.2)),
-                            const SizedBox(height: 5),
-                            Text(f.description ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(16)),
-                        child: const Icon(Icons.play_arrow_rounded, color: ThixPolicy.gold, size: 28),
-                      ),
-                    ],
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(ThixPolicy.rLg),
+                      gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [Colors.black.withOpacity(0.8), Colors.black.withOpacity(0.2)]),
+                    ),
+                    padding: const EdgeInsets.all(ThixPolicy.s20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: ThixPolicy.primary, borderRadius: BorderRadius.circular(6)), child: const Text('NOUVEAU', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5))),
+                        const SizedBox(height: ThixPolicy.s12),
+                        Text(f.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, height: 1.2, letterSpacing: -0.5)),
+                        const SizedBox(height: ThixPolicy.s8),
+                        Text(f.instructorName ?? 'THIX Academy', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
                   ),
                 ),
               );
             },
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: ThixPolicy.s12),
         if (widget.recentFormations.length > 1)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
               widget.recentFormations.length,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: _page == i ? 16 : 6,
-                height: 6,
-                decoration: BoxDecoration(color: _page == i ? ThixPolicy.primary : ThixPolicy.border, borderRadius: BorderRadius.circular(3)),
-              ),
+              (i) => AnimatedContainer(duration: const Duration(milliseconds: 250), margin: const EdgeInsets.symmetric(horizontal: 3), width: _page == i ? 16 : 6, height: 6, decoration: BoxDecoration(color: _page == i ? ThixPolicy.domainLearning : ThixPolicy.border, borderRadius: BorderRadius.circular(3))),
             ),
           ),
       ],
@@ -633,193 +510,92 @@ class _HeroCarouselState extends State<_HeroCarousel> with WidgetsBindingObserve
   }
 }
 
-class _QuickActionsRow extends ConsumerWidget {
-  const _QuickActionsRow();
+// ============================================================================
+// ONGLET 2 : DÉCOUVRIR (TOUTES LES FORMATIONS)
+// ============================================================================
+class _ExplorePage extends ConsumerWidget {
+  const _ExplorePage();
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(_eduTabIndexProvider.notifier);
-    final items = [
-      (Icons.grid_view_rounded, 'Toutes', () => notifier.state = 2),
-      (Icons.workspace_premium_rounded, 'Certificats', () => notifier.state = 3),
-      (Icons.local_fire_department_rounded, 'Populaires', () => notifier.state = 2),
-      (Icons.menu_book_rounded, 'Mes cours', () => notifier.state = 1),
-    ];
-
-    return SizedBox(
-      height: 76,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final item = items[i];
-          return GestureDetector(
-            onTap: item.$3,
-            child: Container(
-              width: 76,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: ThixPolicy.border)),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(item.$1, color: ThixPolicy.primary, size: 22),
-                  const SizedBox(height: 6),
-                  Text(item.$2, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixPolicy.textMain)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ProgressRow extends ConsumerWidget {
-  final String userId;
-  const _ProgressRow({required this.userId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final enrollAsync = ref.watch(myEnrollmentsProvider(userId));
-    return enrollAsync.when(
-      loading: () => const SizedBox(height: 110),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (list) {
-        final inProgress = list.where((e) => e.formation != null && (e.progress ?? 0) > 0 && (e.progress ?? 0) < 1).toList();
-        final current = inProgress.isNotEmpty ? inProgress.first : null;
-        final completedCount = list.where((e) => (e.progress ?? 0) >= 1).length;
-        const goal = 5;
-
-        return Row(
-          children: [
-            Expanded(
-              child: current == null
-                  ? const _EmptyCard(title: 'Continuez', subtitle: 'Aucune formation en cours')
-                  : GestureDetector(
-                      onTap: () => context.push('/education/formation/${current.formation!.id}'),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: ThixPolicy.border)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('En cours', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixPolicy.textSecondary)),
-                            const SizedBox(height: 8),
-                            Text(current.formation!.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                            const SizedBox(height: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(value: current.progress, minHeight: 5, backgroundColor: ThixPolicy.border, color: ThixPolicy.success),
-                            ),
-                            const SizedBox(height: 5),
-                            Text('${((current.progress ?? 0) * 100).round()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixPolicy.success)),
-                          ],
-                        ),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: ThixPolicy.border)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Objectif', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixPolicy.textSecondary)),
-                    const SizedBox(height: 8),
-                    const Text('Terminez 5 formations', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(value: (completedCount / goal).clamp(0.0, 1.0), minHeight: 5, backgroundColor: ThixPolicy.border, color: ThixPolicy.primary),
-                    ),
-                    const SizedBox(height: 5),
-                    Text('$completedCount / $goal', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixPolicy.primary)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _EmptyCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  const _EmptyCard({required this.title, required this.subtitle});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: ThixPolicy.border)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixPolicy.textSecondary)),
-          const SizedBox(height: 8),
-          Text(subtitle, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================ AUTRES ONGLETS ============================
-
-class _MyLearningPage extends ConsumerWidget {
-  const _MyLearningPage();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userId = ref.watch(currentUserIdProvider).value;
-    if (userId == null) return const Center(child: Text('Non connecté'));
-    final enrollAsync = ref.watch(myEnrollmentsProvider(userId));
-    return enrollAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: ThixPolicy.primary)),
-      error: (_, __) => const Center(child: Text('Erreur de chargement')),
-      data: (list) {
-        if (list.isEmpty) {
-          return const Center(child: Text('Aucune formation en cours', style: TextStyle(color: ThixPolicy.textSecondary)));
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: list.length,
-          itemBuilder: (_, i) {
-            final e = list[i];
-            final f = e.formation;
-            if (f == null) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}'), progress: e.progress?.toDouble()),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _AllFormationsPage extends ConsumerWidget {
-  const _AllFormationsPage();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final formationsAsync = ref.watch(formationsProvider);
-    return formationsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: ThixPolicy.primary)),
-      error: (_, __) => const Center(child: Text('Erreur de chargement')),
-      data: (paginated) => ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: paginated.items.length,
-        itemBuilder: (_, i) {
-          final f = paginated.items[i];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}')),
+    
+    return Scaffold(
+      backgroundColor: ThixPolicy.surfaceSoft,
+      appBar: AppBar(
+        backgroundColor: ThixPolicy.card,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text('Découvrir', style: TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5)),
+        actions: [IconButton(icon: const Icon(Icons.search, color: ThixPolicy.textMain), onPressed: () => context.push('/education/search'))],
+      ),
+      body: formationsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: ThixPolicy.domainLearning)),
+        error: (_, __) => const Center(child: Text('Erreur de chargement')),
+        data: (paginated) => GridView.builder(
+          padding: const EdgeInsets.fromLTRB(ThixPolicy.s16, ThixPolicy.s16, ThixPolicy.s16, 120),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.72, crossAxisSpacing: ThixPolicy.s12, mainAxisSpacing: ThixPolicy.s16),
+          itemCount: paginated.items.length,
+          itemBuilder: (_, i) {
+            final f = paginated.items[i];
+            return FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}'));
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// ONGLET 3 : MES COURS
+// ============================================================================
+class _MyLearningPage extends ConsumerWidget {
+  const _MyLearningPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(currentUserIdProvider).value;
+    if (userId == null) return const Center(child: Text('Non connecté'));
+    
+    final enrollAsync = ref.watch(myEnrollmentsProvider(userId));
+    
+    return Scaffold(
+      backgroundColor: ThixPolicy.surfaceSoft,
+      appBar: AppBar(
+        backgroundColor: ThixPolicy.card,
+        elevation: 0,
+        title: const Text('Mes apprentissages', style: TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5)),
+      ),
+      body: enrollAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: ThixPolicy.domainLearning)),
+        error: (_, __) => const Center(child: Text('Erreur')),
+        data: (list) {
+          if (list.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.menu_book_rounded, size: 64, color: ThixPolicy.borderStrong),
+                  const SizedBox(height: ThixPolicy.s16),
+                  const Text('Aucun cours en cours', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: ThixPolicy.s24),
+                  ElevatedButton(onPressed: () => ref.read(_eduTabIndexProvider.notifier).state = 1, style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.domainLearning, foregroundColor: Colors.white), child: const Text('Découvrir des cours')),
+                ],
+              ),
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(ThixPolicy.s16, ThixPolicy.s16, ThixPolicy.s16, 120),
+            itemCount: list.length,
+            itemBuilder: (_, i) {
+              final e = list[i];
+              final f = e.formation;
+              if (f == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: ThixPolicy.s16),
+                child: FormationCard(formation: f, onTap: () => context.push('/education/formation/${f.id}'), progress: e.progress?.toDouble()),
+              );
+            },
           );
         },
       ),
@@ -827,91 +603,196 @@ class _AllFormationsPage extends ConsumerWidget {
   }
 }
 
+// ============================================================================
+// ONGLET 4 : CERTIFICATS
+// ============================================================================
 class _CertificatesPage extends ConsumerWidget {
   const _CertificatesPage();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(currentUserIdProvider).value;
     if (userId == null) return const Center(child: Text('Non connecté'));
+    
     final certsAsync = ref.watch(certificatesProvider(userId));
-    return certsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: ThixPolicy.primary)),
-      error: (_, __) => const Center(child: Text('Erreur de chargement')),
-      data: (certs) {
-        if (certs.isEmpty) return const Center(child: Text('Aucun certificat', style: TextStyle(color: ThixPolicy.textSecondary)));
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: certs.length,
-          itemBuilder: (_, i) {
-            final cert = certs[i];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: ThixPolicy.border)),
-              child: Row(
+    
+    return Scaffold(
+      backgroundColor: ThixPolicy.surfaceSoft,
+      appBar: AppBar(
+        backgroundColor: ThixPolicy.card,
+        elevation: 0,
+        title: const Text('Mes certificats', style: TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5)),
+      ),
+      body: certsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: ThixPolicy.domainLearning)),
+        error: (_, __) => const Center(child: Text('Erreur')),
+        data: (certs) {
+          if (certs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(gradient: ThixPolicy.brandGradient, borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.verified_rounded, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(child: Text('Délivré le ${cert.issuedAt.day}/${cert.issuedAt.month}/${cert.issuedAt.year}', style: const TextStyle(fontWeight: FontWeight.w600, color: ThixPolicy.textMain))),
-                  IconButton(icon: const Icon(Icons.chevron_right_rounded, color: ThixPolicy.textSecondary), onPressed: () => context.push('/education/certificate/${cert.id}', extra: cert)),
+                  Icon(Icons.workspace_premium_rounded, size: 64, color: ThixPolicy.borderStrong),
+                  const SizedBox(height: ThixPolicy.s16),
+                  const Text('Vous n\'avez pas encore de certificats', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
                 ],
               ),
             );
-          },
-        );
-      },
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(ThixPolicy.s16, ThixPolicy.s16, ThixPolicy.s16, 120),
+            itemCount: certs.length,
+            itemBuilder: (_, i) {
+              final cert = certs[i];
+              return Container(
+                margin: const EdgeInsets.only(bottom: ThixPolicy.s16),
+                padding: const EdgeInsets.all(ThixPolicy.s20),
+                decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(ThixPolicy.rLg), border: Border.all(color: ThixPolicy.border), boxShadow: ThixPolicy.shadowSoft()),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 56, height: 56,
+                      decoration: const BoxDecoration(gradient: ThixPolicy.goldGradient, shape: BoxShape.circle),
+                      child: const Icon(Icons.workspace_premium_rounded, color: ThixPolicy.inkDeep, size: 30),
+                    ),
+                    const SizedBox(width: ThixPolicy.s16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Certificat de réussite', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: ThixPolicy.textMain)),
+                          const SizedBox(height: 4),
+                          Text('Délivré le ${cert.issuedAt.day}/${cert.issuedAt.month}/${cert.issuedAt.year}', style: const TextStyle(fontSize: 12, color: ThixPolicy.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    IconButton(icon: const Icon(Icons.download_rounded, color: ThixPolicy.domainLearning), onPressed: () => context.push('/education/certificate/${cert.id}', extra: cert)),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
 
-class _LibraryPage extends StatelessWidget {
-  const _LibraryPage();
-  @override
-  Widget build(BuildContext context) => const Center(child: Text('Bibliothèque — Bientôt disponible', style: TextStyle(color: ThixPolicy.textSecondary)));
-}
-
+// ============================================================================
+// ONGLET 5 : PROFIL & PLUS (HUB COMPTE)
+// ============================================================================
 class _ProfilePage extends ConsumerWidget {
   const _ProfilePage();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = Supabase.instance.client.auth.currentUser;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+    
+    return Scaffold(
+      backgroundColor: ThixPolicy.surfaceSoft,
+      appBar: AppBar(
+        backgroundColor: ThixPolicy.card,
+        elevation: 0,
+        title: const Text('Mon Compte', style: TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(ThixPolicy.s16, ThixPolicy.s24, ThixPolicy.s16, 120),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Avatar & Info
             Container(
-              width: 90,
-              height: 90,
-              decoration: const BoxDecoration(shape: BoxShape.circle, gradient: ThixPolicy.brandGradient),
-              child: const Icon(Icons.person_rounded, size: 42, color: Colors.white),
+              padding: const EdgeInsets.all(ThixPolicy.s24),
+              decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(ThixPolicy.rXl), border: Border.all(color: ThixPolicy.border), boxShadow: ThixPolicy.shadowCard()),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 36, backgroundColor: ThixPolicy.tint,
+                    backgroundImage: user?.userMetadata?['avatar_url'] != null ? NetworkImage(user!.userMetadata!['avatar_url']) : null,
+                    child: user?.userMetadata?['avatar_url'] == null ? const Icon(Icons.person, size: 36, color: ThixPolicy.primaryDeep) : null,
+                  ),
+                  const SizedBox(width: ThixPolicy.s16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user?.userMetadata?['full_name'] ?? 'Apprenant THIX', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: ThixPolicy.textMain)),
+                        const SizedBox(height: 4),
+                        Text(user?.email ?? '', style: const TextStyle(fontSize: 13, color: ThixPolicy.textSecondary)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(user?.email ?? 'Utilisateur', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: ThixPolicy.textMain)),
-            const SizedBox(height: 24),
+            
+            const SizedBox(height: ThixPolicy.s24),
+
+            // Mode Formateur
             SizedBox(
-              width: double.infinity,
-              height: 48,
+              width: double.infinity, height: 56,
               child: ElevatedButton.icon(
                 onPressed: () => context.push('/instructor/dashboard'),
-                icon: const Icon(Icons.school_rounded),
-                label: const Text('Mode formateur'),
+                icon: const Icon(Icons.co_present_rounded, size: 22),
+                label: const Text('Passer en mode Formateur', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: ThixPolicy.success,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  backgroundColor: ThixPolicy.inkDeep, foregroundColor: ThixPolicy.gold,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rLg)),
                 ),
               ),
+            ),
+
+            const SizedBox(height: ThixPolicy.s32),
+
+            // Menu Extra (Anciennement _openMoreMenu)
+            Align(alignment: Alignment.centerLeft, child: Text('Outils & Ressources', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: ThixPolicy.textSecondary.withOpacity(0.8)))),
+            const SizedBox(height: ThixPolicy.s12),
+            Container(
+              decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(ThixPolicy.rLg), border: Border.all(color: ThixPolicy.border)),
+              child: Column(
+                children: [
+                  _ProfileMenuTile(icon: Icons.card_giftcard_rounded, label: 'Cours gratuits', color: ThixPolicy.success, onTap: () => context.push('/education/free-courses')),
+                  const Divider(height: 1, color: ThixPolicy.border, indent: 56),
+                  _ProfileMenuTile(icon: Icons.videocam_rounded, label: 'Webinaires', color: ThixPolicy.domainMedia, onTap: () => context.push('/education/webinars')),
+                  const Divider(height: 1, color: ThixPolicy.border, indent: 56),
+                  _ProfileMenuTile(icon: Icons.groups_rounded, label: 'Mentorat', color: ThixPolicy.warning, onTap: () => context.push('/education/mentorat')),
+                  const Divider(height: 1, color: ThixPolicy.border, indent: 56),
+                  _ProfileMenuTile(icon: Icons.event_rounded, label: 'Événements', color: ThixPolicy.domainEvents, onTap: () => context.push('/education/events')),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: ThixPolicy.s24),
+
+            Container(
+              decoration: BoxDecoration(color: ThixPolicy.card, borderRadius: BorderRadius.circular(ThixPolicy.rLg), border: Border.all(color: ThixPolicy.border)),
+              child: _ProfileMenuTile(icon: Icons.support_agent_rounded, label: 'Aide & support', color: ThixPolicy.textSecondary, onTap: () => context.push('/education/help')),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileMenuTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _ProfileMenuTile({required this.icon, required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: 4),
+      leading: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: ThixPolicy.textMain)),
+      trailing: const Icon(Icons.chevron_right_rounded, color: ThixPolicy.textSecondary),
     );
   }
 }
