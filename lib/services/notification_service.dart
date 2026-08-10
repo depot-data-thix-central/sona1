@@ -1,23 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
+import 'package:thix_id/services/local_notification_service.dart'; // ← Ajout
 import 'dart:async';
 
 class NotificationService {
   final SupabaseClient _client;
   NotificationService({SupabaseClient? client}) : _client = client ?? SupabaseConfig.client;
 
-  /// IMPORTANT: In this Supabase project, the verified table name is `notifications`.
-  ///
-  /// We still normalize rows so the UI always receives:
-  /// `{id,user_id,type,title,body,read,data,created_at}` regardless of DB column variants.
   static const String _table = 'notifications';
 
-  /// Détermine si le statut/erreur Realtime est permanent et non récupérable
+  // Pour éviter de re-afficher la même notification en pop
+  final Set<String> _shownPopIds = {};
+
   static bool _isPermanentRealtimeError(RealtimeSubscribeStatus status, Object? err) {
     if (status == RealtimeSubscribeStatus.channelError) return true;
     final msg = (err ?? '').toString().toLowerCase();
-    // Causes permanentes communes: table manquante, publication manquante, RLS refusée.
     if (msg.contains('permission denied')) return true;
     if (msg.contains('rls')) return true;
     if (msg.contains('relation') && msg.contains('does not exist')) return true;
@@ -25,7 +23,6 @@ class NotificationService {
     return false;
   }
 
-  /// Normalise les lignes reçues de Supabase pour assurer un format cohérent
   Map<String, dynamic> _normalizeRow(Map<String, dynamic> r) {
     final data = (r['data'] is Map)
         ? (r['data'] as Map).cast<String, dynamic>()
@@ -45,12 +42,33 @@ class NotificationService {
     };
   }
 
-  /// Stream Realtime (préféré): utilise `postgres_changes` puis recharge.
-  /// Retourne au polling si Realtime ne peut pas s'abonner.
+  /// Affiche une pop notification système si la notif est nouvelle et non lue
+  Future<void> _maybeShowPop(Map<String, dynamic> notif) async {
+    final id = notif['id']?.toString();
+    if (id == null) return;
+    if (notif['read'] == true) return;
+    if (_shownPopIds.contains(id)) return;
+
+    _shownPopIds.add(id);
+
+    // Garde seulement les 100 derniers pour éviter une fuite mémoire
+    if (_shownPopIds.length > 100) {
+      _shownPopIds.remove(_shownPopIds.first);
+    }
+
+    try {
+      await LocalNotificationService.instance.show(
+        id: id.hashCode,
+        title: notif['title'] ?? 'THIX ID',
+        body: notif['body'] ?? '',
+        payload: id,
+      );
+    } catch (e) {
+      debugPrint('NotificationService: failed to show pop → $e');
+    }
+  }
+
   Stream<List<Map<String, dynamic>>> streamForUser(String uid) {
-    // IMPORTANT: Ceci DOIT émettre APRÈS que le premier listener soit attaché.
-    // Un StreamController broadcast abandonnera les événements ajoutés avant que
-    // tout listener ne soit abonné (ce qui rend l'UI "stuck loading").
     late final StreamController<List<Map<String, dynamic>>> controller;
     final authUid = _client.auth.currentUser?.id;
     if (authUid != null && authUid != uid) {
@@ -65,7 +83,6 @@ class NotificationService {
     Timer? pollTimer;
     var polling = false;
 
-    /// Émet la dernière liste de notifications depuis la base de données
     Future<void> emitLatest() async {
       try {
         final rows = await _client
@@ -74,12 +91,20 @@ class NotificationService {
             .eq('user_id', uid)
             .order('created_at', ascending: false)
             .limit(50);
+
         final list = (rows is List)
             ? rows
                 .map((e) => _normalizeRow((e as Map).cast<String, dynamic>()))
                 .toList(growable: false)
             : const <Map<String, dynamic>>[];
-        debugPrint('NotificationService: emitLatest ok uid=$uid count=${list.length}');
+
+        debugPrint('NotificationService: emitLatest ok uid=\( uid count= \){list.length}');
+
+        // ← NOUVEAU : Affiche une pop pour la notification la plus récente non lue
+        if (list.isNotEmpty) {
+          unawaited(_maybeShowPop(list.first));
+        }
+
         controller.add(list);
       } catch (e) {
         debugPrint('NotificationService: emitLatest failed uid=$uid err=$e');
@@ -87,7 +112,6 @@ class NotificationService {
       }
     }
 
-    /// Bascule vers le polling en cas d'échec Realtime
     void startPolling() {
       if (polling) return;
       polling = true;
@@ -98,18 +122,15 @@ class NotificationService {
 
     controller = StreamController<List<Map<String, dynamic>>>.broadcast(
       onListen: () {
-        // Premier rendu: récupère l'état actuel.
         unawaited(emitLatest());
       },
     );
 
-    /// S'abonne aux changements Realtime ou réessaye après un délai
     Future<void> subscribeOrRetry() async {
       if (isCancelled) return;
       retryTimer?.cancel();
       if (polling) return;
 
-      // Crée un nouveau canal à chaque tentative.
       try {
         if (channel != null) await _client.removeChannel(channel!);
       } catch (_) {}
@@ -121,16 +142,12 @@ class NotificationService {
               event: PostgresChangeEvent.all,
               schema: 'public',
               table: _table,
-              // NOTE: Prefer explicit filter object (2.x API).
-              // If your Realtime policies / RLS prevent visibility, we fall back to polling.
               filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
               callback: (payload) {
-                debugPrint('NotificationService: realtime change uid=$uid table=${payload.table}');
+                debugPrint('NotificationService: realtime change uid=\( uid table= \){payload.table}');
                 unawaited(emitLatest());
               },
             )
-            // Some supabase_flutter versions expose `subscribe((status, [err]) {})`.
-            // Using an optional positional keeps us compatible.
             .subscribe((status, [err]) {
               debugPrint('NotificationService: subscribe status=$status err=$err uid=$uid');
               if (isCancelled) return;
@@ -150,7 +167,7 @@ class NotificationService {
               final delayMs = (500 * (1 << (closedRetries - 1))).clamp(500, 8000);
               retryTimer?.cancel();
               retryTimer = Timer(Duration(milliseconds: delayMs), () {
-                debugPrint('NotificationService: retry subscribe (attempt=$closedRetries, delay=${delayMs}ms) uid=$uid');
+                debugPrint('NotificationService: retry subscribe (attempt=\( closedRetries, delay= \){delayMs}ms) uid=$uid');
                 unawaited(subscribeOrRetry());
               });
             });
@@ -173,16 +190,13 @@ class NotificationService {
     return controller.stream;
   }
 
-  /// Stream de commodité qui expose le nombre de notifications non lues.
-  ///
-  /// Utilisé pour les badges rouges (boutons Accueil, icône cloche, etc.).
   Stream<int> streamUnreadCount(String uid) {
     return streamForUser(uid)
         .map((rows) => rows.where((r) => (r['read'] as bool?) != true).length)
         .distinct();
   }
 
-  /// Ajoute une nouvelle notification pour un utilisateur
+  /// Ajoute une notification + affiche immédiatement une pop
   Future<void> add({
     required String toUid,
     required String type,
@@ -191,7 +205,6 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      // Essayer le schéma plus riche d'abord.
       try {
         await _client.from(_table).insert({
           'user_id': toUid,
@@ -202,25 +215,30 @@ class NotificationService {
           'data': data ?? const <String, dynamic>{},
           'created_at': DateTime.now().toUtc().toIso8601String(),
         });
-        return;
       } catch (e) {
-        debugPrint('NotificationService: insert with (type,body,read,data) failed, retrying legacy columns. err=$e');
+        debugPrint('NotificationService: insert with rich schema failed, retrying legacy. err=$e');
+        await _client.from(_table).insert({
+          'user_id': toUid,
+          'title': title,
+          'message': body,
+          'seen': false,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        });
       }
-      // Compatibilité schéma hérité/simple.
-      await _client.from(_table).insert({
-        'user_id': toUid,
-        'title': title,
-        'message': body,
-        'seen': false,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      });
+
+      // ← NOUVEAU : Pop immédiate
+      await LocalNotificationService.instance.show(
+        id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        title: title,
+        body: body,
+        payload: type,
+      );
     } catch (e) {
       debugPrint('NotificationService: add failed to=$toUid type=$type err=$e');
       rethrow;
     }
   }
 
-  /// Marque une notification comme lue
   Future<void> markRead({required String uid, required String notificationId}) async {
     try {
       try {
@@ -243,7 +261,6 @@ class NotificationService {
     }
   }
 
-  /// Marque toutes les notifications comme lues
   Future<void> markAllRead(String uid) async {
     try {
       try {
@@ -257,7 +274,4 @@ class NotificationService {
       debugPrint('NotificationService: markAllRead failed uid=$uid err=$e');
     }
   }
-}
-
-class RealtimeListenTypes {
 }
