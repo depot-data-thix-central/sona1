@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+
 import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/access_request_service.dart';
@@ -34,6 +35,7 @@ class _NotificationsSheetBodyState extends State<_NotificationsSheetBody> {
   final _counters = NotificationCountersService();
   final _access = AccessRequestService();
   final _profiles = ProfileService();
+
   bool _markingAll = false;
   bool _autoMarked = false;
 
@@ -41,8 +43,10 @@ class _NotificationsSheetBodyState extends State<_NotificationsSheetBody> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_autoMarked) return;
+
     final me = context.read<AuthController>().currentUser;
     if (me == null) return;
+
     _autoMarked = true;
     unawaited(_notifications.markAllRead(me.id));
   }
@@ -51,19 +55,27 @@ class _NotificationsSheetBodyState extends State<_NotificationsSheetBody> {
   Widget build(BuildContext context) {
     final me = context.watch<AuthController>().currentUser;
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
-    final countsStream = me == null ? Stream<SectionBadgeCounts>.value(SectionBadgeCounts.zero) : _counters.streamCounts(me.id);
+
     if (me == null) {
       return Padding(
         padding: EdgeInsets.only(bottom: bottomPadding),
         child: _SheetShell(
           title: 'Notifications',
           actions: [
-            IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded))
+            IconButton(
+              onPressed: () => context.pop(),
+              icon: const Icon(Icons.close_rounded),
+            ),
           ],
-          child: Text('Connectez-vous pour voir vos notifications.', style: context.textStyles.bodyMedium),
+          child: Text(
+            'Connectez-vous pour voir vos notifications.',
+            style: context.textStyles.bodyMedium,
+          ),
         ),
       );
     }
+
+    final countsStream = _counters.streamCounts(me.id);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
@@ -78,14 +90,22 @@ class _NotificationsSheetBodyState extends State<_NotificationsSheetBody> {
                     try {
                       await _notifications.markAllRead(me.id);
                     } catch (e) {
-                      debugPrint('NotificationsSheet: markAllRead failed err=$e');
+                      debugPrint('NotificationsSheet: markAllRead failed → $e');
                     } finally {
                       if (mounted) setState(() => _markingAll = false);
                     }
                   },
-            child: Text('Tout lire', style: context.textStyles.labelLarge?.copyWith(color: LightModeColors.accent)),
+            child: Text(
+              'Tout lire',
+              style: context.textStyles.labelLarge?.copyWith(
+                color: LightModeColors.accent,
+              ),
+            ),
           ),
-          IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.close_rounded))
+          IconButton(
+            onPressed: () => context.pop(),
+            icon: const Icon(Icons.close_rounded),
+          ),
         ],
         child: _ReceptionPanel(
           meId: me.id,
@@ -100,49 +120,9 @@ class _NotificationsSheetBodyState extends State<_NotificationsSheetBody> {
   }
 }
 
-class _SectionChip extends StatelessWidget {
-  const _SectionChip({required this.icon, required this.label, required this.count, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final int count;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = onTap == null;
-    final cs = context.theme.colorScheme;
-    final bg = disabled ? cs.surfaceContainerHighest.withValues(alpha: 0.35) : cs.surfaceContainerHighest;
-    final fg = disabled ? cs.onSurface.withValues(alpha: 0.45) : cs.onSurface;
-    return InkWell(
-      splashFactory: NoSplash.splashFactory,
-      highlightColor: Colors.transparent,
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999), border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35))),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: fg),
-            const SizedBox(width: 8),
-            Text(label, style: context.textStyles.labelLarge?.copyWith(color: fg, fontWeight: FontWeight.w700)),
-            if (count > 0) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(999)),
-                child: Text('$count', style: context.textStyles.labelSmall?.copyWith(color: cs.onPrimary, fontWeight: FontWeight.w800)),
-              ),
-            ]
-          ],
-        ),
-      ),
-    );
-  }
-}
+// =============================================================================
+// RECEPTION PANEL
+// =============================================================================
 
 class _ReceptionPanel extends StatelessWidget {
   final String meId;
@@ -167,6 +147,7 @@ class _ReceptionPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ---------- CHIPS DE SECTIONS ----------
           Padding(
             padding: const EdgeInsets.fromLTRB(2, 2, 2, 14),
             child: StreamBuilder<SectionBadgeCounts>(
@@ -268,6 +249,8 @@ class _ReceptionPanel extends StatelessWidget {
               },
             ),
           ),
+
+          // ---------- DEMANDES D'ACCÈS ----------
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: access.streamIncomingRequests(ownerId: meId, status: 'pending'),
             builder: (context, snap) {
@@ -297,14 +280,25 @@ class _ReceptionPanel extends StatelessWidget {
                           child: const Icon(Icons.lock_open_rounded, color: LightModeColors.accent, size: 18),
                         ),
                         const SizedBox(width: AppSpacing.md),
-                        Expanded(child: Text('Demandes d’accès', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900))),
+                        Expanded(
+                          child: Text(
+                            'Demandes d’accès',
+                            style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: LightModeColors.accent,
                             borderRadius: BorderRadius.circular(999),
                           ),
-                          child: Text('${rows.length}', style: context.textStyles.labelLarge?.copyWith(color: const Color(0xFF0A2F5C), fontWeight: FontWeight.w900)),
+                          child: Text(
+                            '${rows.length}',
+                            style: context.textStyles.labelLarge?.copyWith(
+                              color: const Color(0xFF0A2F5C),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -318,7 +312,9 @@ class _ReceptionPanel extends StatelessWidget {
                         onApprove: () async {
                           final id = (r['id'] ?? '').toString();
                           if (id.isEmpty) return;
+
                           await access.approveFor10Minutes(requestId: id);
+
                           final requester = (r['requester_id'] ?? '').toString();
                           if (requester.trim().isNotEmpty) {
                             try {
@@ -337,14 +333,16 @@ class _ReceptionPanel extends StatelessWidget {
                                 },
                               );
                             } catch (e) {
-                              debugPrint('ReceptionPanel: fallback notify approve failed err=$e');
+                              debugPrint('ReceptionPanel: notify approve failed → $e');
                             }
                           }
                         },
                         onReject: () async {
                           final id = (r['id'] ?? '').toString();
                           if (id.isEmpty) return;
+
                           await access.setStatus(requestId: id, status: 'rejected');
+
                           final requester = (r['requester_id'] ?? '').toString();
                           if (requester.trim().isNotEmpty) {
                             try {
@@ -362,7 +360,7 @@ class _ReceptionPanel extends StatelessWidget {
                                 },
                               );
                             } catch (e) {
-                              debugPrint('ReceptionPanel: fallback notify reject failed err=$e');
+                              debugPrint('ReceptionPanel: notify reject failed → $e');
                             }
                           }
                         },
@@ -374,26 +372,38 @@ class _ReceptionPanel extends StatelessWidget {
               );
             },
           ),
+
           const SizedBox(height: AppSpacing.md),
+
+          // ---------- LISTE DES NOTIFICATIONS ----------
           StreamBuilder<SectionBadgeCounts>(
             stream: countsStream,
             builder: (context, countsSnap) {
               final counts = countsSnap.data ?? SectionBadgeCounts.zero;
+
               return StreamBuilder<List<Map<String, dynamic>>>(
                 stream: notifications.streamForUser(meId),
                 builder: (context, snap) {
                   final docs = snap.data ?? const <Map<String, dynamic>>[];
-
                   final synthetic = _syntheticNotificationsFromCounts(counts);
                   final merged = <Map<String, dynamic>>[...synthetic, ...docs];
 
                   if (snap.connectionState == ConnectionState.waiting && merged.isEmpty) {
-                    return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()));
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
                   }
+
                   if (merged.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text('Aucune notification.', style: context.textStyles.bodyMedium),
+                      child: Text(
+                        'Aucune notification.',
+                        style: context.textStyles.bodyMedium,
+                      ),
                     );
                   }
 
@@ -401,27 +411,30 @@ class _ReceptionPanel extends StatelessWidget {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: merged.length,
-                    separatorBuilder: (_, __) => Divider(color: Theme.of(context).dividerColor, height: 1),
+                    separatorBuilder: (_, __) => Divider(
+                      color: Theme.of(context).dividerColor,
+                      height: 1,
+                    ),
                     itemBuilder: (context, i) {
                       final data = merged[i];
 
+                      // Notification synthétique
                       if ((data['__synthetic'] as bool?) == true) {
-                        final section = (data['section'] ?? '').toString();
-                        final title = (data['title'] ?? 'Notification').toString();
-                        final body = (data['body'] ?? '').toString();
-                        final type = (data['type'] ?? 'generic').toString();
-                        final count = (data['count'] as int?) ?? 0;
                         return _SyntheticNotificationRow(
-                          title: title,
-                          body: body,
-                          type: type,
-                          count: count,
+                          title: (data['title'] ?? 'Notification').toString(),
+                          body: (data['body'] ?? '').toString(),
+                          type: (data['type'] ?? 'generic').toString(),
+                          count: (data['count'] as int?) ?? 0,
                           onTap: () async {
-                            await _handleSyntheticTap(context: context, section: section);
+                            await _handleSyntheticTap(
+                              context: context,
+                              section: (data['section'] ?? '').toString(),
+                            );
                           },
                         );
                       }
 
+                      // Notification classique
                       final title = (data['title'] as String?) ?? 'Notification';
                       final body = (data['body'] as String?) ?? '';
                       final type = (data['type'] as String?) ?? 'generic';
@@ -459,10 +472,12 @@ class _ReceptionPanel extends StatelessWidget {
                                         },
                                       );
                                     } catch (e) {
-                                      debugPrint('NotificationsSheet: fallback notify approve failed err=$e');
+                                      debugPrint('NotificationsSheet: notify approve failed → $e');
                                     }
                                   }
-                                  if (id.isNotEmpty) await notifications.markRead(uid: meId, notificationId: id);
+                                  if (id.isNotEmpty) {
+                                    await notifications.markRead(uid: meId, notificationId: id);
+                                  }
                                 },
                                 onReject: (requestId) async {
                                   await access.setStatus(requestId: requestId, status: 'rejected');
@@ -477,10 +492,12 @@ class _ReceptionPanel extends StatelessWidget {
                                         data: {'request_id': requestId},
                                       );
                                     } catch (e) {
-                                      debugPrint('NotificationsSheet: fallback notify reject failed err=$e');
+                                      debugPrint('NotificationsSheet: notify reject failed → $e');
                                     }
                                   }
-                                  if (id.isNotEmpty) await notifications.markRead(uid: meId, notificationId: id);
+                                  if (id.isNotEmpty) {
+                                    await notifications.markRead(uid: meId, notificationId: id);
+                                  }
                                 },
                               )
                             : null,
@@ -496,8 +513,16 @@ class _ReceptionPanel extends StatelessWidget {
     );
   }
 
+  // ---------- HELPERS ----------
+
   List<Map<String, dynamic>> _syntheticNotificationsFromCounts(SectionBadgeCounts counts) {
-    Map<String, dynamic> mk({required String section, required String type, required String title, required String body, required int count}) {
+    Map<String, dynamic> mk({
+      required String section,
+      required String type,
+      required String title,
+      required String body,
+      required int count,
+    }) {
       return {
         '__synthetic': true,
         'section': section,
@@ -509,6 +534,7 @@ class _ReceptionPanel extends StatelessWidget {
     }
 
     final out = <Map<String, dynamic>>[];
+
     if (counts.messages > 0) {
       out.add(mk(
         section: ThixSection.messages.name,
@@ -572,19 +598,27 @@ class _ReceptionPanel extends StatelessWidget {
         count: counts.market,
       ));
     }
+
     return out;
   }
 
-  Future<void> _handleSyntheticTap({required BuildContext context, required String section}) async {
+  Future<void> _handleSyntheticTap({
+    required BuildContext context,
+    required String section,
+  }) async {
     try {
-      final s = ThixSection.values.firstWhere((e) => e.name == section, orElse: () => ThixSection.messages);
-      await counters.markSectionSeen(uid: meId, section: s);
+      final s = ThixSection.values.firstWhere(
+        (e) => e.name == section,
+        orElse: () => ThixSection.messages,
+      );
 
+      await counters.markSectionSeen(uid: meId, section: s);
       if (!context.mounted) return;
+
       switch (s) {
         case ThixSection.messages:
           context.push(AppRoutes.chat);
-          return;
+          break;
         case ThixSection.info:
           context.pop();
           showDialog(
@@ -600,59 +634,60 @@ class _ReceptionPanel extends StatelessWidget {
               ],
             ),
           );
-          return;
+          break;
         case ThixSection.events:
           context.push(AppRoutes.thixEvent);
-          return;
+          break;
         case ThixSection.formations:
           context.push(AppRoutes.education);
-          return;
+          break;
         case ThixSection.opportunities:
           context.push(AppRoutes.opportunities);
-          return;
+          break;
         case ThixSection.jobs:
           context.push(AppRoutes.jobs);
-          return;
+          break;
         case ThixSection.network:
           context.pop();
           context.push('/network');
-          return;
+          break;
         case ThixSection.market:
           context.pop();
           context.push(AppRoutes.thixMarket);
-          return;
-        // 🌟 NOUVEAUX CAS AJOUTÉS POUR CORRIGER L'ERREUR DART2JS
+          break;
         case ThixSection.health:
           context.pop();
           context.push(AppRoutes.thixSante);
-          return;
+          break;
         case ThixSection.money:
           context.pop();
           context.push(AppRoutes.thixMoney);
-          return;
+          break;
         case ThixSection.monPays:
           context.pop();
           context.push(AppRoutes.monPays);
-          return;
+          break;
         case ThixSection.reservation:
           context.pop();
           context.push(AppRoutes.reservation);
-          return;
+          break;
         case ThixSection.media:
           context.pop();
           context.push(AppRoutes.thixMedia);
-          return;
-        // SÉCURITÉ : Capture tous les autres cas futurs
+          break;
         default:
           context.pop();
-          return;
       }
     } catch (e) {
-      debugPrint('NotificationsSheet: synthetic tap failed section=$section err=$e');
+      debugPrint('NotificationsSheet: synthetic tap failed → $e');
     }
   }
 
-  String _decorateTitle({required String type, required String title, required Map<String, dynamic> extra}) {
+  String _decorateTitle({
+    required String type,
+    required String title,
+    required Map<String, dynamic> extra,
+  }) {
     if (type != 'access_request') return title;
     final name = (extra['requester_name'] ?? '').toString().trim();
     final thixId = (extra['requester_thix_id'] ?? '').toString().trim();
@@ -663,7 +698,11 @@ class _ReceptionPanel extends StatelessWidget {
     return '$title — ${bits.join(' · ')}';
   }
 
-  String _decorateBody({required String type, required String body, required Map<String, dynamic> extra}) {
+  String _decorateBody({
+    required String type,
+    required String body,
+    required Map<String, dynamic> extra,
+  }) {
     if (type != 'access_request') return body;
     final requesterId = (extra['requester_id'] ?? '').toString().trim();
     final minutes = (extra['access_minutes'] ?? '').toString().trim();
@@ -671,6 +710,79 @@ class _ReceptionPanel extends StatelessWidget {
     if (requesterId.isNotEmpty) lines.add('ID: $requesterId');
     if (minutes.isNotEmpty) lines.add('Durée: $minutes min');
     return lines.where((l) => l.trim().isNotEmpty).join('\n');
+  }
+}
+
+// =============================================================================
+// WIDGETS DE BASE
+// =============================================================================
+
+class _SectionChip extends StatelessWidget {
+  const _SectionChip({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    final cs = context.theme.colorScheme;
+    final bg = disabled ? cs.surfaceContainerHighest.withValues(alpha: 0.35) : cs.surfaceContainerHighest;
+    final fg = disabled ? cs.onSurface.withValues(alpha: 0.45) : cs.onSurface;
+
+    return InkWell(
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: fg),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: context.textStyles.labelLarge?.copyWith(
+                color: fg,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count',
+                  style: context.textStyles.labelSmall?.copyWith(
+                    color: cs.onPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -682,12 +794,19 @@ class _IncomingAccessRequestCard extends StatelessWidget {
   final Future<void> Function() onApprove;
   final Future<void> Function() onReject;
 
-  const _IncomingAccessRequestCard({required this.requestId, required this.requesterId, required this.createdAt, required this.profiles, required this.onApprove, required this.onReject});
+  const _IncomingAccessRequestCard({
+    required this.requestId,
+    required this.requesterId,
+    required this.createdAt,
+    required this.profiles,
+    required this.onApprove,
+    required this.onReject,
+  });
 
   String _short(String v) {
     final t = v.trim();
     if (t.length <= 10) return t;
-    return '${t.substring(0, 6)}…${t.substring(t.length - 4)}';
+    return '\( {t.substring(0, 6)}… \){t.substring(t.length - 4)}';
   }
 
   @override
@@ -698,9 +817,7 @@ class _IncomingAccessRequestCard extends StatelessWidget {
         final p = snap.data;
         final name = (p?.displayName ?? '').trim();
         final thixId = (p?.thixId ?? '').trim();
-        final header = name.isNotEmpty
-            ? 'Demande de: $name'
-            : 'Demande de: ${_short(requesterId)}';
+        final header = name.isNotEmpty ? 'Demande de: $name' : 'Demande de: ${_short(requesterId)}';
         final sub = <String>[];
         if (thixId.isNotEmpty) sub.add('THIX ID: $thixId');
         sub.add('UID: ${_short(requesterId)}');
@@ -717,12 +834,30 @@ class _IncomingAccessRequestCard extends StatelessWidget {
             children: [
               Text(header, style: context.textStyles.bodyLarge?.copyWith(fontWeight: FontWeight.w900)),
               const SizedBox(height: 4),
-              Text(sub.join(' · '), style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
+              Text(
+                sub.join(' · '),
+                style: context.textStyles.bodySmall?.copyWith(
+                  color: LightModeColors.secondaryText,
+                  height: 1.4,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text('ID demande: ${_short(requestId)}', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
+              Text(
+                'ID demande: ${_short(requestId)}',
+                style: context.textStyles.bodySmall?.copyWith(
+                  color: LightModeColors.secondaryText,
+                  height: 1.4,
+                ),
+              ),
               if (createdAt.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text('Reçu: $createdAt', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
+                Text(
+                  'Reçu: $createdAt',
+                  style: context.textStyles.bodySmall?.copyWith(
+                    color: LightModeColors.secondaryText,
+                    height: 1.4,
+                  ),
+                ),
               ],
               const SizedBox(height: AppSpacing.md),
               Row(
@@ -733,10 +868,13 @@ class _IncomingAccessRequestCard extends StatelessWidget {
                         try {
                           await onReject();
                         } catch (e) {
-                          debugPrint('IncomingAccessRequestCard: reject failed err=$e');
+                          debugPrint('IncomingAccessRequestCard: reject failed → $e');
                         }
                       },
-                      style: OutlinedButton.styleFrom(foregroundColor: LightModeColors.error, side: const BorderSide(color: LightModeColors.error)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: LightModeColors.error,
+                        side: const BorderSide(color: LightModeColors.error),
+                      ),
                       child: const Text('Refuser'),
                     ),
                   ),
@@ -747,10 +885,14 @@ class _IncomingAccessRequestCard extends StatelessWidget {
                         try {
                           await onApprove();
                         } catch (e) {
-                          debugPrint('IncomingAccessRequestCard: approve failed err=$e');
+                          debugPrint('IncomingAccessRequestCard: approve failed → $e');
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: LightModeColors.accent,
+                        foregroundColor: const Color(0xFF0A2F5C),
+                        elevation: 0,
+                      ),
                       child: const Text('Approuver (10 min)'),
                     ),
                   ),
@@ -769,17 +911,29 @@ class _SheetShell extends StatelessWidget {
   final List<Widget> actions;
   final Widget child;
 
-  const _SheetShell({required this.title, required this.actions, required this.child});
+  const _SheetShell({
+    required this.title,
+    required this.actions,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(AppRadius.xl), topRight: Radius.circular(AppRadius.xl)),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.xl),
+          topRight: Radius.circular(AppRadius.xl),
+        ),
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -787,7 +941,10 @@ class _SheetShell extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              Text(
+                title,
+                style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
               Row(mainAxisSize: MainAxisSize.min, children: actions),
             ],
           ),
@@ -807,7 +964,14 @@ class _NotificationRow extends StatelessWidget {
   final VoidCallback onTap;
   final Widget? trailing;
 
-  const _NotificationRow({required this.title, required this.body, required this.type, required this.read, required this.onTap, this.trailing});
+  const _NotificationRow({
+    required this.title,
+    required this.body,
+    required this.type,
+    required this.read,
+    required this.onTap,
+    this.trailing,
+  });
 
   IconData _iconForType() {
     switch (type) {
@@ -833,22 +997,42 @@ class _NotificationRow extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: read ? context.theme.scaffoldBackgroundColor : LightModeColors.accent.withValues(alpha: 0.15),
+                color: read
+                    ? context.theme.scaffoldBackgroundColor
+                    : LightModeColors.accent.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 border: Border.all(color: context.theme.dividerColor),
               ),
               alignment: Alignment.center,
-              child: Icon(_iconForType(), color: read ? context.theme.colorScheme.primary : LightModeColors.accent, size: 20),
+              child: Icon(
+                _iconForType(),
+                color: read ? context.theme.colorScheme.primary : LightModeColors.accent,
+                size: 20,
+              ),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: context.textStyles.bodyLarge?.copyWith(fontWeight: read ? FontWeight.w500 : FontWeight.w800)),
+                  Text(
+                    title,
+                    style: context.textStyles.bodyLarge?.copyWith(
+                      fontWeight: read ? FontWeight.w500 : FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(body, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
-                  if (trailing != null) ...[const SizedBox(height: AppSpacing.sm), trailing!],
+                  Text(
+                    body,
+                    style: context.textStyles.bodySmall?.copyWith(
+                      color: LightModeColors.secondaryText,
+                      height: 1.4,
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    trailing!,
+                  ],
                 ],
               ),
             ),
@@ -866,7 +1050,13 @@ class _SyntheticNotificationRow extends StatelessWidget {
   final int count;
   final VoidCallback onTap;
 
-  const _SyntheticNotificationRow({required this.title, required this.body, required this.type, required this.count, required this.onTap});
+  const _SyntheticNotificationRow({
+    required this.title,
+    required this.body,
+    required this.type,
+    required this.count,
+    required this.onTap,
+  });
 
   IconData _iconForType() {
     switch (type) {
@@ -904,6 +1094,7 @@ class _SyntheticNotificationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = context.theme.colorScheme;
+
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -929,17 +1120,37 @@ class _SyntheticNotificationRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(title, style: context.textStyles.bodyLarge?.copyWith(fontWeight: FontWeight.w900))),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: context.textStyles.bodyLarge?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(999)),
-                        child: Text('$count', style: context.textStyles.labelSmall?.copyWith(color: cs.onPrimary, fontWeight: FontWeight.w900)),
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: context.textStyles.labelSmall?.copyWith(
+                            color: cs.onPrimary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(body, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.secondaryText, height: 1.4)),
+                  Text(
+                    body,
+                    style: context.textStyles.bodySmall?.copyWith(
+                      color: LightModeColors.secondaryText,
+                      height: 1.4,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -957,14 +1168,24 @@ class _AccessRequestActions extends StatelessWidget {
   final Future<void> Function(String requestId) onApprove;
   final Future<void> Function(String requestId) onReject;
 
-  const _AccessRequestActions({required this.requestId, required this.requesterId, required this.targetUserId, required this.onApprove, required this.onReject});
+  const _AccessRequestActions({
+    required this.requestId,
+    required this.requesterId,
+    required this.targetUserId,
+    required this.onApprove,
+    required this.onReject,
+  });
 
   @override
   Widget build(BuildContext context) {
     final id = requestId;
     if (id == null || id.trim().isEmpty) {
-      return Text('Action indisponible: demande introuvable.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.error));
+      return Text(
+        'Action indisponible: demande introuvable.',
+        style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.error),
+      );
     }
+
     return Row(
       children: [
         Expanded(
@@ -973,10 +1194,13 @@ class _AccessRequestActions extends StatelessWidget {
               try {
                 await onReject(id);
               } catch (e) {
-                debugPrint('AccessRequestActions: reject failed err=$e');
+                debugPrint('AccessRequestActions: reject failed → $e');
               }
             },
-            style: OutlinedButton.styleFrom(foregroundColor: LightModeColors.error, side: const BorderSide(color: LightModeColors.error)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: LightModeColors.error,
+              side: const BorderSide(color: LightModeColors.error),
+            ),
             child: const Text('Refuser'),
           ),
         ),
@@ -987,10 +1211,14 @@ class _AccessRequestActions extends StatelessWidget {
               try {
                 await onApprove(id);
               } catch (e) {
-                debugPrint('AccessRequestActions: approve failed err=$e');
+                debugPrint('AccessRequestActions: approve failed → $e');
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: LightModeColors.accent, foregroundColor: const Color(0xFF0A2F5C), elevation: 0),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: LightModeColors.accent,
+              foregroundColor: const Color(0xFF0A2F5C),
+              elevation: 0,
+            ),
             child: const Text('Approuver'),
           ),
         ),
