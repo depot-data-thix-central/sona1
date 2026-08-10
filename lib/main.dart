@@ -7,12 +7,12 @@ import 'package:thix_id/auth/auth_controller.dart';
 import 'package:thix_id/l10n/app_localizations.dart';
 import 'package:thix_id/l10n/locale_controller.dart';
 import 'package:thix_id/app_router.dart';
+import 'package:thix_id/nav.dart';
 import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/core/theme/thix_design_policy.dart';
-
-// ← Ajoute cet import
 import 'package:thix_id/services/local_notification_service.dart';
+import 'package:thix_id/presentation/chat/call/global_call_listener.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,9 +23,6 @@ Future<void> main() async {
     debugPrint('Supabase init error: $e');
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // INITIALISATION DES POP NOTIFICATIONS
-  // ═══════════════════════════════════════════════════════════════
   try {
     await LocalNotificationService.instance.init();
     await LocalNotificationService.instance.requestPermission();
@@ -60,9 +57,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
 
     _locale = LocaleController()..init();
-
     _auth = AuthController.instance;
-
     _initAuth();
   }
 
@@ -81,6 +76,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     _router = AppRouter.create(
       _auth,
       extraRefreshListenable: merged,
+      navigatorKey: rootNavigatorKey, // ← clé partagée
     );
 
     if (mounted) {
@@ -101,67 +97,34 @@ class _MyAppState extends ConsumerState<MyApp> {
         app_provider.ChangeNotifierProvider<AuthController>.value(
           value: _auth,
         ),
-
         app_provider.ChangeNotifierProvider<LocaleController>.value(
           value: _locale,
         ),
-
         app_provider.Provider<ProfileService>(
           create: (_) => ProfileService(),
         ),
       ],
-
       child: MaterialApp.router(
         title: 'THIX ID CENTRAL',
-
         debugShowCheckedModeBanner: false,
-
-        // ═══════════════════════════════════════════════════════════════
-        // THIX DESIGN SYSTEM v1
-        // ═══════════════════════════════════════════════════════════════
-
         theme: ThixPolicy.lightTheme(),
-
         darkTheme: ThixPolicy.darkTheme(),
-
         themeMode: ThemeMode.system,
-
-        // ═══════════════════════════════════════════════════════════════
-        // ROUTER
-        // ═══════════════════════════════════════════════════════════════
-
         routerConfig: _router!,
-
-        // ═══════════════════════════════════════════════════════════════
-        // LOCALIZATION
-        // ═══════════════════════════════════════════════════════════════
-
         locale: _locale.locale,
-
         supportedLocales: LocaleController.supportedLocales,
-
         localizationsDelegates: const [
           AppLocalizations.delegate,
-
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-
-        // ═══════════════════════════════════════════════════════════════
-        // GLOBAL BUILDER
-        // ═══════════════════════════════════════════════════════════════
-        //
-        // IMPORTANT:
-        // Nous ne bloquons plus le TextScaler système.
-        //
-        // THIX définit le rendu par défaut via TextTheme,
-        // mais respecte les préférences d'accessibilité de l'utilisateur.
-        //
-        // ═══════════════════════════════════════════════════════════════
-
+        // ← écoute globale des appels entrants
         builder: (context, child) {
-          return child ?? const SizedBox.shrink();
+          return GlobalCallListener(
+            navigatorKey: rootNavigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          );
         },
       ),
     );
@@ -170,13 +133,9 @@ class _MyAppState extends ConsumerState<MyApp> {
   Widget _buildLoadingApp() {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
       theme: ThixPolicy.lightTheme(),
-
       darkTheme: ThixPolicy.darkTheme(),
-
       themeMode: ThemeMode.system,
-
       home: const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
