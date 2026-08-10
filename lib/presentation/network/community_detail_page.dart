@@ -10,7 +10,7 @@ import 'package:thix_id/models/network_community.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart';
 import 'package:thix_id/presentation/network/widgets/post_card.dart';
-// import de votre nouveau fichier provider ici
+import 'package:thix_id/features/network/presentation/providers/community_detail_provider.dart'; 
 
 class CommunityDetailPage extends ConsumerStatefulWidget {
   final String communityId;
