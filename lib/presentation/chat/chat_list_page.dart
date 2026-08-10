@@ -632,7 +632,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                               child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
                             ),
                           ),
-                          _navItem(Icons.workspaces_outline, Icons.workspaces_filled, 'Espaces', 2, unread),
+                          _navItem(Icons.call_outlined, Icons.call, 'Appels', 2, unread),
                           _navItem(Icons.settings_outlined, Icons.settings, 'Réglages', 3, unread),
                         ],
                       )
@@ -658,7 +658,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         HapticFeedback.lightImpact();
         _resetNavTimer();
         if (idx == 0) context.pushNamed('connections');
-        else if (idx == 2) context.pushNamed('workspaces');
+        else if (idx == 2) context.push(AppRoutes.callHistory);
         else if (idx == 3) Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatSettingsPage()));
         else setState(() => _selectedNav = idx);
       },
