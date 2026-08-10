@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // ✅ Ajout du cache
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 class _C {
@@ -21,6 +22,8 @@ class LiveBroadcastScreen extends StatefulWidget {
   final bool isMicEnabled;
   final String liveId;
   final String channelName;
+  final String hostName; // Nom de l'hôte
+  final String? hostAvatarUrl; // ✅ URL de l'avatar avec Cache
 
   const LiveBroadcastScreen({
     super.key,
@@ -29,6 +32,8 @@ class LiveBroadcastScreen extends StatefulWidget {
     required this.isMicEnabled,
     required this.liveId,
     required this.channelName,
+    this.hostName = 'Hôte THIX',
+    this.hostAvatarUrl,
   });
 
   @override
@@ -37,7 +42,7 @@ class LiveBroadcastScreen extends StatefulWidget {
 
 class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerProviderStateMixin {
   late RtcEngine _engine;
-  RealtimeChannel? _realtimeChannel; // ✅ Canal temps réel Supabase
+  RealtimeChannel? _realtimeChannel; 
   
   bool _isInitialized = false;
   bool _isMuted = false;
@@ -47,8 +52,8 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
   bool _isFrontCamera = true;
   bool _isBeautyEnabled = false;
   
-  int _viewerCount = 0; // ✅ Vrai compteur via Supabase Presence
-  final List<int> _coHostUids = []; // ✅ IDs des co-hôtes acceptés
+  int _viewerCount = 0; 
+  final List<int> _coHostUids = []; 
   
   final TextEditingController _chatController = TextEditingController();
   final List<Map<String, String>> _comments = [];
@@ -90,7 +95,6 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
 
       await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
 
-      // Écouter si des co-hôtes rejoignent/quittent
       _engine.registerEventHandler(
         RtcEngineEventHandler(
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
@@ -128,30 +132,23 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
     _realtimeChannel = Supabase.instance.client.channel('live_${widget.liveId}');
 
     _realtimeChannel!
-      // Écoute des messages
       .onBroadcast(event: 'chat', callback: (payload) {
-        setState(() {
-          _comments.add({"user": payload['user'], "text": payload['text']});
-        });
+        setState(() => _comments.add({"user": payload['user'], "text": payload['text']}));
       })
-      // Écoute des coeurs
       .onBroadcast(event: 'heart', callback: (payload) {
         _triggerHeartAnimation();
       })
-      // Écoute des demandes de co-hôte
       .onBroadcast(event: 'cohost_request', callback: (payload) {
         _handleCoHostRequest(payload['userId'], payload['userName']);
       })
-      // Compteur de spectateurs (Presence)
       .onPresenceSync((_) {
         final state = _realtimeChannel!.presenceState();
         int count = 0;
         state.forEach((key, value) { count += value.length; });
-        setState(() => _viewerCount = count);
+        setState(() => _viewerCount = count > 0 ? count - 1 : 0); // On s'exclut du comptage
       })
       .subscribe((status, [error]) {
         if (status == RealtimeSubscribeStatus.subscribed) {
-          // On s'annonce dans la salle pour le compteur
           _realtimeChannel!.track({'user_id': _myUserId, 'is_host': true});
         }
       });
@@ -168,11 +165,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
         actions: [
           TextButton(
             onPressed: () {
-              // Rejeter
-              _realtimeChannel!.sendBroadcastMessage(
-                event: 'cohost_response',
-                payload: {'targetUserId': requestUserId, 'accepted': false},
-              );
+              _realtimeChannel!.sendBroadcastMessage(event: 'cohost_response', payload: {'targetUserId': requestUserId, 'accepted': false});
               Navigator.pop(ctx);
             },
             child: const Text('Refuser', style: TextStyle(color: _C.red)),
@@ -180,11 +173,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: _C.primary),
             onPressed: () {
-              // Accepter
-              _realtimeChannel!.sendBroadcastMessage(
-                event: 'cohost_response',
-                payload: {'targetUserId': requestUserId, 'accepted': true},
-              );
+              _realtimeChannel!.sendBroadcastMessage(event: 'cohost_response', payload: {'targetUserId': requestUserId, 'accepted': true});
               Navigator.pop(ctx);
             },
             child: const Text('Accepter', style: TextStyle(color: _C.textMain)),
@@ -199,14 +188,9 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
     if (_chatController.text.trim().isEmpty) return;
     final text = _chatController.text.trim();
     
-    // Envoyer à tout le monde
-    _realtimeChannel!.sendBroadcastMessage(
-      event: 'chat',
-      payload: {'user': 'Hôte', 'text': text},
-    );
-    
+    _realtimeChannel!.sendBroadcastMessage(event: 'chat', payload: {'user': widget.hostName, 'text': text});
     setState(() {
-      _comments.add({"user": "Hôte", "text": text});
+      _comments.add({"user": widget.hostName, "text": text});
       _chatController.clear();
     });
     FocusScope.of(context).unfocus();
@@ -218,9 +202,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
       _floatingHearts.add(_AnimatedHeart(
         key: key,
         color: Colors.primaries[_random.nextInt(Colors.primaries.length)],
-        onComplete: () {
-          setState(() => _floatingHearts.removeWhere((w) => w.key == key));
-        },
+        onComplete: () => setState(() => _floatingHearts.removeWhere((w) => w.key == key)),
       ));
     });
   }
@@ -321,13 +303,23 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
                       decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(30)),
                       child: Row(
                         children: [
-                          const CircleAvatar(radius: 16, backgroundColor: _C.primary, child: Icon(Icons.person, size: 20, color: _C.textMain)),
+                          // ✅ CACHED NETWORK IMAGE INTÉGRÉ
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: _C.primary,
+                            backgroundImage: widget.hostAvatarUrl != null && widget.hostAvatarUrl!.isNotEmpty
+                                ? CachedNetworkImageProvider(widget.hostAvatarUrl!)
+                                : null,
+                            child: widget.hostAvatarUrl == null || widget.hostAvatarUrl!.isEmpty
+                                ? const Icon(Icons.person, size: 20, color: _C.textMain)
+                                : null,
+                          ),
                           const SizedBox(width: 8),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('THIX Host', style: TextStyle(color: _C.textMain, fontSize: 13, fontWeight: FontWeight.bold)),
+                              Text(widget.hostName, style: const TextStyle(color: _C.textMain, fontSize: 13, fontWeight: FontWeight.bold)),
                               Row(
                                 children: [
                                   Container(width: 6, height: 6, decoration: const BoxDecoration(color: _C.red, shape: BoxShape.circle)),
@@ -368,6 +360,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   _SideActionButton(icon: Icons.flip_camera_ios_rounded, label: 'Tourner', onTap: () async { await _engine.switchCamera(); setState(() => _isFrontCamera = !_isFrontCamera); }),
+                  _SideActionButton(icon: _isBeautyEnabled ? Icons.face_retouching_natural_rounded : Icons.face_rounded, label: 'Beauté', color: _isBeautyEnabled ? _C.primary : _C.textMain, onTap: () async { setState(() => _isBeautyEnabled = !_isBeautyEnabled); await _engine.setBeautyEffectOptions(enabled: _isBeautyEnabled, options: const BeautyOptions(lighteningContrastLevel: LighteningContrastLevel.lighteningContrastNormal, lighteningLevel: 0.7, smoothnessLevel: 0.5, rednessLevel: 0.1)); }),
                   _SideActionButton(icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded, label: _isMuted ? 'Muet' : 'Mic', onTap: () { setState(() => _isMuted = !_isMuted); _engine.muteLocalAudioStream(_isMuted); }),
                 ],
               ),
@@ -424,14 +417,6 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () {
-                        _triggerHeartAnimation();
-                        _realtimeChannel!.sendBroadcastMessage(event: 'heart', payload: {});
-                      },
-                      child: Container(width: 44, height: 44, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_C.red, Colors.orange])), child: const Icon(Icons.favorite_rounded, color: _C.textMain, size: 24)),
-                    ),
                   ],
                 ),
               ),
@@ -445,11 +430,11 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
   }
 }
 
-// ─── COMPOSANTS ANNEXES IDENTIQUES ───
+// ─── COMPOSANTS ANNEXES ───
 class _SideActionButton extends StatelessWidget {
-  final IconData icon; final String label; final VoidCallback onTap;
-  const _SideActionButton({required this.icon, required this.label, required this.onTap});
-  @override Widget build(BuildContext context) { return Padding(padding: const EdgeInsets.only(bottom: 16), child: GestureDetector(onTap: onTap, child: Column(children: [Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: Icon(icon, color: _C.textMain, size: 22)), const SizedBox(height: 4), Text(label, style: const TextStyle(color: _C.textMain, fontSize: 10, fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.black54, blurRadius: 2)]))]))); }
+  final IconData icon; final String label; final VoidCallback onTap; final Color color;
+  const _SideActionButton({required this.icon, required this.label, required this.onTap, this.color = _C.textMain});
+  @override Widget build(BuildContext context) { return Padding(padding: const EdgeInsets.only(bottom: 16), child: GestureDetector(onTap: onTap, child: Column(children: [Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: Icon(icon, color: color, size: 22)), const SizedBox(height: 4), Text(label, style: const TextStyle(color: _C.textMain, fontSize: 10, fontWeight: FontWeight.w600, shadows: [Shadow(color: Colors.black54, blurRadius: 2)]))]))); }
 }
 
 class _AnimatedHeart extends StatefulWidget {
