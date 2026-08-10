@@ -86,12 +86,12 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
   }
 
   String _fmtDuration(int sec) {
-    final m = sec \~/ 60;
-    final s = sec % 60;
-    final mm = m.toString().padLeft(2, '0');
-    final ss = s.toString().padLeft(2, '0');
-    return '$mm:$ss';
-  }
+  final m = sec \~/ 60;
+  final s = sec % 60;
+  final mm = m.toString().padLeft(2, '0');
+  final ss = s.toString().padLeft(2, '0');
+  return '$mm:$ss';
+}
 
   String _fmtDate(DateTime d) {
     final local = d.toLocal();
