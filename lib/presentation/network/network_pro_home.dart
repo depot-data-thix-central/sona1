@@ -363,7 +363,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: ThixPolicy.borderLight),
+        child: Container(height: 1, color: ThixPolicy.border),
       ),
     );
   }
@@ -376,7 +376,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
         decoration: BoxDecoration(
           color: ThixPolicy.surface,
           shape: BoxShape.circle,
-          border: Border.all(color: ThixPolicy.borderLight),
+          border: Border.all(color: ThixPolicy.border),
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -865,7 +865,7 @@ class _ProPostEntry extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: ThixPolicy.surface,
                   borderRadius: BorderRadius.circular(ThixPolicy.rLg),
-                  border: Border.all(color: ThixPolicy.borderLight),
+                  border: Border.all(color: ThixPolicy.border),
                 ),
                 child: const Text('Commencer un post...', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 14, fontWeight: FontWeight.w600)),
               ),
