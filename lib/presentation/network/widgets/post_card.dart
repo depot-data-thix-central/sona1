@@ -1,4 +1,3 @@
-
 // lib/presentation/network/widgets/post_card.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -7,7 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:audioplayers/audioplayers.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // ✅ CACHED NETWORK IMAGE
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_player/video_player.dart';
 
 import 'package:thix_id/features/network/presentation/providers/feed_provider.dart';
 import 'package:thix_id/models/network_post.dart';
@@ -23,6 +23,17 @@ String _formatCountHelper(int count) {
   }
   if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
   return '$count';
+}
+
+// ─── HELPER : DÉTECTION VIDÉO PAR EXTENSION ───
+bool _isVideoUrl(String url) {
+  final lower = url.toLowerCase();
+  return lower.contains('.mp4') ||
+      lower.contains('.mov') ||
+      lower.contains('.m4v') ||
+      lower.contains('.webm') ||
+      lower.contains('.avi') ||
+      lower.contains('.mkv');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -106,7 +117,7 @@ class PostCard extends ConsumerStatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onSave;
-  
+
   final bool isFollowingAuthor;
   final VoidCallback? onFollow;
 
@@ -139,7 +150,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
   bool _isLikedAnimating = false;
   bool _isExpanded = false;
   final _quoteController = TextEditingController();
-  
+
   bool _isFollowingLocal = false;
   bool _followBusy = false;
 
@@ -189,127 +200,80 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
   }
 
   void _cacheParsedContent() {
-  final content = widget.post.content;
+    final content = widget.post.content;
 
-  // ✅ Style officiel Thix Policy (Inter + regular)
-  final baseStyle = ThixPolicy.bodyStyle.copyWith(
-    height: 1.48,
-  );
+    final baseStyle = ThixPolicy.bodyStyle.copyWith(height: 1.48);
 
-  _cachedFullSpans = _parseContent(content, baseStyle, 0);
-  _isTruncatable = content.length > _maxContentChars;
+    _cachedFullSpans = _parseContent(content, baseStyle, 0);
+    _isTruncatable = content.length > _maxContentChars;
 
-  if (_isTruncatable) {
-    var truncated = content.substring(0, _maxContentChars);
-    final lastSpace = truncated.lastIndexOf(' ');
-    if (lastSpace > 0) truncated = truncated.substring(0, lastSpace);
-    _cachedTruncatedSpans = _parseContent('$truncated…', baseStyle, 0);
-  } else {
-    _cachedTruncatedSpans = _cachedFullSpans;
+    if (_isTruncatable) {
+      var truncated = content.substring(0, _maxContentChars);
+      final lastSpace = truncated.lastIndexOf(' ');
+      if (lastSpace > 0) truncated = truncated.substring(0, lastSpace);
+      _cachedTruncatedSpans = _parseContent('$truncated…', baseStyle, 0);
+    } else {
+      _cachedTruncatedSpans = _cachedFullSpans;
+    }
   }
-}
+
   List<InlineSpan> _parseContent(String content, TextStyle baseStyle, int depth) {
-  if (depth > _maxParseDepth || content.isEmpty) {
-    return [TextSpan(text: content, style: baseStyle)];
-  }
-
-  final spans = <InlineSpan>[];
-  var lastIndex = 0;
-
-  for (final match in _richContentRegex.allMatches(content)) {
-    if (match.start > lastIndex) {
-      spans.add(TextSpan(
-        text: content.substring(lastIndex, match.start),
-        style: baseStyle,
-      ));
+    if (depth > _maxParseDepth || content.isEmpty) {
+      return [TextSpan(text: content, style: baseStyle)];
     }
 
-    // {c:#HEX}texte coloré{c}
-    if (match.group(1) != null) {
-      final hex = match.group(1)!.replaceFirst('#', '');
-      final inner = match.group(2) ?? '';
-      Color color;
-      try {
-        final argb = hex.length == 8 ? hex : 'FF$hex';
-        color = Color(int.parse(argb, radix: 16));
-      } catch (_) {
-        color = baseStyle.color ?? ThixPolicy.textMain;
+    final spans = <InlineSpan>[];
+    var lastIndex = 0;
+
+    for (final match in _richContentRegex.allMatches(content)) {
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(text: content.substring(lastIndex, match.start), style: baseStyle));
       }
-      spans.addAll(_parseContent(
-        inner,
-        baseStyle.copyWith(color: color),
-        depth + 1,
-      ));
+
+      if (match.group(1) != null) {
+        final hex = match.group(1)!.replaceFirst('#', '');
+        final inner = match.group(2) ?? '';
+        Color color;
+        try {
+          final argb = hex.length == 8 ? hex : 'FF$hex';
+          color = Color(int.parse(argb, radix: 16));
+        } catch (_) {
+          color = baseStyle.color ?? ThixPolicy.textMain;
+        }
+        spans.addAll(_parseContent(inner, baseStyle.copyWith(color: color), depth + 1));
+      } else if (match.group(3) != null) {
+        spans.addAll(_parseContent(match.group(3)!, baseStyle.copyWith(fontWeight: ThixPolicy.bold), depth + 1));
+      } else if (match.group(4) != null) {
+        spans.addAll(_parseContent(match.group(4)!, baseStyle.copyWith(fontStyle: FontStyle.italic), depth + 1));
+      } else if (match.group(5) != null) {
+        final value = match.group(5)!;
+        final r = TapGestureRecognizer()..onTap = () { if (mounted) context.push('/network/profile/$value'); };
+        _recognizers.add(r);
+        spans.add(TextSpan(
+          text: '@$value',
+          style: baseStyle.copyWith(color: ThixPolicy.primary, fontWeight: ThixPolicy.semiBold),
+          recognizer: r,
+        ));
+      } else if (match.group(6) != null) {
+        final value = match.group(6)!;
+        final r = TapGestureRecognizer()..onTap = () { if (mounted) context.push('/hashtag/$value'); };
+        _recognizers.add(r);
+        spans.add(TextSpan(
+          text: '#$value',
+          style: baseStyle.copyWith(color: ThixPolicy.primaryDeep, fontWeight: ThixPolicy.semiBold),
+          recognizer: r,
+        ));
+      }
+
+      lastIndex = match.end;
     }
 
-    // **gras**
-    else if (match.group(3) != null) {
-      spans.addAll(_parseContent(
-        match.group(3)!,
-        baseStyle.copyWith(fontWeight: ThixPolicy.bold), // w700
-        depth + 1,
-      ));
+    if (lastIndex < content.length) {
+      spans.add(TextSpan(text: content.substring(lastIndex), style: baseStyle));
     }
 
-    // *italique*
-    else if (match.group(4) != null) {
-      spans.addAll(_parseContent(
-        match.group(4)!,
-        baseStyle.copyWith(fontStyle: FontStyle.italic),
-        depth + 1,
-      ));
-    }
-
-    // @mention
-    else if (match.group(5) != null) {
-      final value = match.group(5)!;
-      final r = TapGestureRecognizer()
-        ..onTap = () {
-          if (mounted) context.push('/network/profile/$value');
-        };
-      _recognizers.add(r);
-
-      spans.add(TextSpan(
-        text: '@$value',
-        style: baseStyle.copyWith(
-          color: ThixPolicy.primary,
-          fontWeight: ThixPolicy.semiBold, // w600
-        ),
-        recognizer: r,
-      ));
-    }
-
-    // #hashtag
-    else if (match.group(6) != null) {
-      final value = match.group(6)!;
-      final r = TapGestureRecognizer()
-        ..onTap = () {
-          if (mounted) context.push('/hashtag/$value');
-        };
-      _recognizers.add(r);
-
-      spans.add(TextSpan(
-        text: '#$value',
-        style: baseStyle.copyWith(
-          color: ThixPolicy.gold,
-          fontWeight: ThixPolicy.semiBold, // w600
-        ),
-        recognizer: r,
-      ));
-    }
-
-    lastIndex = match.end;
+    return spans;
   }
-
-  if (lastIndex < content.length) {
-    spans.add(TextSpan(
-      text: content.substring(lastIndex),
-      style: baseStyle,
-    ));
-  }
-
-  return spans;
-}
 
   Color? _parseColor(String? hexColor) {
     if (hexColor == null || hexColor.isEmpty) return null;
@@ -342,9 +306,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(children: _isExpanded ? (_cachedFullSpans ?? []) : (_cachedTruncatedSpans ?? [])),
-        ),
+        RichText(text: TextSpan(children: _isExpanded ? (_cachedFullSpans ?? []) : (_cachedTruncatedSpans ?? []))),
         if (_isTruncatable)
           GestureDetector(
             onTap: () => setState(() => _isExpanded = !_isExpanded),
@@ -367,29 +329,45 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     context.push('/network/comments/$postId');
   }
 
-  void _openGallery(int initialIndex, List<String> urls) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => _FullScreenGallery(imageUrls: urls, initialIndex: initialIndex)));
+  void _openGallery(int initialIndex, List<String> imageOnlyUrls) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => _FullScreenGallery(imageUrls: imageOnlyUrls, initialIndex: initialIndex)));
   }
 
-  // ── IMAGE PLEINE LARGEUR (AVEC CACHED NETWORK IMAGE) ──
-  Widget _buildImageGrid(List<String> urls, String postId) {
+  void _openVideoFullScreen(String url) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => _FullScreenVideoPlayer(videoUrl: url)));
+  }
+
+  // ── MÉDIAS MIXTES : photos + vidéos dans la même grille ──
+  Widget _buildMediaGrid(List<String> urls) {
     if (urls.isEmpty) return const SizedBox.shrink();
     const spacing = 4.0;
     final radius = BorderRadius.circular(ThixPolicy.rMd);
+    final imageOnlyUrls = urls.where((u) => !_isVideoUrl(u)).toList();
 
-    Widget buildImage(String url, {double? width, double? height}) {
-      return CachedNetworkImage(
-        imageUrl: url,
-        width: width,
-        height: height,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: ThixPolicy.surfaceStrong,
-          child: const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: ThixPolicy.primary))),
-        ),
-        errorWidget: (context, url, error) => Container(
-          color: ThixPolicy.surfaceStrong,
-          child: const Icon(Icons.broken_image_outlined, color: ThixPolicy.textMuted),
+    Widget mediaTile(String url, {double? width, double? height}) {
+      if (_isVideoUrl(url)) {
+        return _VideoThumbTile(
+          videoUrl: url,
+          width: width,
+          height: height,
+          onTap: () => _openVideoFullScreen(url),
+        );
+      }
+      return GestureDetector(
+        onTap: () => _openGallery(imageOnlyUrls.indexOf(url), imageOnlyUrls),
+        child: CachedNetworkImage(
+          imageUrl: url,
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: ThixPolicy.surfaceStrong,
+            child: const Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: ThixPolicy.primary))),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: ThixPolicy.surfaceStrong,
+            child: const Icon(Icons.broken_image_outlined, color: ThixPolicy.textMuted),
+          ),
         ),
       );
     }
@@ -399,29 +377,20 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
         builder: (context, c) {
           final w = c.maxWidth;
           final h = (w * 1.05).clamp(220.0, 480.0);
-          return GestureDetector(
-            onTap: () => _openGallery(0, urls),
-            child: ClipRRect(
-              borderRadius: radius,
-              child: SizedBox(
-                width: w, height: h,
-                child: buildImage(urls[0], width: w, height: h),
-              ),
-            ),
+          return ClipRRect(
+            borderRadius: radius,
+            child: SizedBox(width: w, height: h, child: mediaTile(urls[0], width: w, height: h)),
           );
         },
       );
     }
 
     Widget cell(int i, double h) => Expanded(
-      child: GestureDetector(
-        onTap: () => _openGallery(i, urls),
-        child: ClipRRect(
-          borderRadius: radius,
-          child: buildImage(urls[i], height: h, width: double.infinity),
-        ),
-      ),
-    );
+          child: ClipRRect(
+            borderRadius: radius,
+            child: mediaTile(urls[i], height: h, width: double.infinity),
+          ),
+        );
 
     if (urls.length == 2) {
       return SizedBox(
@@ -437,46 +406,29 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
         children: [
           Expanded(
             flex: 3,
-            child: GestureDetector(
-              onTap: () => _openGallery(0, urls),
-              child: ClipRRect(
-                borderRadius: radius,
-                child: buildImage(urls[0], height: 240, width: double.infinity),
-              ),
-            ),
+            child: ClipRRect(borderRadius: radius, child: mediaTile(urls[0], height: 240, width: double.infinity)),
           ),
           const SizedBox(width: spacing),
           Expanded(
             flex: 2,
             child: Column(
               children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _openGallery(1, urls),
-                    child: ClipRRect(
-                      borderRadius: radius,
-                      child: buildImage(urls[1], width: double.infinity, height: double.infinity),
-                    ),
-                  ),
-                ),
+                Expanded(child: ClipRRect(borderRadius: radius, child: mediaTile(urls[1], width: double.infinity, height: double.infinity))),
                 const SizedBox(height: spacing),
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () => _openGallery(2, urls),
-                    child: ClipRRect(
-                      borderRadius: radius,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          buildImage(urls[2]),
-                          if (urls.length > 3)
-                            Container(
-                              color: Colors.black54,
-                              alignment: Alignment.center,
-                              child: Text('+${urls.length - 3}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                            ),
-                        ],
-                      ),
+                  child: ClipRRect(
+                    borderRadius: radius,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        mediaTile(urls[2]),
+                        if (urls.length > 3)
+                          Container(
+                            color: Colors.black54,
+                            alignment: Alignment.center,
+                            child: Text('+${urls.length - 3}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -553,7 +505,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                             widthFactor: pct.clamp(0.0, 1.0),
                             child: Container(
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: [ThixPolicy.primary.withValues(alpha: 0.14), ThixPolicy.gold.withValues(alpha: 0.10)]),
+                                color: ThixPolicy.primary.withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(ThixPolicy.rXs),
                               ),
                             ),
@@ -592,7 +544,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
       width: double.infinity,
       padding: const EdgeInsets.all(ThixPolicy.s16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [ThixPolicy.tint, ThixPolicy.surface]),
+        color: ThixPolicy.surface,
         borderRadius: BorderRadius.circular(ThixPolicy.rLg),
         border: Border.all(color: ThixPolicy.border),
       ),
@@ -603,8 +555,8 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(gradient: ThixPolicy.goldGradient, shape: BoxShape.circle),
-                child: const Icon(Icons.emoji_events_rounded, color: ThixPolicy.inkDeep, size: 18),
+                decoration: const BoxDecoration(color: ThixPolicy.inkDeep, shape: BoxShape.circle),
+                child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 18),
               ),
               const SizedBox(width: 10),
               const Expanded(child: Text('Challenge THIX', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: ThixPolicy.textMain))),
@@ -618,18 +570,15 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
           const SizedBox(height: 14),
           SizedBox(
             height: 44,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: ThixPolicy.brandGradient,
-                borderRadius: BorderRadius.circular(ThixPolicy.rSm),
-                boxShadow: ThixPolicy.shadowSoft(),
+            child: OutlinedButton.icon(
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participation enregistrée'), backgroundColor: ThixPolicy.success)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ThixPolicy.ink,
+                side: const BorderSide(color: ThixPolicy.inkDeep),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rSm)),
               ),
-              child: TextButton.icon(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participation enregistrée'), backgroundColor: ThixPolicy.success)),
-                style: TextButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rSm))),
-                icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: Colors.white),
-                label: const Text('RELEVER LE DÉFI', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Colors.white, letterSpacing: 0.3)),
-              ),
+              icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+              label: const Text('RELEVER LE DÉFI', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 0.3)),
             ),
           ),
         ],
@@ -637,34 +586,33 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
     );
   }
 
-  // ── FACT-CHECK IA ──
+  // ── FACT-CHECK IA — repositionné en bas de carte, design amélioré ──
   Widget _buildFactCheckBanner(bool isMisinformation, String? message) {
     if (!isMisinformation || message == null || message.isEmpty) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 10, bottom: 4),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(top: ThixPolicy.s12),
+      padding: const EdgeInsets.all(ThixPolicy.s12),
       decoration: BoxDecoration(
-        color: ThixPolicy.danger.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(ThixPolicy.rSm),
-        border: Border.all(color: ThixPolicy.danger.withValues(alpha: 0.3)),
+        color: ThixPolicy.danger.withValues(alpha: 0.045),
+        borderRadius: BorderRadius.circular(ThixPolicy.rMd),
+        border: Border(left: BorderSide(color: ThixPolicy.danger, width: 3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: ThixPolicy.danger.withValues(alpha: 0.12), shape: BoxShape.circle),
-            child: const Icon(Icons.shield_outlined, color: ThixPolicy.danger, size: 16),
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.shield_outlined, color: ThixPolicy.danger, size: 17),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Fact-Check THIX IA', style: TextStyle(color: ThixPolicy.danger, fontWeight: FontWeight.w800, fontSize: 12)),
+                const Text('Fact-Check THIX IA', style: TextStyle(color: ThixPolicy.danger, fontWeight: FontWeight.w800, fontSize: 11.5, letterSpacing: 0.2)),
                 const SizedBox(height: 4),
-                Text(message, style: const TextStyle(color: ThixPolicy.textMain, fontSize: 12, height: 1.35)),
+                Text(message, style: const TextStyle(color: ThixPolicy.textMain, fontSize: 12, height: 1.4)),
               ],
             ),
           ),
@@ -735,11 +683,8 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                               clipBehavior: Clip.none,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(2.2),
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [ThixPolicy.primary, ThixPolicy.inkDeep, ThixPolicy.gold]),
-                                  ),
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ThixPolicy.border, width: 1.4)),
                                   child: CircleAvatar(
                                     radius: 20,
                                     backgroundColor: ThixPolicy.tint,
@@ -764,8 +709,8 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                                       },
                                       child: Container(
                                         width: 20, height: 20,
-                                        decoration: BoxDecoration(shape: BoxShape.circle, color: ThixPolicy.gold, border: Border.all(color: Colors.white, width: 2.5)),
-                                        child: const Icon(Icons.add_rounded, size: 14, color: ThixPolicy.inkDeep),
+                                        decoration: BoxDecoration(shape: BoxShape.circle, color: ThixPolicy.primary, border: Border.all(color: Colors.white, width: 2.5)),
+                                        child: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
                                       ),
                                     ),
                                   ),
@@ -787,7 +732,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                               ),
                             ),
                           ),
-                          
+
                           // ─── Menu Contextuel ───
                           PopupMenuButton<String>(
                             icon: const Icon(Icons.more_vert_rounded, size: 18, color: ThixPolicy.textSecondary),
@@ -891,6 +836,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                           ),
                         ),
 
+                      // ─── TEXTE (toujours affiché si présent) ───
                       _buildPostContent(post),
 
                       if (post.isRepostCard && post.repostOfId != null && post.repostOfId!.isNotEmpty) ...[
@@ -898,23 +844,29 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
                         _OriginalPostEmbed(postId: post.repostOfId!),
                       ],
 
-                      _buildFactCheckBanner(post.isMisinformation, post.factCheckMessage),
+                      // ─── MÉDIAS MIXTES : photos + vidéos ensemble ───
+                      if (!post.isRepostCard && post.imageUrls.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        _buildMediaGrid(post.imageUrls),
+                      ],
 
+                      // ─── AUDIO — peut coexister avec texte/photos ───
                       if (post.hasAudio && post.audioUrls.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _ThixWaveformAudioPlayer(audioUrl: post.audioUrls.first),
-                      ] else if (post.postType == 'poll') ...[
-                        if (post.imageUrls.isNotEmpty) ...[const SizedBox(height: 10), _buildImageGrid(post.imageUrls, post.id)],
+                      ],
+
+                      // ─── TYPES SPÉCIAUX ───
+                      if (post.postType == 'poll') ...[
                         const SizedBox(height: 10),
                         _buildPollWidget(post),
                       ] else if (post.postType == 'challenge') ...[
-                        if (post.imageUrls.isNotEmpty) ...[const SizedBox(height: 10), _buildImageGrid(post.imageUrls, post.id)],
                         const SizedBox(height: 10),
                         _buildChallengeWidget(post),
-                      ] else if (post.imageUrls.isNotEmpty && !post.isRepostCard) ...[
-                        const SizedBox(height: 10),
-                        _buildImageGrid(post.imageUrls, post.id),
                       ],
+
+                      // ─── FACT-CHECK — désormais en bas, juste avant les actions ───
+                      _buildFactCheckBanner(post.isMisinformation, post.factCheckMessage),
 
                       const SizedBox(height: ThixPolicy.s12),
                       const Divider(height: 1, color: ThixPolicy.border),
@@ -991,7 +943,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
 }
 
 // ─────────────────────────────────────────────────────────────
-// EMBED ORIGINAL POST (CACHED NETWORK IMAGE)
+// EMBED ORIGINAL POST
 // ─────────────────────────────────────────────────────────────
 class _OriginalPostEmbed extends ConsumerWidget {
   final String postId;
@@ -1014,7 +966,7 @@ class _OriginalPostEmbed extends ConsumerWidget {
           return Container(
             padding: const EdgeInsets.all(ThixPolicy.s12),
             decoration: BoxDecoration(color: ThixPolicy.surface, borderRadius: BorderRadius.circular(ThixPolicy.rLg), border: Border.all(color: ThixPolicy.border)),
-            child: const Row(children: [Icon(Icons.info_outline, size: 18, color: ThixPolicy.textSecondary), SizedBox(width: 8), Text('Publication d’origine indisponible', style: TextStyle(fontSize: 12, color: ThixPolicy.textSecondary))]),
+            child: const Row(children: [Icon(Icons.info_outline, size: 18, color: ThixPolicy.textSecondary), SizedBox(width: 8), Text('Publication d\'origine indisponible', style: TextStyle(fontSize: 12, color: ThixPolicy.textSecondary))]),
           );
         }
 
@@ -1050,10 +1002,12 @@ class _OriginalPostEmbed extends ConsumerWidget {
                       const SizedBox(height: 10),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(ThixPolicy.rMd),
-                        child: CachedNetworkImage(
-                          imageUrl: original.imageUrls.first, height: 140, width: double.infinity, fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                        ),
+                        child: _isVideoUrl(original.imageUrls.first)
+                            ? _VideoThumbTile(videoUrl: original.imageUrls.first, height: 140, onTap: () {})
+                            : CachedNetworkImage(
+                                imageUrl: original.imageUrls.first, height: 140, width: double.infinity, fit: BoxFit.cover,
+                                errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                              ),
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -1091,7 +1045,7 @@ class _OriginalPostEmbed extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// GALERIE PLEIN ÉCRAN
+// GALERIE PLEIN ÉCRAN (images uniquement)
 // ─────────────────────────────────────────────────────────────
 class _FullScreenGallery extends StatefulWidget {
   final List<String> imageUrls;
@@ -1107,8 +1061,8 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
+    _currentIndex = widget.initialIndex.clamp(0, widget.imageUrls.isEmpty ? 0 : widget.imageUrls.length - 1);
+    _pageController = PageController(initialPage: _currentIndex);
   }
 
   @override
@@ -1145,7 +1099,138 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// LECTEUR AUDIO "WAVEFORM" PREMIUM THIX PRO
+// TUILE VIDÉO (dans la grille de médias) — thumbnail + play, corrige
+// l'ancien bug où les URLs vidéo étaient traitées comme des images
+// (affichage d'une icône "image cassée").
+// ─────────────────────────────────────────────────────────────
+class _VideoThumbTile extends StatefulWidget {
+  final String videoUrl;
+  final double? width;
+  final double? height;
+  final VoidCallback onTap;
+  const _VideoThumbTile({required this.videoUrl, this.width, this.height, required this.onTap});
+
+  @override
+  State<_VideoThumbTile> createState() => _VideoThumbTileState();
+}
+
+class _VideoThumbTileState extends State<_VideoThumbTile> {
+  VideoPlayerController? _controller;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        if (mounted) setState(() => _ready = true);
+      }).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        color: Colors.black,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_ready && _controller != null)
+              FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _controller!.value.size.width,
+                  height: _controller!.value.size.height,
+                  child: VideoPlayer(_controller!),
+                ),
+              )
+            else
+              const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54))),
+            Container(color: Colors.black.withValues(alpha: 0.18)),
+            const Center(
+              child: Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 46),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// LECTEUR VIDÉO PLEIN ÉCRAN
+// ─────────────────────────────────────────────────────────────
+class _FullScreenVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+  const _FullScreenVideoPlayer({required this.videoUrl});
+
+  @override
+  State<_FullScreenVideoPlayer> createState() => _FullScreenVideoPlayerState();
+}
+
+class _FullScreenVideoPlayerState extends State<_FullScreenVideoPlayer> {
+  late final VideoPlayerController _controller;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        if (mounted) {
+          setState(() => _ready = true);
+          _controller.play();
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Center(
+            child: _ready
+                ? AspectRatio(aspectRatio: _controller.value.aspectRatio, child: VideoPlayer(_controller))
+                : const CircularProgressIndicator(color: ThixPolicy.primary),
+          ),
+          if (_ready)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _controller.value.isPlaying ? _controller.pause() : _controller.play()),
+                child: AnimatedOpacity(
+                  opacity: _controller.value.isPlaying ? 0 : 1,
+                  duration: const Duration(milliseconds: 200),
+                  child: const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 72)),
+                ),
+              ),
+            ),
+          Positioned(top: 12, right: 12, child: SafeArea(child: IconButton(onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.close, color: Colors.white)))),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// LECTEUR AUDIO — refonte : monochrome (sans or), plus grand,
+// ondulation plus fine et plus fluide.
 // ─────────────────────────────────────────────────────────────
 class _ThixWaveformAudioPlayer extends StatefulWidget {
   final String audioUrl;
@@ -1159,11 +1244,24 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
-  final List<double> _wavePattern = [
-    0.3, 0.5, 0.4, 0.7, 0.9, 0.6, 0.3, 0.5, 0.8, 1.0, 0.7, 0.4,
-    0.5, 0.8, 0.6, 0.4, 0.7, 0.9, 0.5, 0.3, 0.6, 0.8, 0.5, 0.4,
-    0.7, 1.0, 0.8, 0.5, 0.4, 0.6, 0.9, 0.7, 0.4, 0.5, 0.3
-  ];
+  // Motif d'ondulation plus naturel — davantage de points, variation plus
+  // douce pour un rendu "waveform" fluide plutôt que des barres aléatoires.
+  static final List<double> _wavePattern = List.generate(48, (i) {
+    final base = 0.35 + 0.55 * (0.5 + 0.5 * _sinApprox(i / 48 * 6.28));
+    final micro = (i % 5 == 0) ? 0.12 : 0.0;
+    return (base + micro).clamp(0.22, 1.0);
+  });
+
+  static double _sinApprox(double x) {
+    // approximation simple sans dart:math import supplémentaire nécessaire
+    return _sin(x);
+  }
+
+  static double _sin(double x) {
+    // Taylor series basique — suffisant pour générer un motif visuel varié.
+    final x2 = x * x;
+    return x - (x * x2) / 6 + (x * x2 * x2) / 120 - (x * x2 * x2 * x2) / 5040;
+  }
 
   @override
   void initState() {
@@ -1188,7 +1286,7 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
     final progress = _duration.inMilliseconds > 0 ? _position.inMilliseconds / _duration.inMilliseconds : 0.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s12),
+      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s16),
       decoration: BoxDecoration(
         color: ThixPolicy.inkDeep,
         borderRadius: BorderRadius.circular(ThixPolicy.rLg),
@@ -1199,17 +1297,17 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
           GestureDetector(
             onTap: () { if (_isPlaying) _audioPlayer.pause(); else _audioPlayer.play(UrlSource(widget.audioUrl)); },
             child: Container(
-              width: 44, height: 44,
-              decoration: const BoxDecoration(gradient: ThixPolicy.goldGradient, shape: BoxShape.circle),
-              child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: ThixPolicy.inkDeep, size: 26),
+              width: 52, height: 52,
+              decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: ThixPolicy.inkDeep, size: 28),
             ),
           ),
-          const SizedBox(width: ThixPolicy.s12),
+          const SizedBox(width: ThixPolicy.s16),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                const barWidth = 4.0;
-                const spacing = 3.0;
+                const barWidth = 2.6;
+                const spacing = 2.2;
                 const totalBarWidth = barWidth + spacing;
                 final barCount = (constraints.maxWidth / totalBarWidth).floor();
 
@@ -1220,16 +1318,21 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
                       _audioPlayer.seek(Duration(milliseconds: (_duration.inMilliseconds * tapProgress).round()));
                     }
                   },
-                  child: Container(
-                    height: 38, color: Colors.transparent,
+                  child: SizedBox(
+                    height: 44,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: List.generate(barCount, (index) {
                         final baseHeight = _wavePattern[index % _wavePattern.length];
                         final isPlayed = (index / barCount) <= progress;
                         return Container(
-                          width: barWidth, height: 38 * baseHeight, margin: const EdgeInsets.only(right: spacing),
-                          decoration: BoxDecoration(color: isPlayed ? ThixPolicy.gold : ThixPolicy.tint.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2)),
+                          width: barWidth,
+                          height: 44 * baseHeight,
+                          margin: const EdgeInsets.only(right: spacing),
+                          decoration: BoxDecoration(
+                            color: isPlayed ? Colors.white : Colors.white.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         );
                       }),
                     ),
@@ -1238,8 +1341,11 @@ class _ThixWaveformAudioPlayerState extends State<_ThixWaveformAudioPlayer> {
               },
             ),
           ),
-          const SizedBox(width: ThixPolicy.s12),
-          Text(_formatDuration(_duration.inSeconds > 0 && !_isPlaying && _position.inSeconds == 0 ? _duration : _position), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+          const SizedBox(width: ThixPolicy.s14),
+          Text(
+            _formatDuration(_duration.inSeconds > 0 && !_isPlaying && _position.inSeconds == 0 ? _duration : _position),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
         ],
       ),
     );
