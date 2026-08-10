@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 
 class LocalNotificationService {
   static final LocalNotificationService instance = LocalNotificationService._();
@@ -14,7 +13,6 @@ class LocalNotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
-    // Timezone (utile si tu veux des notifications planifiées plus tard)
     tz.initializeTimeZones();
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -32,16 +30,15 @@ class LocalNotificationService {
     await _plugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) {
-        // Ici tu peux router vers une page selon le payload
-        debugPrint('Notification tapped: ${details.payload}');
+        debugPrint('LocalNotification tapped → payload: ${details.payload}');
+        // Ici tu pourras plus tard faire de la navigation avec go_router
       },
     );
 
-    // Canal haute importance (Android) → pop-up / heads-up
-    const androidChannel = AndroidNotificationChannel(
+    const channel = AndroidNotificationChannel(
       'thix_high_importance',
-      'THIX Notifications importantes',
-      description: 'Notifications prioritaires de THIX ID',
+      'THIX Notifications',
+      description: 'Notifications importantes de THIX ID',
       importance: Importance.high,
       playSound: true,
       enableVibration: true,
@@ -49,39 +46,36 @@ class LocalNotificationService {
 
     await _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(androidChannel);
+        ?.createNotificationChannel(channel);
 
     _initialized = true;
+    debugPrint('LocalNotificationService: initialized');
   }
 
-  /// Demande les permissions (Android 13+ + iOS)
   Future<bool> requestPermission() async {
     if (defaultTargetPlatform == TargetPlatform.android) {
       final status = await Permission.notification.request();
       return status.isGranted;
     }
-    // iOS : déjà demandé dans DarwinInitializationSettings
     return true;
   }
 
-  /// Affiche une pop notification
   Future<void> show({
     required int id,
     required String title,
     required String body,
     String? payload,
   }) async {
-    await init();
+    if (!_initialized) await init();
 
     const androidDetails = AndroidNotificationDetails(
       'thix_high_importance',
-      'THIX Notifications importantes',
-      channelDescription: 'Notifications prioritaires de THIX ID',
+      'THIX Notifications',
+      channelDescription: 'Notifications importantes de THIX ID',
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
-      // icon: 'ic_notification', // optionnel si tu as une icône dédiée
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -90,11 +84,12 @@ class LocalNotificationService {
       presentSound: true,
     );
 
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
+    await _plugin.show(
+      id,
+      title,
+      body,
+      const NotificationDetails(android: androidDetails, iOS: iosDetails),
+      payload: payload,
     );
-
-    await _plugin.show(id, title, body, details, payload: payload);
   }
 }
