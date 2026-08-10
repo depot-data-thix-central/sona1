@@ -4,9 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thix_id/models/network_community.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
-import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart'; // Ajustez l'import
+import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart'; 
 
-/// 1. L'objet d'état immuable
 class CommunityDetailState {
   final NetworkCommunity community;
   final List<NetworkPost> posts;
@@ -39,7 +38,6 @@ class CommunityDetailState {
   }
 }
 
-/// 2. Le Notifier qui gère toute la logique
 class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDetailState, String> {
   static const int _limit = 20;
   int _postsOffset = 0;
@@ -56,8 +54,13 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
 
     final results = await Future.wait([
       supabase.from('communities').select('*').eq('id', communityId).maybeSingle(),
-      supabase.from('community_members').select('users!user_id (id, display_name, photo_url, profession)').eq('community_id', communityId).limit(50),
-      supabase.from('posts').select('*, users!user_id (display_name, photo_url, profession)').eq('community_id', communityId).order('created_at', ascending: false).range(0, _limit - 1),
+      
+      // ✅ CORRECTION ICI : users:profiles!user_id
+      supabase.from('community_members').select('users:profiles!user_id (id, display_name, photo_url, profession)').eq('community_id', communityId).limit(50),
+      
+      // ✅ CORRECTION ICI : users:profiles!user_id
+      supabase.from('posts').select('*, users:profiles!user_id (display_name, photo_url, profession)').eq('community_id', communityId).order('created_at', ascending: false).range(0, _limit - 1),
+      
       currentUserId != null ? supabase.from('community_members').select('id').eq('community_id', communityId).eq('user_id', currentUserId).maybeSingle() : Future.value(null),
     ]);
 
@@ -76,7 +79,7 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
       members: membersData.map((e) => e['users'] as Map<String, dynamic>).toList(),
       posts: posts,
       isMember: memberCheck != null,
-      hasMorePosts: posts.length >= _limit, // Sécurité pour la pagination
+      hasMorePosts: posts.length >= _limit, 
     );
   }
 
@@ -105,7 +108,9 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
 
     try {
       final supabase = ref.read(supabaseClientProvider);
-      final res = await supabase.from('posts').select('*, users!user_id (display_name, photo_url, profession)')
+      
+      // ✅ CORRECTION ICI : users:profiles!user_id
+      final res = await supabase.from('posts').select('*, users:profiles!user_id (display_name, photo_url, profession)')
           .eq('community_id', arg)
           .order('created_at', ascending: false)
           .range(_postsOffset, _postsOffset + _limit - 1);
@@ -123,7 +128,7 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
         hasMorePosts: morePosts.length >= _limit,
       ));
     } catch (_) {
-      // Échec silencieux pour ne pas bloquer l'UI lors de la pagination
+      // Échec silencieux
     }
   }
 
@@ -134,7 +139,6 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
     final wasMember = currentState.isMember;
     final currentCount = currentState.community.membersCount;
 
-    // UI Optimiste : mise à jour instantanée
     state = AsyncData(currentState.copyWith(
       isMember: !wasMember,
       community: currentState.community.copyWith(membersCount: wasMember ? (currentCount - 1) : (currentCount + 1))
@@ -149,7 +153,6 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
         await supabase.from('community_members').insert({'community_id': arg, 'user_id': uid, 'joined_at': DateTime.now().toIso8601String()});
       }
     } catch (e) {
-      // Retour à l'état initial en cas d'erreur
       state = AsyncData(currentState);
       throw Exception("Erreur de synchronisation réseau");
     }
@@ -168,7 +171,6 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
     final updatedPosts = List<NetworkPost>.from(currentState.posts);
     updatedPosts[postIndex] = post.copyWith(isLiked: newIsLiked, likesCount: post.likesCount + (newIsLiked ? 1 : -1));
 
-    // UI Optimiste
     state = AsyncData(currentState.copyWith(posts: updatedPosts));
 
     try {
@@ -178,13 +180,11 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
         await ref.read(networkServiceProvider).unlikePost(postId);
       }
     } catch (_) {
-      // Re-synchronisation propre en cas d'erreur
       ref.invalidateSelf();
     }
   }
 }
 
-// 3. Le Provider
 final communityDetailProvider = AsyncNotifierProvider.autoDispose.family<CommunityDetailNotifier, CommunityDetailState, String>(
   CommunityDetailNotifier.new
 );
