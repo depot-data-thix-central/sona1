@@ -9,16 +9,18 @@ class _ServiceItemData {
   final String key;
   final IconData icon;
   final String title;
+  final Color color;
   final int? badge;
   const _ServiceItemData({
     required this.key,
     required this.icon,
     required this.title,
+    required this.color,
     this.badge,
   });
 }
 
-class HomeServicesConstellation extends StatefulWidget {
+class HomeServicesConstellation extends StatelessWidget {
   final SectionBadgeCounts counts;
   final void Function(String key) onServiceTap;
   final VoidCallback onHomeTap;
@@ -38,53 +40,30 @@ class HomeServicesConstellation extends StatefulWidget {
     required this.onScanTap,
   });
 
-  @override
-  State<HomeServicesConstellation> createState() => _HomeServicesConstellationState();
-}
-
-class _HomeServicesConstellationState extends State<HomeServicesConstellation> {
-  bool _expanded = false;
-
-  /// Couleur unique appliquée à toutes les icônes de service — évite l'effet
-  /// "arc-en-ciel" et donne un rendu mono-chrome propre façon capture de
-  /// référence (icônes bleu marine, sans fond ni contour).
-  static const Color _iconColor = ThixPolicy.primaryDeep;
-
   List<_ServiceItemData> _services(AppLocalizations l10n) {
-    final c = widget.counts;
+    final c = counts;
     return [
-      // Logo TDIA repensé : lecture de contenu vidéo court format (inspiré du
-      // contenu TikTok-style vu dans THIX MEDIA) plutôt qu'un simple bouton play.
-      _ServiceItemData(key: 'thixMedia', icon: Icons.smart_display_rounded, title: 'TDIA', badge: c.media),
-      _ServiceItemData(key: 'thixMarket', icon: Icons.storefront_rounded, title: l10n.t('serviceMarket'), badge: c.market),
-      _ServiceItemData(key: 'formations', icon: Icons.school_rounded, title: l10n.t('serviceFormations'), badge: c.formations),
-      _ServiceItemData(key: 'emplois', icon: Icons.work_rounded, title: l10n.t('serviceEmplois'), badge: c.jobs),
-      _ServiceItemData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX MEDIA', badge: c.info),
-      _ServiceItemData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: l10n.t('serviceOpportunites'), badge: c.opportunities),
-      _ServiceItemData(key: 'evenements', icon: Icons.event_rounded, title: l10n.t('serviceEvenements'), badge: c.events),
+      // Logo TDIA repensé : lecture de contenu vidéo court format.
+      _ServiceItemData(key: 'thixMedia', icon: Icons.smart_display_rounded, title: 'TDIA', color: ThixPolicy.domainMedia, badge: c.media),
+      _ServiceItemData(key: 'thixMarket', icon: Icons.storefront_rounded, title: l10n.t('serviceMarket'), color: ThixPolicy.domainMarket, badge: c.market),
+      _ServiceItemData(key: 'formations', icon: Icons.school_rounded, title: l10n.t('serviceFormations'), color: ThixPolicy.domainLearning, badge: c.formations),
+      _ServiceItemData(key: 'emplois', icon: Icons.work_rounded, title: l10n.t('serviceEmplois'), color: ThixPolicy.domainJobs, badge: c.jobs),
+      _ServiceItemData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX MEDIA', color: ThixPolicy.domainInfo, badge: c.info),
+      _ServiceItemData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: l10n.t('serviceOpportunites'), color: ThixPolicy.domainOpportunity, badge: c.opportunities),
+      _ServiceItemData(key: 'evenements', icon: Icons.event_rounded, title: l10n.t('serviceEvenements'), color: ThixPolicy.domainEvents, badge: c.events),
       // Renommé "Réseau Pro" → "THIX Pro"
-      _ServiceItemData(key: 'reseauPro', icon: Icons.groups_rounded, title: 'THIX Pro', badge: c.network),
-      _ServiceItemData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: l10n.t('serviceSante'), badge: c.health),
-      _ServiceItemData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: l10n.t('serviceMoney'), badge: c.money),
-      _ServiceItemData(key: 'monPays', icon: Icons.flag_rounded, title: l10n.t('serviceMonPays'), badge: c.monPays),
-      _ServiceItemData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: l10n.t('serviceReservation'), badge: c.reservation),
+      _ServiceItemData(key: 'reseauPro', icon: Icons.groups_rounded, title: 'THIX Pro', color: ThixPolicy.domainNetwork, badge: c.network),
+      _ServiceItemData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: l10n.t('serviceSante'), color: ThixPolicy.domainHealth, badge: c.health),
+      _ServiceItemData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: l10n.t('serviceMoney'), color: ThixPolicy.domainMoney, badge: c.money),
+      _ServiceItemData(key: 'monPays', icon: Icons.flag_rounded, title: l10n.t('serviceMonPays'), color: ThixPolicy.domainGov, badge: c.monPays),
+      _ServiceItemData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: l10n.t('serviceReservation'), color: ThixPolicy.domainReservation, badge: c.reservation),
     ];
-  }
-
-  void _toggleExpanded() {
-    HapticFeedback.selectionClick();
-    setState(() => _expanded = !_expanded);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final services = _services(l10n);
-
-    // 2 lignes de 4 par défaut = 8 items visibles
-    const visibleCount = 8;
-    final showToggle = services.length > visibleCount;
-    final displayed = _expanded ? services : services.take(visibleCount).toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s20),
@@ -104,7 +83,7 @@ class _HomeServicesConstellationState extends State<HomeServicesConstellation> {
           ),
           const SizedBox(height: ThixPolicy.s12),
 
-          // ─── GRILLE DE SERVICES — icônes épurées, monochromes, sans fond ───
+          // ─── GRILLE DE SERVICES — toutes visibles, icônes libres, couleurs par domaine ───
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -115,41 +94,12 @@ class _HomeServicesConstellationState extends State<HomeServicesConstellation> {
               crossAxisSpacing: ThixPolicy.s4,
               childAspectRatio: 0.85,
             ),
-            itemCount: displayed.length,
+            itemCount: services.length,
             itemBuilder: (_, i) => _ServiceGridItem(
-              data: displayed[i],
-              iconColor: _iconColor,
-              onTap: () => widget.onServiceTap(displayed[i].key),
+              data: services[i],
+              onTap: () => onServiceTap(services[i].key),
             ),
           ),
-
-          if (showToggle) ...[
-            const SizedBox(height: ThixPolicy.s8),
-            Center(
-              child: InkWell(
-                onTap: _toggleExpanded,
-                borderRadius: BorderRadius.circular(ThixPolicy.rFull),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s12, vertical: ThixPolicy.s4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _expanded ? l10n.t('showLess') : l10n.t('showMore'),
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: ThixPolicy.primary),
-                      ),
-                      const SizedBox(width: 4),
-                      AnimatedRotation(
-                        turns: _expanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        child: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: ThixPolicy.primary),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -157,13 +107,12 @@ class _HomeServicesConstellationState extends State<HomeServicesConstellation> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CARTE DE SERVICE — icône libre (pas de contour/fond), mono-couleur
+// CARTE DE SERVICE — icône libre (pas de contour/fond), couleur par domaine
 // ═══════════════════════════════════════════════════════════════════════════
 class _ServiceGridItem extends StatefulWidget {
   final _ServiceItemData data;
-  final Color iconColor;
   final VoidCallback onTap;
-  const _ServiceGridItem({required this.data, required this.iconColor, required this.onTap});
+  const _ServiceGridItem({required this.data, required this.onTap});
 
   @override
   State<_ServiceGridItem> createState() => _ServiceGridItemState();
@@ -205,7 +154,7 @@ class _ServiceGridItemState extends State<_ServiceGridItem> with SingleTickerPro
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(d.icon, color: widget.iconColor, size: 30),
+                Icon(d.icon, color: d.color, size: 30),
                 if (d.badge != null && d.badge! > 0)
                   Positioned(
                     top: -4, right: -8,
