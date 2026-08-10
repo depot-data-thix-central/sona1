@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thix_id/models/network_community.dart';
 import 'package:thix_id/models/network_post.dart';
 import 'package:thix_id/features/network/data/network_service_provider.dart';
-import 'package:thix_id/features/auth/presentation/providers/auth_controller.dart'; 
 
 class CommunityDetailState {
   final NetworkCommunity community;
@@ -38,7 +37,8 @@ class CommunityDetailState {
   }
 }
 
-class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDetailState, String> {
+class CommunityDetailNotifier
+    extends AutoDisposeFamilyAsyncNotifier<CommunityDetailState, String> {
   static const int _limit = 20;
   int _postsOffset = 0;
 
@@ -53,19 +53,47 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
     final currentUserId = supabase.auth.currentUser?.id;
 
     final results = await Future.wait([
-      supabase.from('communities').select('*').eq('id', communityId).maybeSingle(),
-      
-      // ✅ CORRECTION ICI : users:profiles!user_id
-      supabase.from('community_members').select('users:profiles!user_id (id, display_name, photo_url, profession)').eq('community_id', communityId).limit(50),
-      
-      // ✅ CORRECTION ICI : users:profiles!user_id
-      supabase.from('posts').select('*, users:profiles!user_id (display_name, photo_url, profession)').eq('community_id', communityId).order('created_at', ascending: false).range(0, _limit - 1),
-      
-      currentUserId != null ? supabase.from('community_members').select('id').eq('community_id', communityId).eq('user_id', currentUserId).maybeSingle() : Future.value(null),
+      // Communauté
+      supabase
+          .from('communities')
+          .select('*')
+          .eq('id', communityId)
+          .maybeSingle(),
+
+      // Membres — join explicite
+      supabase
+          .from('community_members')
+          .select(
+            'user_id, profiles!community_members_user_id_fkey(id, display_name, avatar_url, photo_url, profession)',
+          )
+          .eq('community_id', communityId)
+          .limit(50),
+
+      // Posts — join EXPLICITE avec le nom de la FK (corrige PGRST201)
+      supabase
+          .from('posts')
+          .select(
+            '*, profiles!posts_user_id_fkey(display_name, avatar_url, photo_url, profession)',
+          )
+          .eq('community_id', communityId)
+          .order('created_at', ascending: false)
+          .range(0, _limit - 1),
+
+      // Est-ce que je suis membre ?
+      currentUserId != null
+          ? supabase
+              .from('community_members')
+              .select('id')
+              .eq('community_id', communityId)
+              .eq('user_id', currentUserId)
+              .maybeSingle()
+          : Future.value(null),
     ]);
 
     final communityData = results[0] as Map<String, dynamic>?;
-    if (communityData == null) throw Exception('Communauté introuvable');
+    if (communityData == null) {
+      throw Exception('Communauté introuvable');
+    }
 
     final membersData = results[1] as List<dynamic>;
     final postsData = results[2] as List<dynamic>;
@@ -74,31 +102,52 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
     final posts = postsData.map((e) => _mapPost(e)).toList();
     _postsOffset = posts.length;
 
+    // Normalise les membres
+    final members = membersData.map((e) {
+      final profile = e['profiles'] as Map<String, dynamic>?;
+      return {
+        'id': profile?['id'] ?? e['user_id'],
+        'display_name': profile?['display_name'] ?? 'Utilisateur',
+        'photo_url': profile?['avatar_url'] ?? profile?['photo_url'],
+        'profession': profile?['profession'],
+      };
+    }).toList();
+
     return CommunityDetailState(
-      community: NetworkCommunity.fromJson({...communityData, 'members_count': communityData['members_count'] ?? 0}),
-      members: membersData.map((e) => e['users'] as Map<String, dynamic>).toList(),
+      community: NetworkCommunity.fromJson({
+        ...communityData,
+        'members_count': communityData['members_count'] ?? members.length,
+      }),
+      members: members,
       posts: posts,
       isMember: memberCheck != null,
-      hasMorePosts: posts.length >= _limit, 
+      hasMorePosts: posts.length >= _limit,
     );
   }
 
   NetworkPost _mapPost(dynamic e) {
-    final row = e as Map<String, dynamic>;
-    final userData = row['users'] as Map<String, dynamic>?;
+    final row = Map<String, dynamic>.from(e as Map);
+    final userData = row['profiles'] as Map<String, dynamic>?;
+
     return NetworkPost.fromJson({
       ...row,
       'author_name': userData?['display_name'] ?? 'Utilisateur',
-      'author_avatar': userData?['photo_url'],
+      'author_avatar': userData?['avatar_url'] ?? userData?['photo_url'],
       'author_title': userData?['profession'],
       'media_urls': _extractMediaUrls(row),
     });
   }
 
   List<String> _extractMediaUrls(Map<String, dynamic> row) {
-    if (row['media_urls'] != null) return List<String>.from(row['media_urls'] as List);
-    if (row['media_url'] != null && row['media_url'].toString().isNotEmpty) return [row['media_url'].toString()];
-    if (row['image_urls'] != null) return List<String>.from(row['image_urls'] as List);
+    if (row['media_urls'] != null) {
+      return List<String>.from(row['media_urls'] as List);
+    }
+    if (row['media_url'] != null && row['media_url'].toString().isNotEmpty) {
+      return [row['media_url'].toString()];
+    }
+    if (row['image_urls'] != null) {
+      return List<String>.from(row['image_urls'] as List);
+    }
     return [];
   }
 
@@ -108,27 +157,32 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
 
     try {
       final supabase = ref.read(supabaseClientProvider);
-      
-      // ✅ CORRECTION ICI : users:profiles!user_id
-      final res = await supabase.from('posts').select('*, users:profiles!user_id (display_name, photo_url, profession)')
+
+      final res = await supabase
+          .from('posts')
+          .select(
+            '*, profiles!posts_user_id_fkey(display_name, avatar_url, photo_url, profession)',
+          )
           .eq('community_id', arg)
           .order('created_at', ascending: false)
           .range(_postsOffset, _postsOffset + _limit - 1);
 
-      if (res.isEmpty) {
+      if ((res as List).isEmpty) {
         state = AsyncData(currentState.copyWith(hasMorePosts: false));
         return;
       }
 
-      final morePosts = (res as List).map((e) => _mapPost(e)).toList();
+      final morePosts = res.map((e) => _mapPost(e)).toList();
       _postsOffset += morePosts.length;
 
-      state = AsyncData(currentState.copyWith(
-        posts: [...currentState.posts, ...morePosts],
-        hasMorePosts: morePosts.length >= _limit,
-      ));
-    } catch (_) {
-      // Échec silencieux
+      state = AsyncData(
+        currentState.copyWith(
+          posts: [...currentState.posts, ...morePosts],
+          hasMorePosts: morePosts.length >= _limit,
+        ),
+      );
+    } catch (e) {
+      // ignore silencieux pour la pagination
     }
   }
 
@@ -139,22 +193,36 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
     final wasMember = currentState.isMember;
     final currentCount = currentState.community.membersCount;
 
-    state = AsyncData(currentState.copyWith(
-      isMember: !wasMember,
-      community: currentState.community.copyWith(membersCount: wasMember ? (currentCount - 1) : (currentCount + 1))
-    ));
+    // Optimistic UI
+    state = AsyncData(
+      currentState.copyWith(
+        isMember: !wasMember,
+        community: currentState.community.copyWith(
+          membersCount: wasMember ? (currentCount - 1) : (currentCount + 1),
+        ),
+      ),
+    );
 
     try {
       final supabase = ref.read(supabaseClientProvider);
       final uid = supabase.auth.currentUser!.id;
+
       if (wasMember) {
-        await supabase.from('community_members').delete().eq('community_id', arg).eq('user_id', uid);
+        await supabase
+            .from('community_members')
+            .delete()
+            .eq('community_id', arg)
+            .eq('user_id', uid);
       } else {
-        await supabase.from('community_members').insert({'community_id': arg, 'user_id': uid, 'joined_at': DateTime.now().toIso8601String()});
+        await supabase.from('community_members').insert({
+          'community_id': arg,
+          'user_id': uid,
+          'joined_at': DateTime.now().toIso8601String(),
+        });
       }
-    } catch (e) {
-      state = AsyncData(currentState);
-      throw Exception("Erreur de synchronisation réseau");
+    } catch (_) {
+      state = AsyncData(currentState); // rollback
+      throw Exception('Erreur de synchronisation réseau');
     }
   }
 
@@ -167,9 +235,12 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
 
     final post = currentState.posts[postIndex];
     final newIsLiked = !post.isLiked;
-    
+
     final updatedPosts = List<NetworkPost>.from(currentState.posts);
-    updatedPosts[postIndex] = post.copyWith(isLiked: newIsLiked, likesCount: post.likesCount + (newIsLiked ? 1 : -1));
+    updatedPosts[postIndex] = post.copyWith(
+      isLiked: newIsLiked,
+      likesCount: post.likesCount + (newIsLiked ? 1 : -1),
+    );
 
     state = AsyncData(currentState.copyWith(posts: updatedPosts));
 
@@ -185,6 +256,7 @@ class CommunityDetailNotifier extends AutoDisposeFamilyAsyncNotifier<CommunityDe
   }
 }
 
-final communityDetailProvider = AsyncNotifierProvider.autoDispose.family<CommunityDetailNotifier, CommunityDetailState, String>(
-  CommunityDetailNotifier.new
+final communityDetailProvider = AsyncNotifierProvider.autoDispose
+    .family<CommunityDetailNotifier, CommunityDetailState, String>(
+  CommunityDetailNotifier.new,
 );
