@@ -9,24 +9,13 @@ class _ServiceItemData {
   final String key;
   final IconData icon;
   final String title;
-  final Color color;
-  final Color bgColor;
   final int? badge;
   const _ServiceItemData({
     required this.key,
     required this.icon,
     required this.title,
-    required this.color,
-    required this.bgColor,
     this.badge,
   });
-}
-
-class _QuickHubItemData {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _QuickHubItemData({required this.icon, required this.label, required this.onTap});
 }
 
 class HomeServicesConstellation extends StatefulWidget {
@@ -56,21 +45,29 @@ class HomeServicesConstellation extends StatefulWidget {
 class _HomeServicesConstellationState extends State<HomeServicesConstellation> {
   bool _expanded = false;
 
+  /// Couleur unique appliquée à toutes les icônes de service — évite l'effet
+  /// "arc-en-ciel" et donne un rendu mono-chrome propre façon capture de
+  /// référence (icônes bleu marine, sans fond ni contour).
+  static const Color _iconColor = ThixPolicy.primaryDeep;
+
   List<_ServiceItemData> _services(AppLocalizations l10n) {
     final c = widget.counts;
     return [
-      _ServiceItemData(key: 'thixMedia', icon: Icons.play_circle_filled_rounded, title: 'TDIA', color: ThixPolicy.domainMedia, bgColor: ThixPolicy.domainMedia.withValues(alpha: 0.10), badge: c.media),
-      _ServiceItemData(key: 'thixMarket', icon: Icons.storefront_rounded, title: l10n.t('serviceMarket'), color: ThixPolicy.domainMarket, bgColor: ThixPolicy.domainMarket.withValues(alpha: 0.10), badge: c.market),
-      _ServiceItemData(key: 'formations', icon: Icons.school_rounded, title: l10n.t('serviceFormations'), color: ThixPolicy.domainLearning, bgColor: ThixPolicy.domainLearning.withValues(alpha: 0.10), badge: c.formations),
-      _ServiceItemData(key: 'emplois', icon: Icons.work_rounded, title: l10n.t('serviceEmplois'), color: ThixPolicy.domainJobs, bgColor: ThixPolicy.domainJobs.withValues(alpha: 0.10), badge: c.jobs),
-      _ServiceItemData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX MEDIA', color: ThixPolicy.domainInfo, bgColor: ThixPolicy.domainInfo.withValues(alpha: 0.10), badge: c.info),
-      _ServiceItemData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: l10n.t('serviceOpportunites'), color: ThixPolicy.domainOpportunity, bgColor: ThixPolicy.domainOpportunity.withValues(alpha: 0.10), badge: c.opportunities),
-      _ServiceItemData(key: 'evenements', icon: Icons.event_rounded, title: l10n.t('serviceEvenements'), color: ThixPolicy.domainEvents, bgColor: ThixPolicy.domainEvents.withValues(alpha: 0.10), badge: c.events),
-      _ServiceItemData(key: 'reseauPro', icon: Icons.groups_rounded, title: l10n.t('serviceReseauPro'), color: ThixPolicy.domainNetwork, bgColor: ThixPolicy.domainNetwork.withValues(alpha: 0.10), badge: c.network),
-      _ServiceItemData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: l10n.t('serviceSante'), color: ThixPolicy.domainHealth, bgColor: ThixPolicy.domainHealth.withValues(alpha: 0.10), badge: c.health),
-      _ServiceItemData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: l10n.t('serviceMoney'), color: ThixPolicy.domainMoney, bgColor: ThixPolicy.domainMoney.withValues(alpha: 0.10), badge: c.money),
-      _ServiceItemData(key: 'monPays', icon: Icons.flag_rounded, title: l10n.t('serviceMonPays'), color: ThixPolicy.domainGov, bgColor: ThixPolicy.domainGov.withValues(alpha: 0.10), badge: c.monPays),
-      _ServiceItemData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: l10n.t('serviceReservation'), color: ThixPolicy.domainReservation, bgColor: ThixPolicy.domainReservation.withValues(alpha: 0.10), badge: c.reservation),
+      // Logo TDIA repensé : lecture de contenu vidéo court format (inspiré du
+      // contenu TikTok-style vu dans THIX MEDIA) plutôt qu'un simple bouton play.
+      _ServiceItemData(key: 'thixMedia', icon: Icons.smart_display_rounded, title: 'TDIA', badge: c.media),
+      _ServiceItemData(key: 'thixMarket', icon: Icons.storefront_rounded, title: l10n.t('serviceMarket'), badge: c.market),
+      _ServiceItemData(key: 'formations', icon: Icons.school_rounded, title: l10n.t('serviceFormations'), badge: c.formations),
+      _ServiceItemData(key: 'emplois', icon: Icons.work_rounded, title: l10n.t('serviceEmplois'), badge: c.jobs),
+      _ServiceItemData(key: 'thixInfo', icon: Icons.newspaper_rounded, title: 'THIX MEDIA', badge: c.info),
+      _ServiceItemData(key: 'opportunites', icon: Icons.lightbulb_rounded, title: l10n.t('serviceOpportunites'), badge: c.opportunities),
+      _ServiceItemData(key: 'evenements', icon: Icons.event_rounded, title: l10n.t('serviceEvenements'), badge: c.events),
+      // Renommé "Réseau Pro" → "THIX Pro"
+      _ServiceItemData(key: 'reseauPro', icon: Icons.groups_rounded, title: 'THIX Pro', badge: c.network),
+      _ServiceItemData(key: 'thixSante', icon: Icons.local_hospital_rounded, title: l10n.t('serviceSante'), badge: c.health),
+      _ServiceItemData(key: 'thixMoney', icon: Icons.account_balance_wallet_rounded, title: l10n.t('serviceMoney'), badge: c.money),
+      _ServiceItemData(key: 'monPays', icon: Icons.flag_rounded, title: l10n.t('serviceMonPays'), badge: c.monPays),
+      _ServiceItemData(key: 'reservation', icon: Icons.confirmation_number_rounded, title: l10n.t('serviceReservation'), badge: c.reservation),
     ];
   }
 
@@ -84,15 +81,7 @@ class _HomeServicesConstellationState extends State<HomeServicesConstellation> {
     final l10n = AppLocalizations.of(context);
     final services = _services(l10n);
 
-    final hubItems = <_QuickHubItemData>[
-      _QuickHubItemData(icon: Icons.home_filled, label: l10n.t('hub_home'), onTap: widget.onHomeTap),
-      _QuickHubItemData(icon: Icons.apps_rounded, label: l10n.t('hub_mini_apps'), onTap: widget.onMiniAppsTap),
-      _QuickHubItemData(icon: Icons.folder_rounded, label: l10n.t('hub_documents'), onTap: widget.onDocumentsTap),
-      _QuickHubItemData(icon: Icons.person_outline_rounded, label: l10n.t('hub_profile'), onTap: widget.onProfileTap),
-      _QuickHubItemData(icon: Icons.qr_code_scanner_rounded, label: l10n.t('hub_scan_qr'), onTap: widget.onScanTap),
-    ];
-
-    // Nombre de services visibles avant "Voir plus" (2 lignes de 4 = 8)
+    // 2 lignes de 4 par défaut = 8 items visibles
     const visibleCount = 8;
     final showToggle = services.length > visibleCount;
     final displayed = _expanded ? services : services.take(visibleCount).toList();
@@ -115,52 +104,33 @@ class _HomeServicesConstellationState extends State<HomeServicesConstellation> {
           ),
           const SizedBox(height: ThixPolicy.s12),
 
-          // ─── RACCOURCIS RAPIDES (remplace le hub radial) ───
-          SizedBox(
-            height: 72,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: hubItems.length,
-              separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s12),
-              itemBuilder: (_, i) {
-                final item = hubItems[i];
-                return _QuickHubButton(icon: item.icon, label: item.label, onTap: item.onTap);
-              },
-            ),
-          ),
-
-          const SizedBox(height: ThixPolicy.s20),
-
-          // ─── GRILLE DE SERVICES ───
+          // ─── GRILLE DE SERVICES — icônes épurées, monochromes, sans fond ───
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              mainAxisSpacing: ThixPolicy.s16,
-              crossAxisSpacing: ThixPolicy.s8,
-              childAspectRatio: 0.78,
+              mainAxisSpacing: ThixPolicy.s12,
+              crossAxisSpacing: ThixPolicy.s4,
+              childAspectRatio: 0.85,
             ),
             itemCount: displayed.length,
             itemBuilder: (_, i) => _ServiceGridItem(
               data: displayed[i],
+              iconColor: _iconColor,
               onTap: () => widget.onServiceTap(displayed[i].key),
             ),
           ),
 
           if (showToggle) ...[
-            const SizedBox(height: ThixPolicy.s12),
+            const SizedBox(height: ThixPolicy.s8),
             Center(
               child: InkWell(
                 onTap: _toggleExpanded,
                 borderRadius: BorderRadius.circular(ThixPolicy.rFull),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s8),
-                  decoration: BoxDecoration(
-                    color: ThixPolicy.tint,
-                    borderRadius: BorderRadius.circular(ThixPolicy.rFull),
-                  ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s12, vertical: ThixPolicy.s4),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -187,59 +157,13 @@ class _HomeServicesConstellationState extends State<HomeServicesConstellation> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BOUTON RACCOURCI RAPIDE (remplace les satellites du hub)
-// ═══════════════════════════════════════════════════════════════════════════
-class _QuickHubButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _QuickHubButton({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: SizedBox(
-        width: 62,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 46, height: 46,
-              decoration: BoxDecoration(
-                color: ThixPolicy.tint,
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: ThixPolicy.border),
-              ),
-              alignment: Alignment.center,
-              child: Icon(icon, size: 20, color: ThixPolicy.primary),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: ThixPolicy.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CARTE DE SERVICE DANS LA GRILLE
+// CARTE DE SERVICE — icône libre (pas de contour/fond), mono-couleur
 // ═══════════════════════════════════════════════════════════════════════════
 class _ServiceGridItem extends StatefulWidget {
   final _ServiceItemData data;
+  final Color iconColor;
   final VoidCallback onTap;
-  const _ServiceGridItem({required this.data, required this.onTap});
+  const _ServiceGridItem({required this.data, required this.iconColor, required this.onTap});
 
   @override
   State<_ServiceGridItem> createState() => _ServiceGridItemState();
@@ -253,7 +177,7 @@ class _ServiceGridItemState extends State<_ServiceGridItem> with SingleTickerPro
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 120));
-    _scale = Tween<double>(begin: 1.0, end: 0.93).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _scale = Tween<double>(begin: 1.0, end: 0.90).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -281,18 +205,10 @@ class _ServiceGridItemState extends State<_ServiceGridItem> with SingleTickerPro
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Container(
-                  width: 54, height: 54,
-                  decoration: BoxDecoration(
-                    color: d.bgColor,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(d.icon, color: d.color, size: 24),
-                ),
+                Icon(d.icon, color: widget.iconColor, size: 30),
                 if (d.badge != null && d.badge! > 0)
                   Positioned(
-                    top: -4, right: -6,
+                    top: -4, right: -8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                       decoration: BoxDecoration(
