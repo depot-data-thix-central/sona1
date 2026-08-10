@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // ✅ Ajout du cache
 
 // ✅ THIX Design System v1
 import 'package:thix_id/core/theme/thix_design_policy.dart';
@@ -20,13 +21,10 @@ import 'widgets/create_story_dialog.dart';
 import 'widgets/post_card.dart';
 import 'widgets/story_viewer.dart';
 import 'package:thix_id/presentation/network/live/live_prep_screen.dart';
+import 'package:thix_id/presentation/network/live/live_viewer_screen.dart'; // ✅ Import de l'écran spectateur
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PALETTE THIX PRO — Monochrome Entreprise
-// ═══════════════════════════════════════════════════════════════════════════
-// Un seul accent (bleu marque). Le rouge n'apparaît QUE pour le signal LIVE,
-// jamais utilisé décorativement ailleurs — contrairement à Facebook où
-// chaque section a sa propre couleur (bleu like, rouge notif, vert online...).
 // ═══════════════════════════════════════════════════════════════════════════
 class _Pro {
   _Pro._();
@@ -91,8 +89,14 @@ class RoundAvatar extends StatelessWidget {
           child: ClipOval(
             child: Container(
               color: _Pro.surface,
+              // ✅ Utilisation de CachedNetworkImage pour l'avatar
               child: (imageUrl != null && imageUrl!.isNotEmpty)
-                  ? Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(fallbackIcon, size: size * 0.45, color: _Pro.textSecondary))
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl!, 
+                      fit: BoxFit.cover, 
+                      placeholder: (_, __) => Container(color: _Pro.surface),
+                      errorWidget: (_, __, ___) => Icon(fallbackIcon, size: size * 0.45, color: _Pro.textSecondary)
+                    )
                   : Icon(fallbackIcon, size: size * 0.45, color: _Pro.textSecondary),
             ),
           ),
@@ -347,15 +351,13 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
         const SizedBox(width: ThixPolicy.s8),
         _appBarIcon(icon: Icons.notifications_none_rounded, onTap: () => _safePush('/network/notifications')),
         const SizedBox(width: ThixPolicy.s8),
-        
-        // 🔴 MESSAGERIE PLACÉE ICI (Côté Profil) avec route fixée
         _appBarIcon(icon: Icons.mail_outline_rounded, onTap: () => _safePush('/network/chat')),
         const SizedBox(width: ThixPolicy.s12),
         
         Padding(
           padding: const EdgeInsets.only(right: ThixPolicy.s16),
           child: GestureDetector(
-            onTap: () => _safePush('/network/profile'), // Route profil fiabilisée
+            onTap: () => _safePush('/network/profile'),
             child: RoundAvatar(size: 34, ringWidth: 1.6, isLive: isLive),
           ),
         ),
@@ -663,8 +665,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                         _navBtn(Icons.explore_outlined, 'Découvrir', false, () => _safePush('/network/discover')),
                         _navBtn(Icons.add_circle_outline_rounded, 'Publier', false, () => showDialog(context: context, builder: (_) => const CreatePostDialog())),
                         _navBtn(Icons.groups_outlined, 'Réseau', false, () => _safePush('/network/connections')),
-                        
-                        // 🔴 MESSAGE REMPLACÉ PAR COMMUNAUTÉ
                         _navBtn(Icons.diversity_3_outlined, 'Communauté', false, () => _safePush('/network/communities')),
                       ],
                     ),
@@ -698,7 +698,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
 }
 
 // ============================================================================
-// QUICK POST ENTRY — sobre, une seule couleur d'accent
+// QUICK POST ENTRY
 // ============================================================================
 class _QuickPostEntryCard extends StatelessWidget {
   final String? avatarUrl;
@@ -742,7 +742,7 @@ class _QuickPostEntryCard extends StatelessWidget {
 }
 
 // ============================================================================
-// HUB LIVE — rétraction / expansion 100% automatique selon la donnée
+// HUB LIVE
 // ============================================================================
 class _AutoLiveHub extends StatefulWidget {
   final AsyncValue<List<Map<String, dynamic>>> liveSessionsAsync;
@@ -775,11 +775,22 @@ class _AutoLiveHubState extends State<_AutoLiveHub> {
     }
   }
 
+  // ✅ CORRECTION DE LA NAVIGATION ICI : Redirection vers LiveViewerScreen
   void _joinLive([Map<String, dynamic>? session]) {
     if (session == null) {
       Navigator.push(context, MaterialPageRoute(builder: (context) => const LivePrepScreen()));
     } else {
-      debugPrint("Rejoindre le canal Agora : ${session['channel_name']}");
+      Navigator.push(
+        context, 
+        MaterialPageRoute(
+          builder: (context) => LiveViewerScreen(
+            liveId: session['id']?.toString() ?? '',
+            channelName: session['channel_name']?.toString() ?? '',
+            hostName: session['host_name']?.toString() ?? 'Hôte THIX',
+            hostAvatarUrl: session['host_avatar']?.toString(), // Optionnel si disponible dans la DB
+          ),
+        ),
+      );
     }
   }
 
@@ -796,7 +807,6 @@ class _AutoLiveHubState extends State<_AutoLiveHub> {
       ),
       child: Column(
         children: [
-          // Bandeau compact — toujours visible, jamais cliquable pour toggler
           Padding(
             padding: const EdgeInsets.all(ThixPolicy.s16),
             child: Row(
@@ -805,7 +815,6 @@ class _AutoLiveHubState extends State<_AutoLiveHub> {
                   width: 36, height: 36,
                   decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _hasLiveNow ? _Pro.live : _Pro.border)),
                   alignment: Alignment.center,
-                  // 🔴 ICÔNE SENSOR TOUJOURS ROUGE COMME DEMANDÉ
                   child: const Icon(Icons.sensors_rounded, color: _Pro.live, size: 18),
                 ),
                 const SizedBox(width: ThixPolicy.s12),
@@ -848,8 +857,6 @@ class _AutoLiveHubState extends State<_AutoLiveHub> {
               ],
             ),
           ),
-
-          // Zone qui s'ouvre/ferme automatiquement selon la présence de lives
           AnimatedSize(
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeInOut,
@@ -939,7 +946,7 @@ class _LiveCard extends StatelessWidget {
 }
 
 // ============================================================================
-// STORIES — carte unifiée, contour fin monochrome
+// STORIES
 // ============================================================================
 class _StoryCard extends StatelessWidget {
   final bool isMe;
@@ -969,8 +976,14 @@ class _StoryCard extends StatelessWidget {
             Positioned.fill(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
+                // ✅ Utilisation de CachedNetworkImage pour la story
                 child: (coverUrl != null && coverUrl!.isNotEmpty)
-                    ? Image.network(coverUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _Pro.surface))
+                    ? CachedNetworkImage(
+                        imageUrl: coverUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(color: _Pro.surface),
+                        errorWidget: (_, __, ___) => Container(color: _Pro.surface),
+                      )
                     : Container(color: _Pro.surface),
               ),
             ),
