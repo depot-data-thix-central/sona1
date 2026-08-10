@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // ✅ Ajout du cache
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 class _C {
@@ -19,12 +20,14 @@ class LiveViewerScreen extends StatefulWidget {
   final String liveId;
   final String channelName;
   final String hostName;
+  final String? hostAvatarUrl; // ✅ URL de l'avatar de l'hôte
 
   const LiveViewerScreen({
     super.key,
     required this.liveId,
     required this.channelName,
-    required this.hostName,
+    this.hostName = 'Hôte THIX',
+    this.hostAvatarUrl,
   });
 
   @override
@@ -38,10 +41,12 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
   bool _isInitialized = false;
   int? _remoteUid;
   
+  // États du Co-hôte
   bool _isCoHost = false;
   bool _isMuted = false;
   bool _isVideoOff = false;
   bool _isRequesting = false;
+  
   int _viewerCount = 0; // ✅ Vrai compteur synchronisé
 
   final TextEditingController _chatController = TextEditingController();
@@ -50,7 +55,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
   final Random _random = Random();
 
   String get _myUserId => Supabase.instance.client.auth.currentUser?.id ?? 'spectator';
-  String get _myUserName => 'Utilisateur THIX'; // idéalement récupéré depuis le profil
+  String get _myUserName => 'Membre THIX'; // Dans une app complète, à récupérer depuis les providers
 
   @override
   void initState() {
@@ -74,11 +79,13 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
+      // Démarrage en tant que SPECTATEUR
       await _engine.setClientRole(role: ClientRoleType.clientRoleAudience);
 
       _engine.registerEventHandler(
         RtcEngineEventHandler(
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+            // Le premier qui rejoint est considéré comme l'hôte principal (plein écran)
             if (_remoteUid == null) setState(() => _remoteUid = remoteUid);
           },
           onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
@@ -120,7 +127,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
         _triggerHeartAnimation();
       })
       .onBroadcast(event: 'cohost_response', callback: (payload) {
-        // Est-ce que cette réponse est pour moi ?
+        // L'hôte a répondu à NOTRE demande
         if (payload['targetUserId'] == _myUserId) {
           if (payload['accepted'] == true) {
             _becomeCoHost();
@@ -134,21 +141,23 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
         final state = _realtimeChannel!.presenceState();
         int count = 0;
         state.forEach((key, value) { count += value.length; });
-        setState(() => _viewerCount = count);
+        // On soustrait l'hôte principal s'il est dedans, ou on affiche le nombre total
+        setState(() => _viewerCount = count > 0 ? count - 1 : 0);
       })
       .subscribe((status, [error]) {
         if (status == RealtimeSubscribeStatus.subscribed) {
+          // On s'annonce comme spectateur pour le compteur
           _realtimeChannel!.track({'user_id': _myUserId, 'is_host': false});
         }
       });
   }
 
-  // ─── GESTION CO-HÔTE RÉELLE ───
+  // ─── 3. GESTION CO-HÔTE RÉELLE ───
   void _requestToJoin() {
     setState(() => _isRequesting = true);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demande envoyée à l\'hôte...')));
     
-    // Envoyer la requête à l'hôte
+    // Envoyer la vraie requête à l'hôte
     _realtimeChannel!.sendBroadcastMessage(
       event: 'cohost_request',
       payload: {'userId': _myUserId, 'userName': _myUserName},
@@ -158,18 +167,22 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
   Future<void> _becomeCoHost() async {
     if (!kIsWeb) await [Permission.camera, Permission.microphone].request();
     
+    // Passage en Diffuseur
     await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _engine.enableVideo();
     await _engine.enableAudio();
     await _engine.startPreview();
     
-    setState(() {
-      _isCoHost = true;
-      _isRequesting = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isCoHost = true;
+        _isRequesting = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vous êtes maintenant en direct !'), backgroundColor: Colors.green));
+    }
   }
 
-  // ─── ACTIONS CHAT / COEUR ───
+  // ─── 4. ACTIONS CHAT / COEUR ───
   void _sendComment() {
     if (_chatController.text.trim().isEmpty) return;
     final text = _chatController.text.trim();
@@ -184,6 +197,11 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
       _chatController.clear();
     });
     FocusScope.of(context).unfocus();
+  }
+
+  void _sendHeart() {
+    _triggerHeartAnimation();
+    _realtimeChannel!.sendBroadcastMessage(event: 'heart', payload: {});
   }
 
   void _triggerHeartAnimation() {
@@ -215,142 +233,159 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _C.bgDark,
-      resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-          // 1. FOND VIDÉO
-          Positioned.fill(
-            child: _isInitialized && _remoteUid != null
-                ? SizedBox.expand(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: MediaQuery.of(context).size.width, height: MediaQuery.of(context).size.height,
-                        child: AgoraVideoView(
-                          controller: VideoViewController.remote(rtcEngine: _engine, canvas: VideoCanvas(uid: _remoteUid), connection: RtcConnection(channelId: widget.channelName), useFlutterTexture: kIsWeb),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        await _leaveBroadcast();
+      },
+      child: Scaffold(
+        backgroundColor: _C.bgDark,
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          children: [
+            // 1. FOND VIDÉO (L'Hôte principal)
+            Positioned.fill(
+              child: _isInitialized && _remoteUid != null
+                  ? SizedBox.expand(
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width, height: MediaQuery.of(context).size.height,
+                          child: AgoraVideoView(
+                            controller: VideoViewController.remote(rtcEngine: _engine, canvas: VideoCanvas(uid: _remoteUid), connection: RtcConnection(channelId: widget.channelName), useFlutterTexture: kIsWeb),
+                          ),
                         ),
                       ),
+                    )
+                  : Container(color: _C.bgDark, child: const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(color: _C.primary), SizedBox(height: 16), Text('En attente de l\'hôte...', style: TextStyle(color: _C.textMuted))]))),
+            ),
+
+            // 2. DÉGRADÉS LISIBILITÉ
+            Positioned(top: 0, left: 0, right: 0, height: 140, child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withOpacity(0.6), Colors.transparent])))),
+            Positioned(bottom: 0, left: 0, right: 0, height: 300, child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.8), Colors.transparent])))),
+
+            // 3. PIÈCE EN INCINÉRATION CO-HÔTE (MOI)
+            if (_isCoHost && !_isVideoOff)
+              Positioned(
+                top: 100, right: 16, width: 100, height: 140,
+                child: Container(
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.primary, width: 2), color: Colors.black),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: AgoraVideoView(controller: VideoViewController(rtcEngine: _engine, canvas: const VideoCanvas(uid: 0), useFlutterTexture: kIsWeb)),
+                  ),
+                ),
+              ),
+
+            // 4. TOP BAR (Hôte & Vues)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(30)),
+                      child: Row(children: [
+                        // ✅ Avatar de l'hôte avec Cache
+                        CircleAvatar(
+                          radius: 16, 
+                          backgroundColor: _C.primary, 
+                          backgroundImage: widget.hostAvatarUrl != null && widget.hostAvatarUrl!.isNotEmpty ? CachedNetworkImageProvider(widget.hostAvatarUrl!) : null,
+                          child: widget.hostAvatarUrl == null || widget.hostAvatarUrl!.isEmpty ? const Icon(Icons.person, size: 20, color: _C.textMain) : null,
+                        ), 
+                        const SizedBox(width: 8),
+                        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Text(widget.hostName, style: const TextStyle(color: _C.textMain, fontSize: 13, fontWeight: FontWeight.bold)), Row(children: [Container(width: 6, height: 6, decoration: const BoxDecoration(color: _C.red, shape: BoxShape.circle)), const SizedBox(width: 4), const Text('EN DIRECT', style: TextStyle(color: _C.textMuted, fontSize: 10, fontWeight: FontWeight.bold))])]),
+                        const SizedBox(width: 12),
+                      ]),
                     ),
-                  )
-                : Container(color: _C.bgDark, child: const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(color: _C.primary), SizedBox(height: 16), Text('En attente de l\'hôte...', style: TextStyle(color: _C.textMuted))]))),
-          ),
-
-          // 2. DÉGRADÉS
-          Positioned(top: 0, left: 0, right: 0, height: 140, child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withOpacity(0.6), Colors.transparent])))),
-          Positioned(bottom: 0, left: 0, right: 0, height: 300, child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.8), Colors.transparent])))),
-
-          // 3. PIÈCE EN INCINÉRATION CO-HÔTE (MOI)
-          if (_isCoHost && !_isVideoOff)
-            Positioned(
-              top: 100, right: 16, width: 100, height: 140,
-              child: Container(
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.primary, width: 2), color: Colors.black),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: AgoraVideoView(controller: VideoViewController(rtcEngine: _engine, canvas: const VideoCanvas(uid: 0), useFlutterTexture: kIsWeb)),
+                    const Spacer(),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(ThixPolicy.rFull)), child: Row(children: [const Icon(Icons.visibility_rounded, color: _C.textMain, size: 14), const SizedBox(width: 4), Text('$_viewerCount', style: const TextStyle(color: _C.textMain, fontSize: 13, fontWeight: FontWeight.bold))])),
+                    const SizedBox(width: 12),
+                    GestureDetector(onTap: _leaveBroadcast, child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, color: _C.textMain, size: 20))),
+                  ],
                 ),
               ),
             ),
 
-          // 4. TOP BAR
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(30)),
-                    child: Row(children: [
-                      const CircleAvatar(radius: 16, backgroundColor: _C.primary, child: Icon(Icons.person, size: 20, color: _C.textMain)), const SizedBox(width: 8),
-                      Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Text(widget.hostName, style: const TextStyle(color: _C.textMain, fontSize: 13, fontWeight: FontWeight.bold)), Row(children: [Container(width: 6, height: 6, decoration: const BoxDecoration(color: _C.red, shape: BoxShape.circle)), const SizedBox(width: 4), const Text('EN DIRECT', style: TextStyle(color: _C.textMuted, fontSize: 10, fontWeight: FontWeight.bold))])]),
-                      const SizedBox(width: 12),
-                    ]),
-                  ),
-                  const Spacer(),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(ThixPolicy.rFull)), child: Row(children: [const Icon(Icons.visibility_rounded, color: _C.textMain, size: 14), const SizedBox(width: 4), Text('$_viewerCount', style: const TextStyle(color: _C.textMain, fontSize: 13, fontWeight: FontWeight.bold))])),
-                  const SizedBox(width: 12),
-                  GestureDetector(onTap: _leaveBroadcast, child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, color: _C.textMain, size: 20))),
-                ],
+            // 5. ACTIONS CO-HÔTE (si je suis accepté)
+            if (_isCoHost)
+              Positioned(
+                right: 16, bottom: 140,
+                child: Column(
+                  children: [
+                    _SideActionButton(icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded, label: 'Micro', onTap: () { setState(() => _isMuted = !_isMuted); _engine.muteLocalAudioStream(_isMuted); }),
+                    _SideActionButton(icon: _isVideoOff ? Icons.videocam_off_rounded : Icons.videocam_rounded, label: 'Caméra', onTap: () { setState(() => _isVideoOff = !_isVideoOff); _engine.muteLocalVideoStream(_isVideoOff); }),
+                    _SideActionButton(icon: Icons.flip_camera_ios_rounded, label: 'Tourner', onTap: () => _engine.switchCamera()),
+                  ],
+                ),
               ),
-            ),
-          ),
 
-          // 5. ACTIONS CO-HÔTE (si accepté)
-          if (_isCoHost)
+            // 6. CHAT
             Positioned(
-              right: 16, bottom: 140,
-              child: Column(
-                children: [
-                  _SideActionButton(icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded, label: 'Micro', onTap: () { setState(() => _isMuted = !_isMuted); _engine.muteLocalAudioStream(_isMuted); }),
-                  _SideActionButton(icon: _isVideoOff ? Icons.videocam_off_rounded : Icons.videocam_rounded, label: 'Caméra', onTap: () { setState(() => _isVideoOff = !_isVideoOff); _engine.muteLocalVideoStream(_isVideoOff); }),
-                  _SideActionButton(icon: Icons.flip_camera_ios_rounded, label: 'Tourner', onTap: () => _engine.switchCamera()),
-                ],
+              left: 16, bottom: 80, width: MediaQuery.of(context).size.width * 0.7, height: 250,
+              child: ShaderMask(
+                shaderCallback: (Rect bounds) => const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.white, Colors.white], stops: [0.0, 0.2, 1.0]).createShader(bounds),
+                blendMode: BlendMode.dstIn,
+                child: ListView.builder(
+                  reverse: true,
+                  itemCount: _comments.length,
+                  itemBuilder: (context, index) {
+                    final comment = _comments[_comments.length - 1 - index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(16)),
+                        child: RichText(text: TextSpan(children: [TextSpan(text: '${comment["user"]}   ', style: TextStyle(color: _C.textMain.withOpacity(0.6), fontWeight: FontWeight.bold, fontSize: 13)), TextSpan(text: comment["text"], style: const TextStyle(color: _C.textMain, fontSize: 14))])),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
 
-          // 6. CHAT
-          Positioned(
-            left: 16, bottom: 80, width: MediaQuery.of(context).size.width * 0.7, height: 250,
-            child: ShaderMask(
-              shaderCallback: (Rect bounds) => const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.white, Colors.white], stops: [0.0, 0.2, 1.0]).createShader(bounds),
-              blendMode: BlendMode.dstIn,
-              child: ListView.builder(
-                reverse: true,
-                itemCount: _comments.length,
-                itemBuilder: (context, index) {
-                  final comment = _comments[_comments.length - 1 - index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(16)),
-                      child: RichText(text: TextSpan(children: [TextSpan(text: '${comment["user"]}   ', style: TextStyle(color: _C.textMain.withOpacity(0.6), fontWeight: FontWeight.bold, fontSize: 13)), TextSpan(text: comment["text"], style: const TextStyle(color: _C.textMain, fontSize: 14))])),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // 7. INPUT CHAT ET ACTIONS
-          Positioned(
-            left: 16, right: 16, bottom: 20,
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 44, decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(ThixPolicy.rFull)),
-                      child: TextField(
-                        controller: _chatController, style: const TextStyle(color: _C.textMain, fontSize: 14), textInputAction: TextInputAction.send, onSubmitted: (_) => _sendComment(),
-                        decoration: const InputDecoration(hintText: 'Ajouter un commentaire...', hintStyle: TextStyle(color: _C.textMuted), border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+            // 7. INPUT CHAT ET ACTIONS
+            Positioned(
+              left: 16, right: 16, bottom: 20,
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    // Champ de texte
+                    Expanded(
+                      child: Container(
+                        height: 44, decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(ThixPolicy.rFull)),
+                        child: TextField(
+                          controller: _chatController, style: const TextStyle(color: _C.textMain, fontSize: 14), textInputAction: TextInputAction.send, onSubmitted: (_) => _sendComment(),
+                          decoration: const InputDecoration(hintText: 'Ajouter un commentaire...', hintStyle: TextStyle(color: _C.textMuted), border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                        ),
                       ),
                     ),
-                  ),
-                  if (!_isCoHost) ...[
+                    
+                    // Demande Co-Hôte (seulement si je ne le suis pas encore)
+                    if (!_isCoHost) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _isRequesting ? null : _requestToJoin,
+                        child: Container(width: 44, height: 44, decoration: BoxDecoration(shape: BoxShape.circle, color: _isRequesting ? Colors.grey : _C.primary), child: _isRequesting ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.video_call_rounded, color: _C.textMain, size: 22)),
+                      ),
+                    ],
+
+                    // Bouton Coeur
                     const SizedBox(width: 8),
                     GestureDetector(
-                      onTap: _isRequesting ? null : _requestToJoin,
-                      child: Container(width: 44, height: 44, decoration: BoxDecoration(shape: BoxShape.circle, color: _isRequesting ? Colors.grey : _C.primary), child: _isRequesting ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.video_call_rounded, color: _C.textMain, size: 22)),
+                      onTap: _sendHeart,
+                      child: Container(width: 44, height: 44, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_C.red, Colors.orange])), child: const Icon(Icons.favorite_rounded, color: _C.textMain, size: 24)),
                     ),
                   ],
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      _triggerHeartAnimation();
-                      _realtimeChannel!.sendBroadcastMessage(event: 'heart', payload: {}); // Envoi réel !
-                    },
-                    child: Container(width: 44, height: 44, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [_C.red, Colors.orange])), child: const Icon(Icons.favorite_rounded, color: _C.textMain, size: 24)),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
 
-          ..._floatingHearts,
-        ],
+            // 8. COEURS ANIMÉS OVERLAY
+            ..._floatingHearts,
+          ],
+        ),
       ),
     );
   }
