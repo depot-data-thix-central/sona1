@@ -1,0 +1,216 @@
+// lib/presentation/chat/call/call_history_page.dart
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../core/theme/thix_design_policy.dart';
+import '../../../models/chat/call_invite.dart';
+import '../../../models/chat/call_status.dart';
+
+class CallHistoryPage extends StatefulWidget {
+  const CallHistoryPage({super.key});
+
+  @override
+  State<CallHistoryPage> createState() => _CallHistoryPageState();
+}
+
+class _CallHistoryPageState extends State<CallHistoryPage> {
+  final _db = Supabase.instance.client;
+  late Future<List<CallInvite>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<List<CallInvite>> _load() async {
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null) return [];
+
+    final rows = await _db
+        .from('call_invites')
+        .select()
+        .or('caller_id.eq.$uid,callee_id.eq.$uid')
+        .order('created_at', ascending: false)
+        .limit(50);
+
+    return (rows as List)
+        .map((r) => CallInvite.fromJson(Map<String, dynamic>.from(r as Map)))
+        .toList();
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _future = _load());
+    await _future;
+  }
+
+  String _peerName(CallInvite inv, String myId) {
+    final isCaller = inv.callerId == myId;
+    if (isCaller) {
+      return inv.calleeName?.trim().isNotEmpty == true
+          ? inv.calleeName!
+          : 'Contact';
+    }
+    return inv.callerName?.trim().isNotEmpty == true
+        ? inv.callerName!
+        : 'Contact';
+  }
+
+  IconData _statusIcon(CallInvite inv, String myId) {
+    final missed = inv.status == CallStatus.missed ||
+        inv.status == CallStatus.rejected ||
+        inv.status == CallStatus.canceled;
+    if (missed) return Icons.call_missed;
+    if (inv.callerId == myId) return Icons.call_made;
+    return Icons.call_received;
+  }
+
+  Color _statusColor(CallInvite inv) {
+    if (inv.status == CallStatus.missed ||
+        inv.status == CallStatus.rejected ||
+        inv.status == CallStatus.canceled) {
+      return ThixPolicy.danger;
+    }
+    return ThixPolicy.primary;
+  }
+
+  String _subtitle(CallInvite inv) {
+    final type = inv.isVideo ? 'Vidéo' : 'Audio';
+    final label = inv.status.label;
+    final dur = inv.durationSec > 0
+        ? ' · ${_fmtDuration(inv.durationSec)}'
+        : '';
+    return '$type · $label$dur';
+  }
+
+  String _fmtDuration(int sec) {
+    final m = sec \~/ 60;
+    final s = sec % 60;
+    return '\( {m.toString().padLeft(2, '0')}: \){s.toString().padLeft(2, '0')}';
+  }
+
+  String _fmtDate(DateTime d) {
+    final local = d.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(local.year, local.month, local.day);
+    if (day == today) return DateFormat('HH:mm').format(local);
+    if (day == today.subtract(const Duration(days: 1))) return 'Hier';
+    return DateFormat('dd/MM/yy').format(local);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final myId = _db.auth.currentUser?.id ?? '';
+
+    return Scaffold(
+      backgroundColor: ThixPolicy.bg,
+      appBar: AppBar(
+        title: const Text('Appels'),
+        backgroundColor: ThixPolicy.card,
+        foregroundColor: ThixPolicy.textMain,
+        elevation: 0,
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: FutureBuilder<List<CallInvite>>(
+          future: _future,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snap.hasError) {
+              return ListView(
+                children: [
+                  const SizedBox(height: 80),
+                  Center(
+                    child: Text(
+                      'Erreur: ${snap.error}',
+                      style: const TextStyle(color: ThixPolicy.textSecondary),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final list = snap.data ?? [];
+            if (list.isEmpty) {
+              return ListView(
+                children: [
+                  const SizedBox(height: 100),
+                  Icon(Icons.call_outlined,
+                      size: 48, color: ThixPolicy.textSecondary.withOpacity(0.5)),
+                  const SizedBox(height: 16),
+                  const Center(
+                    child: Text(
+                      'Aucun appel pour le moment',
+                      style: TextStyle(
+                        color: ThixPolicy.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: list.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, i) {
+                final inv = list[i];
+                final name = _peerName(inv, myId);
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: ThixPolicy.tint,
+                    child: Icon(
+                      inv.isVideo ? Icons.videocam : Icons.call,
+                      color: ThixPolicy.primaryDeep,
+                      size: 22,
+                    ),
+                  ),
+                  title: Text(
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: ThixPolicy.textMain,
+                    ),
+                  ),
+                  subtitle: Row(
+                    children: [
+                      Icon(
+                        _statusIcon(inv, myId),
+                        size: 14,
+                        color: _statusColor(inv),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _subtitle(inv),
+                          style: const TextStyle(
+                            color: ThixPolicy.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: Text(
+                    _fmtDate(inv.createdAt),
+                    style: const TextStyle(
+                      color: ThixPolicy.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
