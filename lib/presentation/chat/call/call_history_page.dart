@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/theme/thix_design_policy.dart';
 import '../../../models/chat/call_invite.dart';
 import '../../../models/chat/call_status.dart';
 
@@ -41,20 +40,22 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _load());
+    setState(() {
+      _future = _load();
+    });
     await _future;
   }
 
   String _peerName(CallInvite inv, String myId) {
     final isCaller = inv.callerId == myId;
     if (isCaller) {
-      return inv.calleeName?.trim().isNotEmpty == true
-          ? inv.calleeName!
-          : 'Contact';
+      final n = inv.calleeName?.trim();
+      if (n != null && n.isNotEmpty) return n;
+      return 'Contact';
     }
-    return inv.callerName?.trim().isNotEmpty == true
-        ? inv.callerName!
-        : 'Contact';
+    final n = inv.callerName?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    return 'Contact';
   }
 
   IconData _statusIcon(CallInvite inv, String myId) {
@@ -70,24 +71,26 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
     if (inv.status == CallStatus.missed ||
         inv.status == CallStatus.rejected ||
         inv.status == CallStatus.canceled) {
-      return ThixPolicy.danger;
+      return const Color(0xFFEF4444);
     }
-    return ThixPolicy.primary;
+    return const Color(0xFF0B3D91);
   }
 
   String _subtitle(CallInvite inv) {
-    final type = inv.isVideo ? 'Vidéo' : 'Audio';
+    final type = inv.isVideo ? 'Video' : 'Audio';
     final label = inv.status.label;
-    final dur = inv.durationSec > 0
-        ? ' · ${_fmtDuration(inv.durationSec)}'
-        : '';
-    return '$type · $label$dur';
+    if (inv.durationSec > 0) {
+      return '$type · $label · ${_fmtDuration(inv.durationSec)}';
+    }
+    return '$type · $label';
   }
 
   String _fmtDuration(int sec) {
     final m = sec \~/ 60;
     final s = sec % 60;
-    return '\( {m.toString().padLeft(2, '0')}: \){s.toString().padLeft(2, '0')}';
+    final mm = m.toString().padLeft(2, '0');
+    final ss = s.toString().padLeft(2, '0');
+    return '$mm:$ss';
   }
 
   String _fmtDate(DateTime d) {
@@ -95,8 +98,12 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(local.year, local.month, local.day);
-    if (day == today) return DateFormat('HH:mm').format(local);
-    if (day == today.subtract(const Duration(days: 1))) return 'Hier';
+    if (day == today) {
+      return DateFormat('HH:mm').format(local);
+    }
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Hier';
+    }
     return DateFormat('dd/MM/yy').format(local);
   }
 
@@ -105,11 +112,11 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
     final myId = _db.auth.currentUser?.id ?? '';
 
     return Scaffold(
-      backgroundColor: ThixPolicy.bg,
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Appels'),
-        backgroundColor: ThixPolicy.card,
-        foregroundColor: ThixPolicy.textMain,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0A1F44),
         elevation: 0,
       ),
       body: RefreshIndicator(
@@ -120,15 +127,17 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
+
             if (snap.hasError) {
               return ListView(
                 children: [
                   const SizedBox(height: 80),
-                  Center(
+                  Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Text(
                       'Erreur: ${snap.error}',
-                      style: const TextStyle(color: ThixPolicy.textSecondary),
                       textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.black54),
                     ),
                   ),
                 ],
@@ -138,16 +147,15 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
             final list = snap.data ?? [];
             if (list.isEmpty) {
               return ListView(
-                children: [
-                  const SizedBox(height: 100),
-                  Icon(Icons.call_outlined,
-                      size: 48, color: ThixPolicy.textSecondary.withOpacity(0.5)),
-                  const SizedBox(height: 16),
-                  const Center(
+                children: const [
+                  SizedBox(height: 100),
+                  Icon(Icons.call_outlined, size: 48, color: Colors.black26),
+                  SizedBox(height: 16),
+                  Center(
                     child: Text(
                       'Aucun appel pour le moment',
                       style: TextStyle(
-                        color: ThixPolicy.textSecondary,
+                        color: Colors.black54,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -165,10 +173,10 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
                 final name = _peerName(inv, myId);
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: ThixPolicy.tint,
+                    backgroundColor: const Color(0xFFE8EEF7),
                     child: Icon(
                       inv.isVideo ? Icons.videocam : Icons.call,
-                      color: ThixPolicy.primaryDeep,
+                      color: const Color(0xFF0B3D91),
                       size: 22,
                     ),
                   ),
@@ -176,7 +184,7 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
                     name,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: ThixPolicy.textMain,
+                      color: Color(0xFF0A1F44),
                     ),
                   ),
                   subtitle: Row(
@@ -191,7 +199,7 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
                         child: Text(
                           _subtitle(inv),
                           style: const TextStyle(
-                            color: ThixPolicy.textSecondary,
+                            color: Colors.black54,
                             fontSize: 13,
                           ),
                         ),
@@ -201,7 +209,7 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
                   trailing: Text(
                     _fmtDate(inv.createdAt),
                     style: const TextStyle(
-                      color: ThixPolicy.textSecondary,
+                      color: Colors.black45,
                       fontSize: 12,
                     ),
                   ),
