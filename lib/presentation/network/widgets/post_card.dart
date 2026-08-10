@@ -573,7 +573,7 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
             child: OutlinedButton.icon(
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participation enregistrée'), backgroundColor: ThixPolicy.success)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: ThixPolicy.ink,
+                foregroundColor: ThixPolicy.textMain, 
                 side: const BorderSide(color: ThixPolicy.inkDeep),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rSm)),
               ),
