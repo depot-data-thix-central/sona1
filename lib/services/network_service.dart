@@ -802,58 +802,214 @@ class NetworkService extends ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // CONNECTIONS
-  // ─────────────────────────────────────────────────────────────
+// CONNECTIONS / FOLLOW (sans approbation)
+// ─────────────────────────────────────────────────────────────
 
-  Future<List<NetworkConnection>> getSuggestedConnections({
-    int limit = 10,
-  }) async {
+/// Récupère les IDs des personnes que je suis
+Future<Set<String>> getMyConnectionIds() async {
+  final uid = currentUserId;
+  if (uid.isEmpty) return {};
+
+  try {
+    // Priorité à la table follows (one-way)
+    final res = await _supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', uid);
+
+    return (res as List).map((e) => '${e['following_id']}').toSet();
+  } catch (e) {
+    // Fallback sur l'ancienne table connections (mutual)
     try {
-      final res = await _supabase.rpc(
-        'get_suggested_connections',
-        params: {'p_user_id': currentUserId, 'p_limit': limit},
+      final res = await _supabase
+          .from('connections')
+          .select('user1_id, user2_id')
+          .or('user1_id.eq.$uid,user2_id.eq.$uid');
+
+      return (res as List).map((e) {
+        final user1 = '${e['user1_id']}';
+        final user2 = '${e['user2_id']}';
+        return user1 == uid ? user2 : user1;
+      }).toSet();
+    } catch (e2) {
+      debugPrint('getMyConnectionIds: $e2');
+      return {};
+    }
+  }
+}
+
+Future<Set<String>> _getConnectionIds() => getMyConnectionIds();
+
+/// Liste complète de mes follows (avec profils)
+Future<List<NetworkConnection>> getMyConnections() async {
+  final uid = currentUserId;
+  if (uid.isEmpty) return [];
+
+  try {
+    final res = await _supabase
+        .from('follows')
+        .select('''
+          created_at,
+          following:profiles!follows_following_id_fkey(
+            id, display_name, avatar_url, profession
+          )
+        ''')
+        .eq('follower_id', uid)
+        .order('created_at', ascending: false);
+
+    return (res as List).map((row) {
+      final other = row['following'];
+      return NetworkConnection(
+        id: other?['id']?.toString() ?? '',
+        name: other?['display_name']?.toString() ?? 'Utilisateur',
+        avatar: other?['avatar_url']?.toString(),
+        title: other?['profession']?.toString() ?? 'Membre THIX',
+        mutualConnections: 0,
+        status: 'accepted',
+        connectedAt: row['created_at'] != null
+            ? DateTime.tryParse(row['created_at'].toString())
+            : null,
       );
-      return (res as List)
-          .map((e) => NetworkConnection(
-                id: e['id'],
-                name: e['display_name'] ?? 'Utilisateur',
-                avatar: e['avatar_url'],
-                title: e['profession'] ?? 'Membre',
-                mutualConnections: (e['mutual_count'] as num?)?.toInt() ?? 0,
-              ))
-          .toList();
-    } catch (e) {
-      debugPrint('getSuggestedConnections: $e');
+    }).toList();
+  } catch (e) {
+    debugPrint('getMyConnections (follows) error: $e');
+
+    // Fallback : ancienne table connections
+    try {
+      final ids = await getMyConnectionIds();
+      if (ids.isEmpty) return [];
+
+      final profiles = await _supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, profession')
+          .inFilter('id', ids.toList());
+
+      return (profiles as List).map((p) {
+        return NetworkConnection(
+          id: p['id']?.toString() ?? '',
+          name: p['display_name']?.toString() ?? 'Utilisateur',
+          avatar: p['avatar_url']?.toString(),
+          title: p['profession']?.toString() ?? 'Membre THIX',
+          mutualConnections: 0,
+          status: 'accepted',
+        );
+      }).toList();
+    } catch (e2) {
+      debugPrint('getMyConnections fallback: $e2');
       return [];
     }
   }
+}
 
-  Future<void> sendConnectionRequest(String targetId) async {
-    await _supabase.from('connection_requests').upsert({
-      'sender_id': currentUserId,
-      'receiver_id': targetId,
-      'status': 'pending',
-    }, onConflict: 'sender_id,receiver_id');
-    if (targetId != currentUserId) {
-      unawaited(_createNotification(userId: targetId, type: 'connection'));
+/// Suggestions
+Future<List<NetworkConnection>> getSuggestedConnections({
+  int limit = 10,
+}) async {
+  try {
+    final res = await _supabase.rpc(
+      'get_suggested_connections',
+      params: {'p_user_id': currentUserId, 'p_limit': limit},
+    );
+    return (res as List)
+        .map((e) => NetworkConnection(
+              id: e['id'],
+              name: e['display_name'] ?? 'Utilisateur',
+              avatar: e['avatar_url'],
+              title: e['profession'] ?? 'Membre',
+              mutualConnections: (e['mutual_count'] as num?)?.toInt() ?? 0,
+            ))
+        .toList();
+  } catch (e) {
+    debugPrint('getSuggestedConnections: $e');
+    return [];
+  }
+}
+
+/// ✅ FOLLOW IMMÉDIAT (pas besoin d’approbation)
+Future<void> followUser(String targetId) async {
+  if (currentUserId.isEmpty || targetId == currentUserId) return;
+
+  try {
+    await _supabase.from('follows').upsert({
+      'follower_id': currentUserId,
+      'following_id': targetId,
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'follower_id,following_id');
+
+    // Notification optionnelle
+    unawaited(_createNotification(userId: targetId, type: 'follow'));
+    notifyListeners();
+  } catch (e) {
+    debugPrint('followUser error: $e');
+
+    // Fallback : si la table follows n'existe pas encore,
+    // on crée directement une connexion mutual
+    try {
+      await _supabase.from('connections').upsert({
+        'user1_id': currentUserId,
+        'user2_id': targetId,
+      }, onConflict: 'user1_id,user2_id');
+      notifyListeners();
+    } catch (e2) {
+      debugPrint('followUser fallback error: $e2');
+      rethrow;
     }
   }
+}
 
-  Future<void> acceptConnectionRequest(String requestId) async {
+/// Unfollow
+Future<void> unfollowUser(String targetId) async {
+  if (currentUserId.isEmpty) return;
+
+  try {
     await _supabase
-        .from('connection_requests')
-        .update({'status': 'accepted'}).eq('id', requestId);
-    final req = await _supabase
-        .from('connection_requests')
-        .select('sender_id, receiver_id')
-        .eq('id', requestId)
-        .single();
-    await _supabase.from('connections').insert({
-      'user1_id': req['sender_id'],
-      'user2_id': req['receiver_id'],
-    });
+        .from('follows')
+        .delete()
+        .eq('follower_id', currentUserId)
+        .eq('following_id', targetId);
+    notifyListeners();
+  } catch (e) {
+    debugPrint('unfollowUser error: $e');
+    // Fallback ancienne table
+    try {
+      await _supabase
+          .from('connections')
+          .delete()
+          .or('and(user1_id.eq.$currentUserId,user2_id.eq.$targetId),and(user1_id.eq.$targetId,user2_id.eq.$currentUserId)');
+      notifyListeners();
+    } catch (e2) {
+      debugPrint('unfollowUser fallback: $e2');
+    }
   }
+}
 
+/// Vérifie si je suis déjà cette personne
+Future<bool> isFollowing(String targetId) async {
+  if (currentUserId.isEmpty) return false;
+
+  try {
+    final res = await _supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', currentUserId)
+        .eq('following_id', targetId)
+        .maybeSingle();
+    return res != null;
+  } catch (_) {
+    // Fallback
+    final ids = await getMyConnectionIds();
+    return ids.contains(targetId);
+  }
+}
+
+/// Alias pour compatibilité avec l’ancien code
+Future<void> sendConnectionRequest(String targetId) => followUser(targetId);
+
+/// Plus besoin d’accepter → on garde juste pour ne pas casser l’existant
+Future<void> acceptConnectionRequest(String requestId) async {
+  // No-op volontaire : le follow est déjà immédiat
+  debugPrint('acceptConnectionRequest: plus nécessaire (follow direct)');
+}
   // ─────────────────────────────────────────────────────────────
   // COMMUNITIES LIST
   // ─────────────────────────────────────────────────────────────
