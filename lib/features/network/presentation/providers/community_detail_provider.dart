@@ -61,11 +61,8 @@ class CommunityDetailNotifier
           .maybeSingle(),
 
       // Membres — join explicite
-      supabase
-          .from('community_members')
-          .select(
-            'user_id, profiles!community_members_user_id_fkey(id, display_name, avatar_url, photo_url, profession)',
-          )
+      supabase.from('community_members').select('users:profiles!user_id (id, display_name, photo_url, profession)').eq('community_id', communityId).limit(50),
+
           .eq('community_id', communityId)
           .limit(50),
 
