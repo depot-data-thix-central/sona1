@@ -142,16 +142,17 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> with TickerPr
         _handleCoHostRequest(payload['userId'], payload['userName']);
       })
       .onPresenceSync((_) {
-        final state = _realtimeChannel!.presenceState();
-        int count = 0;
-        state.forEach((key, value) { count += value.length; });
-        setState(() => _viewerCount = count > 0 ? count - 1 : 0); // On s'exclut du comptage
-      })
-      .subscribe((status, [error]) {
-        if (status == RealtimeSubscribeStatus.subscribed) {
-          _realtimeChannel!.track({'user_id': _myUserId, 'is_host': true});
-        }
-      });
+  final state = _realtimeChannel!.presenceState();
+  final int count = state.length;
+  
+  setState(() => _viewerCount = count > 0 ? count - 1 : 0); // On s'exclut du comptage
+})
+.subscribe((status, [error]) {
+  if (status == RealtimeSubscribeStatus.subscribed) {
+    _realtimeChannel!.track({'user_id': _myUserId, 'is_host': true});
+  }
+});
+
   }
 
   // ─── GESTION DES CO-HÔTES ───
