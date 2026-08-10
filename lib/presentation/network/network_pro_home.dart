@@ -346,11 +346,16 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
         _appBarIcon(icon: Icons.search_rounded, onTap: () => _safePush('/network/search')),
         const SizedBox(width: ThixPolicy.s8),
         _appBarIcon(icon: Icons.notifications_none_rounded, onTap: () => _safePush('/network/notifications')),
+        const SizedBox(width: ThixPolicy.s8),
+        
+        // 🔴 MESSAGERIE PLACÉE ICI (Côté Profil) avec route fixée
+        _appBarIcon(icon: Icons.mail_outline_rounded, onTap: () => _safePush('/network/chat')),
         const SizedBox(width: ThixPolicy.s12),
+        
         Padding(
           padding: const EdgeInsets.only(right: ThixPolicy.s16),
           child: GestureDetector(
-            onTap: () => _safePush('/profile'),
+            onTap: () => _safePush('/network/profile'), // Route profil fiabilisée
             child: RoundAvatar(size: 34, ringWidth: 1.6, isLive: isLive),
           ),
         ),
@@ -658,7 +663,9 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                         _navBtn(Icons.explore_outlined, 'Découvrir', false, () => _safePush('/network/discover')),
                         _navBtn(Icons.add_circle_outline_rounded, 'Publier', false, () => showDialog(context: context, builder: (_) => const CreatePostDialog())),
                         _navBtn(Icons.groups_outlined, 'Réseau', false, () => _safePush('/network/connections')),
-                        _navBtn(Icons.mail_outline_rounded, 'Message', false, () => _safePush('/messages')),
+                        
+                        // 🔴 MESSAGE REMPLACÉ PAR COMMUNAUTÉ
+                        _navBtn(Icons.diversity_3_outlined, 'Communauté', false, () => _safePush('/network/communities')),
                       ],
                     ),
                   ),
@@ -737,13 +744,6 @@ class _QuickPostEntryCard extends StatelessWidget {
 // ============================================================================
 // HUB LIVE — rétraction / expansion 100% automatique selon la donnée
 // ============================================================================
-// Comportement demandé :
-// - Par défaut, reste FERMÉ (bandeau compact "Aucun direct").
-// - Dès qu'une session live/space existe → s'ouvre automatiquement.
-// - Dès que la liste redevient vide → se referme automatiquement.
-// - Aucun bouton manuel d'expansion : l'utilisateur peut toujours lancer un
-//   direct via le bouton "Lancer", mais ne contrôle pas l'ouverture/fermeture.
-// ============================================================================
 class _AutoLiveHub extends StatefulWidget {
   final AsyncValue<List<Map<String, dynamic>>> liveSessionsAsync;
   const _AutoLiveHub({required this.liveSessionsAsync});
@@ -805,7 +805,8 @@ class _AutoLiveHubState extends State<_AutoLiveHub> {
                   width: 36, height: 36,
                   decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _hasLiveNow ? _Pro.live : _Pro.border)),
                   alignment: Alignment.center,
-                  child: Icon(Icons.sensors_rounded, color: _hasLiveNow ? _Pro.live : _Pro.textMuted, size: 18),
+                  // 🔴 ICÔNE SENSOR TOUJOURS ROUGE COMME DEMANDÉ
+                  child: const Icon(Icons.sensors_rounded, color: _Pro.live, size: 18),
                 ),
                 const SizedBox(width: ThixPolicy.s12),
                 Expanded(
