@@ -198,6 +198,7 @@ import 'package:thix_id/presentation/chat/settings/chat_appearance_settings.dart
 import 'package:thix_id/presentation/chat/settings/chat_privacy_settings.dart';
 import 'package:thix_id/presentation/chat/settings/chat_notification_settings.dart';
 import 'package:thix_id/presentation/chat/settings/chat_data_settings.dart';
+import 'package:thix_id/presentation/chat/call/call_history_page.dart';
 
 import 'presentation/mon_pays/mon_pays_page.dart';
 import 'presentation/mon_pays/pages/authorities/authorities_page.dart';
@@ -460,7 +461,11 @@ GoRoute(
   builder: (context, state) => const OpportunityAdminPage(), // <-- L'ANCIEN FORMULAIRE DE CRÉATION
 ),
 
-
+GoRoute(
+  path: AppRoutes.callHistory,
+  name: AppRoutes.callHistoryName,
+  builder: (c, s) => const CallHistoryPage(),
+),
         GoRoute(path: AppRoutes.vault, name: 'document-vault', pageBuilder: (_, __) => const NoTransitionPage(child: DocumentVaultPage())),
         GoRoute(path: AppRoutes.settings, name: 'settings', pageBuilder: (_, __) => const NoTransitionPage(child: SettingsPage())),
         GoRoute(path: AppRoutes.profile, name: 'profile', pageBuilder: (_, __) => const NoTransitionPage(child: ProfilePage())),
