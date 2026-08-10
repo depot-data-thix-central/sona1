@@ -150,7 +150,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
     _realtimeChannel!.track({'user_id': _myUserId, 'is_host': false});
   }
 });
-
+  }
 
   // ─── 3. GESTION CO-HÔTE RÉELLE ───
   void _requestToJoin() {
