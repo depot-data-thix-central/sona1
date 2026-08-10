@@ -21,6 +21,26 @@ import 'widgets/post_card.dart';
 import 'widgets/story_viewer.dart';
 import 'package:thix_id/presentation/network/live/live_prep_screen.dart';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PALETTE THIX PRO — Monochrome Entreprise
+// ═══════════════════════════════════════════════════════════════════════════
+// Un seul accent (bleu marque). Le rouge n'apparaît QUE pour le signal LIVE,
+// jamais utilisé décorativement ailleurs — contrairement à Facebook où
+// chaque section a sa propre couleur (bleu like, rouge notif, vert online...).
+// ═══════════════════════════════════════════════════════════════════════════
+class _Pro {
+  _Pro._();
+  static const Color ink = ThixPolicy.inkDeep;
+  static const Color primary = ThixPolicy.primary;
+  static const Color surface = Color(0xFFF6F7F9);
+  static const Color card = Colors.white;
+  static const Color border = Color(0xFFE7E9EE);
+  static const Color textMain = Color(0xFF14181F);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textMuted = Color(0xFF9CA3AF);
+  static const Color live = Color(0xFFD7263D);
+}
+
 // ============================================================================
 // PROVIDER — SESSIONS LIVE ACTIVES
 // ============================================================================
@@ -37,7 +57,7 @@ final activeLiveSessionsProvider = StreamProvider.autoDispose<List<Map<String, d
 });
 
 // ============================================================================
-// COMPOSANT — AVATAR ROND PREMIUM
+// COMPOSANT — AVATAR ROND (monochrome, contour fin)
 // ============================================================================
 class RoundAvatar extends StatelessWidget {
   final double size;
@@ -51,15 +71,15 @@ class RoundAvatar extends StatelessWidget {
     super.key,
     required this.size,
     this.imageUrl,
-    this.ringColor = Colors.transparent,
+    this.ringColor = _Pro.border,
     this.fallbackIcon = Icons.person,
-    this.ringWidth = 0,
+    this.ringWidth = 1.6,
     this.isLive = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveRingColor = isLive ? ThixPolicy.danger : ringColor;
+    final effectiveRingColor = isLive ? _Pro.live : ringColor;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -67,40 +87,24 @@ class RoundAvatar extends StatelessWidget {
           width: size,
           height: size,
           padding: EdgeInsets.all(ringWidth),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: effectiveRingColor,
-          ),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: effectiveRingColor),
           child: ClipOval(
             child: Container(
-              color: ThixPolicy.surfaceStrong,
+              color: _Pro.surface,
               child: (imageUrl != null && imageUrl!.isNotEmpty)
-                  ? Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(fallbackIcon, size: size * 0.5, color: ThixPolicy.textSecondary),
-                    )
-                  : Icon(fallbackIcon, size: size * 0.5, color: ThixPolicy.textSecondary),
+                  ? Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(fallbackIcon, size: size * 0.45, color: _Pro.textSecondary))
+                  : Icon(fallbackIcon, size: size * 0.45, color: _Pro.textSecondary),
             ),
           ),
         ),
         if (isLive)
           Positioned(
-            bottom: -4,
-            left: 0,
-            right: 0,
+            bottom: -3, left: 0, right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(
-                  color: ThixPolicy.danger,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: ThixPolicy.card, width: 1.5),
-                ),
-                child: const Text(
-                  'LIVE',
-                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(color: _Pro.live, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.white, width: 1.2)),
+                child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900, letterSpacing: 0.3)),
               ),
             ),
           ),
@@ -110,7 +114,7 @@ class RoundAvatar extends StatelessWidget {
 }
 
 // ============================================================================
-// PAGE PRINCIPALE — RÉSEAU PRO
+// PAGE PRINCIPALE — THIX PRO
 // ============================================================================
 class NetworkProHome extends ConsumerStatefulWidget {
   const NetworkProHome({super.key});
@@ -146,7 +150,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
 
-    // Load More (Pagination)
     if (pos.pixels >= pos.maxScrollExtent - 700 && !_isLoadingMore) {
       final notifier = ref.read(feedProvider.notifier);
       if (!ref.read(feedProvider).isLoading && notifier.hasMore) {
@@ -157,7 +160,6 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
       }
     }
 
-    // Hide/Show Bottom Nav
     final dir = pos.userScrollDirection;
     if (dir == ScrollDirection.reverse && _navVisible.value) {
       _navVisible.value = false;
@@ -238,58 +240,52 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
 
     if (currentUser == null) {
       return const Scaffold(
-        backgroundColor: ThixPolicy.card,
-        body: Center(child: CircularProgressIndicator(color: ThixPolicy.primaryDeep)),
+        backgroundColor: _Pro.surface,
+        body: Center(child: CircularProgressIndicator(color: _Pro.primary)),
       );
     }
 
     return Scaffold(
-      backgroundColor: ThixPolicy.surfaceSoft, // Fond gris ultra-clair (séparation des blocs blancs)
+      backgroundColor: _Pro.surface,
       body: Stack(
         children: [
           RefreshIndicator(
-            color: ThixPolicy.primaryDeep,
-            backgroundColor: ThixPolicy.card,
+            color: _Pro.primary,
+            backgroundColor: _Pro.card,
             onRefresh: _onRefresh,
             child: CustomScrollView(
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
               slivers: [
                 _buildSliverAppBar(isLive: liveHostIds.contains(currentUser.id)),
-                
-                // Stories (Design Pro Circulaire)
-                SliverToBoxAdapter(child: _buildProStories(currentUser.id, liveHostIds)),
-                
-                // Diviseur
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-                // Entrée "Créer un post" (Minimaliste)
                 SliverToBoxAdapter(
-                  child: _ProPostEntry(
+                  child: _QuickPostEntryCard(
                     avatarUrl: currentUser.photoUrl,
                     onTap: () => showDialog(context: context, builder: (_) => const CreatePostDialog()),
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                
-                // Live Hub Automatique (Disparaît si vide)
-                _buildAutoLiveHub(liveSessionsAsync),
-                
-                // Filtres du Feed
-                SliverToBoxAdapter(child: _buildProFilters()),
-                
-                // Suggestions (Intégrées proprement)
-                if (_suggestions.isNotEmpty)
-                  SliverToBoxAdapter(child: _buildProSuggestions(liveHostIds)),
-                
-                // Feed Posts
+                SliverToBoxAdapter(child: _buildStories(currentUser.id, liveHostIds)),
+
+                SliverToBoxAdapter(child: _buildFilters()),
+
+                // Hub Live — se rétracte/étend automatiquement selon la donnée
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s12),
+                    child: _AutoLiveHub(liveSessionsAsync: liveSessionsAsync),
+                  ),
+                ),
+
+                if (_suggestions.isNotEmpty) SliverToBoxAdapter(child: _buildSuggestions(liveHostIds)),
+
                 feedAsync.when(
                   loading: () => SliverToBoxAdapter(child: _buildShimmerFeed()),
                   error: (e, _) => SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(40),
-                      child: Center(child: Text('Erreur: $e', style: const TextStyle(color: ThixPolicy.textSecondary))),
+                      child: Center(child: Text('Erreur: $e', style: const TextStyle(color: _Pro.textSecondary))),
                     ),
                   ),
                   data: (posts) {
@@ -299,7 +295,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                       itemBuilder: (c, i) {
                         final post = posts[i];
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.only(bottom: ThixPolicy.s8),
                           child: PostCard(
                             key: ValueKey(post.id),
                             post: post,
@@ -319,8 +315,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
               ],
             ),
           ),
-          
-          // Navigation Bottom Flottante
+
           ValueListenableBuilder<bool>(
             valueListenable: _navVisible,
             builder: (context, visible, _) => Positioned(
@@ -333,20 +328,19 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     );
   }
 
-  // ─────────────────────────── APP BAR (Propre) ───────────────────────────
+  // ─────────────────────────── APP BAR ───────────────────────────
   Widget _buildSliverAppBar({required bool isLive}) {
     return SliverAppBar(
-      backgroundColor: ThixPolicy.card,
+      backgroundColor: _Pro.card,
       elevation: 0,
-      scrolledUnderElevation: 1,
-      shadowColor: ThixPolicy.inkDeep.withOpacity(0.1),
+      scrolledUnderElevation: 0,
       floating: true,
       snap: true,
       toolbarHeight: ThixPolicy.appBarHeight,
       titleSpacing: ThixPolicy.s16,
       title: const Text(
         'THIX PRO',
-        style: TextStyle(color: ThixPolicy.inkDeep, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -0.5),
+        style: TextStyle(color: _Pro.ink, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.3),
       ),
       actions: [
         _appBarIcon(icon: Icons.search_rounded, onTap: () => _safePush('/network/search')),
@@ -357,58 +351,36 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
           padding: const EdgeInsets.only(right: ThixPolicy.s16),
           child: GestureDetector(
             onTap: () => _safePush('/profile'),
-            child: RoundAvatar(size: 34, ringWidth: 2, ringColor: ThixPolicy.border, isLive: isLive),
+            child: RoundAvatar(size: 34, ringWidth: 1.6, isLive: isLive),
           ),
         ),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: ThixPolicy.border),
+        child: Container(height: 1, color: _Pro.border),
       ),
     );
   }
 
-  Widget _appBarIcon({required IconData icon, required VoidCallback onTap, String? badge}) {
+  Widget _appBarIcon({required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(
-          color: ThixPolicy.surface,
-          shape: BoxShape.circle,
-          border: Border.all(color: ThixPolicy.border),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Icon(icon, size: 20, color: ThixPolicy.inkDeep),
-            if (badge != null)
-              Positioned(
-                top: 2, right: 2,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: ThixPolicy.danger,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: ThixPolicy.card, width: 1.5),
-                  ),
-                  child: Text(badge, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white)),
-                ),
-              ),
-          ],
-        ),
+        width: 38, height: 38,
+        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _Pro.border)),
+        child: Icon(icon, size: 19, color: _Pro.textMain),
       ),
     );
   }
 
-  // ─────────────────────────── STORIES PRO (CERCLES) ───────────────────────────
-  Widget _buildProStories(String currentUserId, Set<String> liveHostIds) {
+  // ─────────────────────────── STORIES ───────────────────────────
+  Widget _buildStories(String currentUserId, Set<String> liveHostIds) {
     if (_loadingStories) {
       return Container(
-        color: ThixPolicy.card,
-        height: 110,
+        color: _Pro.card,
+        height: 150,
         alignment: Alignment.center,
-        child: const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: ThixPolicy.textSecondary)),
+        child: const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: _Pro.primary)),
       );
     }
 
@@ -422,23 +394,24 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     final otherUsersList = groupedOtherStories.keys.toList();
 
     return Container(
-      color: ThixPolicy.card,
-      padding: const EdgeInsets.symmetric(vertical: ThixPolicy.s12),
+      color: _Pro.card,
+      padding: const EdgeInsets.only(top: ThixPolicy.s12, bottom: ThixPolicy.s16),
       child: SizedBox(
-        height: 88,
+        height: 134,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
           itemCount: otherUsersList.length + 1,
-          separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s16),
+          separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s10),
           itemBuilder: (c, i) {
             if (i == 0) {
-              return _ProStoryRing(
+              return _StoryCard(
                 isMe: true,
                 hasStory: myStories.isNotEmpty,
                 isLive: liveHostIds.contains(currentUserId),
-                name: 'Vous',
-                avatarUrl: myStories.isNotEmpty ? myStories.first.userAvatar : null, // Fallback si pas de story géré par le widget
+                name: myStories.isNotEmpty ? 'Votre story' : 'Créer',
+                coverUrl: myStories.isNotEmpty ? (myStories.first.imageUrl.isNotEmpty ? myStories.first.imageUrl : myStories.first.userAvatar) : null,
+                avatarUrl: myStories.isNotEmpty ? myStories.first.userAvatar : null,
                 onTap: myStories.isNotEmpty ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StoryViewer(stories: myStories, initialIndex: 0))) : _openCreateStory,
                 onAdd: _openCreateStory,
               );
@@ -447,11 +420,12 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
             final userStories = groupedOtherStories[userId]!;
             final firstStory = userStories.first;
 
-            return _ProStoryRing(
+            return _StoryCard(
               isMe: false,
               hasStory: true,
               isLive: liveHostIds.contains(userId),
               name: firstStory.userName.split(' ').first,
+              coverUrl: firstStory.imageUrl.isNotEmpty ? firstStory.imageUrl : null,
               avatarUrl: firstStory.userAvatar,
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StoryViewer(stories: userStories, initialIndex: 0))),
             );
@@ -461,75 +435,19 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     );
   }
 
-  // ─────────────────────────── AUTO LIVE HUB (S'affiche que si nécessaire) ───────────────────────────
-  Widget _buildAutoLiveHub(AsyncValue<List<Map<String, dynamic>>> liveSessionsAsync) {
-    return liveSessionsAsync.when(
-      loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-      error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-      data: (sessions) {
-        if (sessions.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
-        
-        return SliverToBoxAdapter(
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            color: ThixPolicy.card,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Container(width: 8, height: 8, decoration: const BoxDecoration(color: ThixPolicy.danger, shape: BoxShape.circle)),
-                      const SizedBox(width: 8),
-                      const Text('Directs & Espaces Audio', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: ThixPolicy.inkDeep)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 100,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: sessions.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, i) {
-                      final s = sessions[i];
-                      final type = (s['session_type'] as String?) ?? 'video';
-                      return _ProLiveCard(
-                        title: (s['title'] as String?) ?? 'Direct en cours',
-                        host: (s['host_name'] as String?) ?? 'THIX Pro',
-                        type: type,
-                        viewers: (s['viewer_count'] as int?) ?? 0,
-                        onTap: () {
-                           // Logique pour rejoindre le live
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ─────────────────────────── FILTRES PRO (Subtils) ───────────────────────────
-  Widget _buildProFilters() {
+  // ─────────────────────────── FILTRES ───────────────────────────
+  Widget _buildFilters() {
     final filters = {
-      'all': 'Pour vous',
-      'network': 'Abonnements',
-      'popular': 'Tendances',
+      'all': ('Pour vous', Icons.auto_awesome_outlined),
+      'network': ('Abonnements', Icons.people_alt_outlined),
+      'popular': ('Tendances', Icons.trending_up_rounded),
+      'recent': ('Récents', Icons.schedule_outlined),
     };
 
     return Container(
-      color: ThixPolicy.card,
-      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 1), // Séparation fine avec le premier post
+      color: _Pro.card,
+      padding: const EdgeInsets.fromLTRB(ThixPolicy.s16, 0, ThixPolicy.s16, ThixPolicy.s16),
+      margin: const EdgeInsets.only(bottom: ThixPolicy.s8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -538,7 +456,7 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
             return Padding(
               padding: const EdgeInsets.only(right: ThixPolicy.s8),
               child: InkWell(
-                borderRadius: BorderRadius.circular(ThixPolicy.rMd),
+                borderRadius: BorderRadius.circular(10),
                 onTap: () {
                   if (sel) return;
                   setState(() => _feedType = e.key);
@@ -546,20 +464,20 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                   _lastRefreshTime = DateTime.now();
                   HapticFeedback.selectionClick();
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   decoration: BoxDecoration(
-                    color: sel ? ThixPolicy.inkDeep : ThixPolicy.surface,
-                    borderRadius: BorderRadius.circular(ThixPolicy.rMd),
-                    border: Border.all(color: sel ? ThixPolicy.inkDeep : ThixPolicy.border),
+                    color: sel ? _Pro.ink : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: sel ? _Pro.ink : _Pro.border),
                   ),
-                  child: Text(
-                    e.value, 
-                    style: TextStyle(
-                      fontSize: 13, 
-                      fontWeight: sel ? FontWeight.w800 : FontWeight.w600, 
-                      color: sel ? Colors.white : ThixPolicy.textSecondary
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(e.value.$2, size: 15, color: sel ? Colors.white : _Pro.textSecondary),
+                      const SizedBox(width: 6),
+                      Text(e.value.$1, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: sel ? Colors.white : _Pro.textMain)),
+                    ],
                   ),
                 ),
               ),
@@ -570,44 +488,44 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     );
   }
 
-  // ─────────────────────────── SUGGESTIONS PRO ───────────────────────────
-  Widget _buildProSuggestions(Set<String> liveHostIds) {
+  // ─────────────────────────── SUGGESTIONS ───────────────────────────
+  Widget _buildSuggestions(Set<String> liveHostIds) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      color: ThixPolicy.card,
+      margin: const EdgeInsets.only(bottom: ThixPolicy.s8),
+      padding: const EdgeInsets.symmetric(vertical: ThixPolicy.s16),
+      color: _Pro.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Suggestions pour vous', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: ThixPolicy.inkDeep)),
+            padding: EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
+            child: Text('Personnes à découvrir', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: _Pro.textMain)),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: ThixPolicy.s12),
           SizedBox(
-            height: 170,
+            height: 172,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
               itemCount: _suggestions.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s10),
               itemBuilder: (c, i) {
                 final u = _suggestions[i];
                 return Container(
-                  width: 130,
-                  padding: const EdgeInsets.all(12),
+                  width: 132,
+                  padding: const EdgeInsets.all(ThixPolicy.s12),
                   decoration: BoxDecoration(
-                    color: ThixPolicy.card,
-                    borderRadius: BorderRadius.circular(ThixPolicy.rLg),
-                    border: Border.all(color: ThixPolicy.border),
+                    color: _Pro.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _Pro.border),
                   ),
                   child: Column(
                     children: [
-                      RoundAvatar(size: 50, imageUrl: u.avatar, isLive: liveHostIds.contains(u.id)),
-                      const SizedBox(height: 8),
-                      Text(u.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: ThixPolicy.inkDeep)),
+                      RoundAvatar(size: 52, imageUrl: u.avatar, ringWidth: 1.6, isLive: liveHostIds.contains(u.id)),
+                      const SizedBox(height: ThixPolicy.s8),
+                      Text(u.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _Pro.textMain)),
                       const SizedBox(height: 2),
-                      Text(u.title ?? 'Membre', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: ThixPolicy.textSecondary)),
+                      Text(u.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: _Pro.textSecondary)),
                       const Spacer(),
                       SizedBox(
                         width: double.infinity,
@@ -615,15 +533,15 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             padding: EdgeInsets.zero,
-                            foregroundColor: ThixPolicy.inkDeep,
-                            side: const BorderSide(color: ThixPolicy.borderStrong),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ThixPolicy.rMd)),
+                            foregroundColor: _Pro.ink,
+                            side: const BorderSide(color: _Pro.border),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           onPressed: () async {
                             await ref.read(networkServiceProvider).sendConnectionRequest(u.id);
                             setState(() => _suggestions.remove(u));
                           },
-                          child: const Text('Connecter', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          child: const Text('Se connecter', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                         ),
                       ),
                     ],
@@ -641,26 +559,31 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   Widget _buildShimmerFeed() {
     return Column(
       children: List.generate(3, (i) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        height: 180,
-        color: ThixPolicy.card,
+        margin: const EdgeInsets.only(bottom: ThixPolicy.s8),
+        height: 200,
+        color: _Pro.card,
       )),
     );
   }
 
   Widget _buildEmpty() {
     return Container(
-      color: ThixPolicy.card,
+      color: _Pro.card,
       padding: const EdgeInsets.all(60),
       child: Column(
         children: [
-          const Icon(Icons.article_outlined, size: 48, color: ThixPolicy.borderStrong),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _Pro.border)),
+            child: const Icon(Icons.feed_outlined, size: 32, color: _Pro.textSecondary),
+          ),
           const SizedBox(height: 16),
-          const Text('Votre fil est vide.', style: TextStyle(color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600, fontSize: 14)),
+          const Text('Aucune publication pour ce filtre', style: TextStyle(color: _Pro.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
           const SizedBox(height: 18),
-          TextButton(
+          OutlinedButton(
             onPressed: _onRefresh,
-            child: const Text('Actualiser', style: TextStyle(color: ThixPolicy.inkDeep, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(foregroundColor: _Pro.ink, side: const BorderSide(color: _Pro.border)),
+            child: const Text('Actualiser'),
           ),
         ],
       ),
@@ -672,42 +595,41 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
     final link = 'https://thix.id/network/post/$id';
     showModalBottomSheet(
       context: context,
-      backgroundColor: ThixPolicy.card,
+      backgroundColor: _Pro.card,
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 10),
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: ThixPolicy.border, borderRadius: BorderRadius.circular(4))),
-            const SizedBox(height: 10),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: _Pro.border, borderRadius: BorderRadius.circular(4))),
             ListTile(
-              leading: const Icon(Icons.copy_rounded, color: ThixPolicy.inkDeep),
-              title: const Text('Copier le lien', style: TextStyle(color: ThixPolicy.inkDeep, fontWeight: FontWeight.w700)),
+              leading: const Icon(Icons.link, color: _Pro.ink),
+              title: const Text('Copier le lien', style: TextStyle(color: _Pro.textMain, fontWeight: FontWeight.w600)),
               onTap: () async {
                 await Clipboard.setData(ClipboardData(text: link));
                 try { await ref.read(networkServiceProvider).sharePost(id); } catch (_) {}
                 if (mounted) Navigator.pop(context);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lien copié dans le presse-papiers')));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lien copié')));
               },
             ),
             ListTile(
-              leading: const Icon(Icons.close_rounded, color: ThixPolicy.textSecondary),
-              title: const Text('Fermer', style: TextStyle(color: ThixPolicy.textSecondary, fontWeight: FontWeight.w600)),
+              leading: const Icon(Icons.close, color: _Pro.textSecondary),
+              title: const Text('Fermer', style: TextStyle(color: _Pro.textMain)),
               onTap: () => Navigator.pop(context),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
           ],
         ),
       ),
     );
   }
 
-  // ─────────────────────────── BOTTOM NAV (Flottante & Moderne) ───────────────────────────
+  // ─────────────────────────── BOTTOM NAV ───────────────────────────
   Widget _buildBottomNav(bool visible) {
     return AnimatedSlide(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      offset: visible ? Offset.zero : const Offset(0, 1.5),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOutCubic,
+      offset: visible ? Offset.zero : const Offset(0, 1.6),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
         opacity: visible ? 1 : 0,
@@ -716,37 +638,30 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: Container(
-                height: 60,
-                decoration: BoxDecoration(
-                  color: ThixPolicy.inkDeep, // Navigation sombre et premium
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [BoxShadow(color: ThixPolicy.inkDeep.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _navBtn(Icons.home_filled, 'Accueil', true, () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)),
-                    _navBtn(Icons.search_rounded, 'Découvrir', false, () => _safePush('/network/discover')),
-                    
-                    // Bouton central de publication (Plus visible)
-                    GestureDetector(
-                      onTap: () => showDialog(context: context, builder: (_) => const CreatePostDialog()),
-                      child: Container(
-                        width: 44, height: 44,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [ThixPolicy.primary, ThixPolicy.primaryDeep]),
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: ThixPolicy.primary.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))],
-                        ),
-                        child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
-                      ),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    height: 62,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _Pro.border),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6))],
                     ),
-                    
-                    _navBtn(Icons.people_alt_rounded, 'Réseau', false, () => _safePush('/network/connections')),
-                    _navBtn(Icons.mail_rounded, 'Message', false, () => _safePush('/messages')),
-                  ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _navBtn(Icons.home_rounded, 'Accueil', true, () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)),
+                        _navBtn(Icons.explore_outlined, 'Découvrir', false, () => _safePush('/network/discover')),
+                        _navBtn(Icons.add_circle_outline_rounded, 'Publier', false, () => showDialog(context: context, builder: (_) => const CreatePostDialog())),
+                        _navBtn(Icons.groups_outlined, 'Réseau', false, () => _safePush('/network/connections')),
+                        _navBtn(Icons.mail_outline_rounded, 'Message', false, () => _safePush('/messages')),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -759,14 +674,15 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
   Widget _navBtn(IconData ic, String label, bool active, VoidCallback tap) {
     return InkWell(
       onTap: tap,
-      child: SizedBox(
-        width: 50,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(ic, size: 22, color: active ? Colors.white : ThixPolicy.textSecondary.withOpacity(0.8)),
+            Icon(ic, size: 21, color: active ? _Pro.ink : _Pro.textMuted),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 9, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? Colors.white : ThixPolicy.textSecondary.withOpacity(0.8))),
+            Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: active ? _Pro.ink : _Pro.textMuted)),
           ],
         ),
       ),
@@ -775,131 +691,218 @@ class _NetworkProHomeState extends ConsumerState<NetworkProHome> with AutomaticK
 }
 
 // ============================================================================
-// WIDGETS PRO : STORY RINGS ET QUICK POST
+// QUICK POST ENTRY — sobre, une seule couleur d'accent
 // ============================================================================
-
-class _ProStoryRing extends StatelessWidget {
-  final bool isMe;
-  final bool hasStory;
-  final bool isLive;
-  final String name;
-  final String? avatarUrl;
-  final VoidCallback onTap;
-  final VoidCallback? onAdd;
-
-  const _ProStoryRing({required this.isMe, required this.hasStory, this.isLive = false, required this.name, this.avatarUrl, required this.onTap, this.onAdd});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 64,
-        child: Column(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: (hasStory && !isMe) || isLive 
-                        ? const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [ThixPolicy.primary, ThixPolicy.primaryDeep]) 
-                        : null,
-                    color: (!hasStory && !isLive) ? ThixPolicy.border : null,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(2), // Espace blanc entre la bordure et l'image
-                    decoration: const BoxDecoration(color: ThixPolicy.card, shape: BoxShape.circle),
-                    child: RoundAvatar(size: 52, imageUrl: avatarUrl, ringWidth: 0),
-                  ),
-                ),
-                if (isMe)
-                  Positioned(
-                    bottom: 0, right: 0,
-                    child: GestureDetector(
-                      onTap: onAdd,
-                      child: Container(
-                        width: 22, height: 22,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: ThixPolicy.primaryDeep, border: Border.all(color: ThixPolicy.card, width: 2.5)),
-                        child: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              name,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ThixPolicy.inkDeep),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProPostEntry extends StatelessWidget {
+class _QuickPostEntryCard extends StatelessWidget {
   final String? avatarUrl;
   final VoidCallback onTap;
 
-  const _ProPostEntry({required this.avatarUrl, required this.onTap});
+  const _QuickPostEntryCard({required this.avatarUrl, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: ThixPolicy.card,
-      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: 12),
+      color: _Pro.card,
+      padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s12),
       child: Row(
         children: [
-          RoundAvatar(size: 44, imageUrl: avatarUrl, ringWidth: 0),
+          RoundAvatar(size: 38, imageUrl: avatarUrl, ringWidth: 0),
           const SizedBox(width: ThixPolicy.s12),
           Expanded(
             child: GestureDetector(
               onTap: onTap,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16, vertical: ThixPolicy.s12),
                 decoration: BoxDecoration(
-                  color: ThixPolicy.surface,
-                  borderRadius: BorderRadius.circular(ThixPolicy.rLg),
-                  border: Border.all(color: ThixPolicy.border),
+                  color: _Pro.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _Pro.border),
                 ),
-                child: const Text('Commencer un post...', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 14, fontWeight: FontWeight.w600)),
+                child: const Text('Commencer un post...', style: TextStyle(color: _Pro.textSecondary, fontSize: 13.5, fontWeight: FontWeight.w500)),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton(onPressed: onTap, icon: const Icon(Icons.image_outlined, color: ThixPolicy.textSecondary)),
+          const SizedBox(width: ThixPolicy.s10),
+          IconButton(
+            onPressed: onTap,
+            icon: const Icon(Icons.image_outlined, color: _Pro.textSecondary, size: 22),
+            tooltip: 'Ajouter un média',
+          ),
         ],
       ),
     );
   }
 }
 
-class _ProLiveCard extends StatelessWidget {
-  final String title;
-  final String host;
-  final String type;
-  final int viewers;
-  final VoidCallback onTap;
+// ============================================================================
+// HUB LIVE — rétraction / expansion 100% automatique selon la donnée
+// ============================================================================
+// Comportement demandé :
+// - Par défaut, reste FERMÉ (bandeau compact "Aucun direct").
+// - Dès qu'une session live/space existe → s'ouvre automatiquement.
+// - Dès que la liste redevient vide → se referme automatiquement.
+// - Aucun bouton manuel d'expansion : l'utilisateur peut toujours lancer un
+//   direct via le bouton "Lancer", mais ne contrôle pas l'ouverture/fermeture.
+// ============================================================================
+class _AutoLiveHub extends StatefulWidget {
+  final AsyncValue<List<Map<String, dynamic>>> liveSessionsAsync;
+  const _AutoLiveHub({required this.liveSessionsAsync});
 
-  const _ProLiveCard({required this.title, required this.host, required this.type, required this.viewers, required this.onTap});
+  @override
+  State<_AutoLiveHub> createState() => _AutoLiveHubState();
+}
+
+class _AutoLiveHubState extends State<_AutoLiveHub> {
+  bool _hasLiveNow = false;
+
+  @override
+  void didUpdateWidget(covariant _AutoLiveHub oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncExpansion();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _syncExpansion();
+  }
+
+  void _syncExpansion() {
+    final count = widget.liveSessionsAsync.value?.length ?? 0;
+    final hasLive = count > 0;
+    if (hasLive != _hasLiveNow) {
+      setState(() => _hasLiveNow = hasLive);
+    }
+  }
+
+  void _joinLive([Map<String, dynamic>? session]) {
+    if (session == null) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const LivePrepScreen()));
+    } else {
+      debugPrint("Rejoindre le canal Agora : ${session['channel_name']}");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isVideo = type == 'video';
+    final sessions = widget.liveSessionsAsync.value ?? const <Map<String, dynamic>>[];
+    final count = sessions.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _Pro.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _Pro.border),
+      ),
+      child: Column(
+        children: [
+          // Bandeau compact — toujours visible, jamais cliquable pour toggler
+          Padding(
+            padding: const EdgeInsets.all(ThixPolicy.s16),
+            child: Row(
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _hasLiveNow ? _Pro.live : _Pro.border)),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.sensors_rounded, color: _hasLiveNow ? _Pro.live : _Pro.textMuted, size: 18),
+                ),
+                const SizedBox(width: ThixPolicy.s12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Directs & Espaces', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: _Pro.textMain)),
+                          if (count > 0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 6, height: 6,
+                              decoration: const BoxDecoration(color: _Pro.live, shape: BoxShape.circle),
+                            ),
+                          ],
+                        ],
+                      ),
+                      Text(
+                        count > 0 ? '$count en cours' : 'Aucun direct actif',
+                        style: const TextStyle(fontSize: 11.5, color: _Pro.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _joinLive(),
+                  icon: const Icon(Icons.add_rounded, size: 15),
+                  label: const Text('Lancer'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _Pro.ink,
+                    side: const BorderSide(color: _Pro.border),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    minimumSize: const Size(76, 32),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Zone qui s'ouvre/ferme automatiquement selon la présence de lives
+          AnimatedSize(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeInOut,
+            child: !_hasLiveNow
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: ThixPolicy.s16),
+                    child: SizedBox(
+                      height: 122,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
+                        itemCount: sessions.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: ThixPolicy.s10),
+                        itemBuilder: (context, i) {
+                          final s = sessions[i];
+                          final type = (s['session_type'] as String?) ?? 'video';
+                          return _LiveCard(
+                            title: (s['title'] as String?) ?? 'Direct sans titre',
+                            host: (s['host_name'] as String?) ?? 'THIX',
+                            isVideo: type == 'video',
+                            viewers: (s['viewer_count'] as int?) ?? 0,
+                            onTap: () => _joinLive(s),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveCard extends StatelessWidget {
+  final String title;
+  final String host;
+  final bool isVideo;
+  final int viewers;
+  final VoidCallback onTap;
+
+  const _LiveCard({required this.title, required this.host, required this.isVideo, required this.viewers, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 200,
+        width: 148,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: ThixPolicy.surface,
-          borderRadius: BorderRadius.circular(ThixPolicy.rLg),
-          border: Border.all(color: ThixPolicy.border),
+          color: _Pro.ink,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,26 +910,97 @@ class _ProLiveCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(isVideo ? Icons.videocam_rounded : Icons.mic_rounded, size: 14, color: ThixPolicy.danger),
-                    const SizedBox(width: 4),
-                    const Text('EN DIRECT', style: TextStyle(color: ThixPolicy.danger, fontSize: 9, fontWeight: FontWeight.w900)),
-                  ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: _Pro.live, borderRadius: BorderRadius.circular(4)),
+                  child: const Text('EN DIRECT', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.visibility_rounded, color: ThixPolicy.textSecondary, size: 12),
-                    const SizedBox(width: 4),
-                    Text('$viewers', style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 10, fontWeight: FontWeight.w700)),
+                    const Icon(Icons.visibility_outlined, color: Colors.white70, size: 12),
+                    const SizedBox(width: 3),
+                    Text(viewers.toString(), style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ],
             ),
             const Spacer(),
-            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: ThixPolicy.inkDeep, fontSize: 13, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text(host, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+            Icon(isVideo ? Icons.videocam_outlined : Icons.mic_none_rounded, color: Colors.white38, size: 18),
+            const SizedBox(height: 6),
+            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2)),
+            const SizedBox(height: 3),
+            Text(host, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 10.5, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// STORIES — carte unifiée, contour fin monochrome
+// ============================================================================
+class _StoryCard extends StatelessWidget {
+  final bool isMe;
+  final bool hasStory;
+  final bool isLive;
+  final String name;
+  final String? coverUrl;
+  final String? avatarUrl;
+  final VoidCallback onTap;
+  final VoidCallback? onAdd;
+
+  const _StoryCard({required this.isMe, required this.hasStory, this.isLive = false, required this.name, this.coverUrl, this.avatarUrl, required this.onTap, this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 92,
+        decoration: BoxDecoration(
+          color: _Pro.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isLive ? _Pro.live : _Pro.border, width: isLive ? 1.4 : 1),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: (coverUrl != null && coverUrl!.isNotEmpty)
+                    ? Image.network(coverUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _Pro.surface))
+                    : Container(color: _Pro.surface),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withOpacity(0.55)]),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8, left: 8,
+              child: RoundAvatar(size: 28, imageUrl: avatarUrl, ringColor: hasStory || isMe ? _Pro.primary : Colors.transparent, ringWidth: 1.8, isLive: isLive),
+            ),
+            if (isMe)
+              Positioned(
+                top: 22, left: 22,
+                child: GestureDetector(
+                  onTap: onAdd,
+                  child: Container(
+                    width: 18, height: 18,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: _Pro.primary, border: Border.all(color: Colors.white, width: 1.8)),
+                    child: const Icon(Icons.add_rounded, size: 12, color: Colors.white),
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 8, left: 8, right: 8,
+              child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w700)),
+            ),
           ],
         ),
       ),
