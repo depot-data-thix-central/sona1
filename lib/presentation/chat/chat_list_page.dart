@@ -1,6 +1,7 @@
 // lib/presentation/chat/chat_list_page.dart
 import 'dart:async';
 import 'dart:ui';
+import 'package:thix_id/nav.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
