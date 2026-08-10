@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // ✅ Ajout du cache
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 class _C {
@@ -20,7 +20,7 @@ class LiveViewerScreen extends StatefulWidget {
   final String liveId;
   final String channelName;
   final String hostName;
-  final String? hostAvatarUrl; // ✅ URL de l'avatar de l'hôte
+  final String? hostAvatarUrl;
 
   const LiveViewerScreen({
     super.key,
@@ -36,18 +36,16 @@ class LiveViewerScreen extends StatefulWidget {
 
 class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProviderStateMixin {
   late RtcEngine _engine;
-  RealtimeChannel? _realtimeChannel; // ✅ Vrai canal Supabase
+  RealtimeChannel? _realtimeChannel;
   
   bool _isInitialized = false;
   int? _remoteUid;
   
-  // États du Co-hôte
   bool _isCoHost = false;
   bool _isMuted = false;
   bool _isVideoOff = false;
   bool _isRequesting = false;
-  
-  int _viewerCount = 0; // ✅ Vrai compteur synchronisé
+  int _viewerCount = 0;
 
   final TextEditingController _chatController = TextEditingController();
   final List<Map<String, String>> _comments = [];
@@ -55,7 +53,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
   final Random _random = Random();
 
   String get _myUserId => Supabase.instance.client.auth.currentUser?.id ?? 'spectator';
-  String get _myUserName => 'Membre THIX'; // Dans une app complète, à récupérer depuis les providers
+  String get _myUserName => 'Membre THIX';
 
   @override
   void initState() {
@@ -64,7 +62,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
     _initRealtime();
   }
 
-  // ─── 1. INITIALISATION AGORA ───
   Future<void> _initAgora() async {
     try {
       final response = await Supabase.instance.client.functions.invoke(
@@ -79,13 +76,11 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
-      // Démarrage en tant que SPECTATEUR
       await _engine.setClientRole(role: ClientRoleType.clientRoleAudience);
 
       _engine.registerEventHandler(
         RtcEngineEventHandler(
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-            // Le premier qui rejoint est considéré comme l'hôte principal (plein écran)
             if (_remoteUid == null) setState(() => _remoteUid = remoteUid);
           },
           onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
@@ -115,7 +110,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
     }
   }
 
-  // ─── 2. INITIALISATION SUPABASE REALTIME (VRAI TEMPS RÉEL) ───
   void _initRealtime() {
     _realtimeChannel = Supabase.instance.client.channel('live_${widget.liveId}');
 
@@ -127,7 +121,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
         _triggerHeartAnimation();
       })
       .onBroadcast(event: 'cohost_response', callback: (payload) {
-        // L'hôte a répondu à NOTRE demande
         if (payload['targetUserId'] == _myUserId) {
           if (payload['accepted'] == true) {
             _becomeCoHost();
@@ -138,26 +131,20 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
         }
       })
       .onPresenceSync((_) {
-  final state = _realtimeChannel!.presenceState();
-  final int count = state.length;
-  
-  // On soustrait l'hôte principal s'il est dedans, ou on affiche le nombre total
-  setState(() => _viewerCount = count > 0 ? count - 1 : 0);
-})
-.subscribe((status, [error]) {
-  if (status == RealtimeSubscribeStatus.subscribed) {
-    // On s'annonce comme spectateur pour le compteur
-    _realtimeChannel!.track({'user_id': _myUserId, 'is_host': false});
-  }
-});
+        final state = _realtimeChannel!.presenceState();
+        final int count = state.length;
+        setState(() => _viewerCount = count > 0 ? count - 1 : 0);
+      })
+      .subscribe((status, [error]) {
+        if (status == RealtimeSubscribeStatus.subscribed) {
+          _realtimeChannel!.track({'user_id': _myUserId, 'is_host': false});
+        }
+      });
   }
 
-  // ─── 3. GESTION CO-HÔTE RÉELLE ───
   void _requestToJoin() {
     setState(() => _isRequesting = true);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demande envoyée à l\'hôte...')));
-    
-    // Envoyer la vraie requête à l'hôte
     _realtimeChannel!.sendBroadcastMessage(
       event: 'cohost_request',
       payload: {'userId': _myUserId, 'userName': _myUserName},
@@ -167,7 +154,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
   Future<void> _becomeCoHost() async {
     if (!kIsWeb) await [Permission.camera, Permission.microphone].request();
     
-    // Passage en Diffuseur
     await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _engine.enableVideo();
     await _engine.enableAudio();
@@ -182,7 +168,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
     }
   }
 
-  // ─── 4. ACTIONS CHAT / COEUR ───
   void _sendComment() {
     if (_chatController.text.trim().isEmpty) return;
     final text = _chatController.text.trim();
@@ -244,21 +229,44 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
         resizeToAvoidBottomInset: true,
         body: Stack(
           children: [
-            // 1. FOND VIDÉO (L'Hôte principal)
+            // ✅ CORRECTION ICI : Gestion propre du flux vidéo et de l'attente de l'hôte
             Positioned.fill(
-              child: _isInitialized && _remoteUid != null
+              child: _isInitialized
                   ? SizedBox.expand(
                       child: FittedBox(
                         fit: BoxFit.cover,
                         child: SizedBox(
-                          width: MediaQuery.of(context).size.width, height: MediaQuery.of(context).size.height,
-                          child: AgoraVideoView(
-                            controller: VideoViewController.remote(rtcEngine: _engine, canvas: VideoCanvas(uid: _remoteUid), connection: RtcConnection(channelId: widget.channelName), useFlutterTexture: kIsWeb),
-                          ),
+                          width: MediaQuery.of(context).size.width,
+                          height: MediaQuery.of(context).size.height,
+                          child: _remoteUid != null
+                              ? AgoraVideoView(
+                                  controller: VideoViewController.remote(
+                                    rtcEngine: _engine,
+                                    canvas: VideoCanvas(uid: _remoteUid),
+                                    connection: RtcConnection(channelId: widget.channelName),
+                                    useFlutterTexture: kIsWeb,
+                                  ),
+                                )
+                              : Container(
+                                  color: _C.bgDark,
+                                  child: const Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        CircularProgressIndicator(color: _C.primary),
+                                        SizedBox(height: 16),
+                                        Text('Connexion au direct en cours...', style: TextStyle(color: _C.textMuted)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                     )
-                  : Container(color: _C.bgDark, child: const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(color: _C.primary), SizedBox(height: 16), Text('En attente de l\'hôte...', style: TextStyle(color: _C.textMuted))]))),
+                  : Container(
+                      color: _C.bgDark,
+                      child: const Center(child: CircularProgressIndicator(color: _C.primary)),
+                    ),
             ),
 
             // 2. DÉGRADÉS LISIBILITÉ
@@ -278,7 +286,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
                 ),
               ),
 
-            // 4. TOP BAR (Hôte & Vues)
+            // 4. TOP BAR
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -287,7 +295,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
                     Container(
                       padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(30)),
                       child: Row(children: [
-                        // ✅ Avatar de l'hôte avec Cache
                         CircleAvatar(
                           radius: 16, 
                           backgroundColor: _C.primary, 
@@ -308,7 +315,7 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
               ),
             ),
 
-            // 5. ACTIONS CO-HÔTE (si je suis accepté)
+            // 5. ACTIONS CO-HÔTE
             if (_isCoHost)
               Positioned(
                 right: 16, bottom: 140,
@@ -351,7 +358,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
                 top: false,
                 child: Row(
                   children: [
-                    // Champ de texte
                     Expanded(
                       child: Container(
                         height: 44, decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(ThixPolicy.rFull)),
@@ -361,8 +367,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
                         ),
                       ),
                     ),
-                    
-                    // Demande Co-Hôte (seulement si je ne le suis pas encore)
                     if (!_isCoHost) ...[
                       const SizedBox(width: 8),
                       GestureDetector(
@@ -370,8 +374,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
                         child: Container(width: 44, height: 44, decoration: BoxDecoration(shape: BoxShape.circle, color: _isRequesting ? Colors.grey : _C.primary), child: _isRequesting ? const Padding(padding: EdgeInsets.all(12.0), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.video_call_rounded, color: _C.textMain, size: 22)),
                       ),
                     ],
-
-                    // Bouton Coeur
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: _sendHeart,
@@ -382,7 +384,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
               ),
             ),
 
-            // 8. COEURS ANIMÉS OVERLAY
             ..._floatingHearts,
           ],
         ),
@@ -391,7 +392,6 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
   }
 }
 
-// ─── COMPOSANTS ANNEXES (IDENTIQUES) ───
 class _SideActionButton extends StatelessWidget {
   final IconData icon; final String label; final VoidCallback onTap;
   const _SideActionButton({required this.icon, required this.label, required this.onTap});
