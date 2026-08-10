@@ -11,6 +11,9 @@ import 'package:thix_id/services/profile_service.dart';
 import 'package:thix_id/supabase/supabase_config.dart';
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
+// ← Ajoute cet import
+import 'package:thix_id/services/local_notification_service.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -18,6 +21,16 @@ Future<void> main() async {
     await SupabaseConfig.initialize();
   } catch (e) {
     debugPrint('Supabase init error: $e');
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // INITIALISATION DES POP NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════════
+  try {
+    await LocalNotificationService.instance.init();
+    await LocalNotificationService.instance.requestPermission();
+  } catch (e) {
+    debugPrint('LocalNotificationService init error: $e');
   }
 
   runApp(
