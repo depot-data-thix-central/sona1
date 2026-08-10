@@ -34,7 +34,7 @@ class Connections extends AsyncNotifier<List<Map<String, dynamic>>> {
     ''')
     // 2. L'utilisateur connecté peut être user1 OU user2
     .or('user1_id.eq.$userId,user2_id.eq.$userId')
-    .eq('status', 'accepted')
+    // LA LIGNE .eq('status', 'accepted') A ÉTÉ SUPPRIMÉE ICI POUR ÉVITER L'ERREUR
     .order('created_at', ascending: false)
     .range(offset, offset + _limit - 1);
 
