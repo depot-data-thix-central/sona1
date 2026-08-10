@@ -138,19 +138,19 @@ class _LiveViewerScreenState extends State<LiveViewerScreen> with TickerProvider
         }
       })
       .onPresenceSync((_) {
-        final state = _realtimeChannel!.presenceState();
-        int count = 0;
-        state.forEach((key, value) { count += value.length; });
-        // On soustrait l'hôte principal s'il est dedans, ou on affiche le nombre total
-        setState(() => _viewerCount = count > 0 ? count - 1 : 0);
-      })
-      .subscribe((status, [error]) {
-        if (status == RealtimeSubscribeStatus.subscribed) {
-          // On s'annonce comme spectateur pour le compteur
-          _realtimeChannel!.track({'user_id': _myUserId, 'is_host': false});
-        }
-      });
+  final state = _realtimeChannel!.presenceState();
+  final int count = state.length;
+  
+  // On soustrait l'hôte principal s'il est dedans, ou on affiche le nombre total
+  setState(() => _viewerCount = count > 0 ? count - 1 : 0);
+})
+.subscribe((status, [error]) {
+  if (status == RealtimeSubscribeStatus.subscribed) {
+    // On s'annonce comme spectateur pour le compteur
+    _realtimeChannel!.track({'user_id': _myUserId, 'is_host': false});
   }
+});
+
 
   // ─── 3. GESTION CO-HÔTE RÉELLE ───
   void _requestToJoin() {
