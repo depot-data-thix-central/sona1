@@ -1,4 +1,8 @@
 // lib/nav.dart
+import 'package:flutter/material.dart';
+
+/// Navigator root partagé (GoRouter + GlobalCallListener)
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class AppRoutes {
   static const String start = '/start';
@@ -41,10 +45,10 @@ class AppRoutes {
   static const String trainingDetailsBasePath = '/education';
   static const String instructorDashboard = '/';
   static const String instructorCourses = '/instructor/courses';
-  static const String thixMediaVideo = '/thix-media-video'; 
+  static const String thixMediaVideo = '/thix-media-video';
   static const String adminMedia = '/admin-media';
   static const String thixMedia = '/thix-media';
-  
+
   // ═══════════════════════════════════════════════════════════════
   // THIX MONEY - FULL PRODUCTION - VÉRIFIE THIX_ID EN BASE
   // ═══════════════════════════════════════════════════════════════
@@ -60,7 +64,7 @@ class AppRoutes {
   static const String thixMoneyLoans = '/thix-money/loans';
   static const String thixMoneyTontines = '/thix-money/tontines';
   static const String thixMoneyProfile = '/thix-money/profile';
-  
+
   static const String reservation = '/reservation';
 
   // THIX INFO
@@ -139,15 +143,24 @@ class AppRoutes {
   static const String monPaysAdminAchievementForm = '/mon-pays/admin/provinces/achievement/:provinceId';
   static const String monPaysAdminMediaForm = '/mon-pays/admin/provinces/media/:provinceId';
   static String monPaysProvinceDetailPath(String id) => '/mon-pays/provinces/$id';
-  static String monPaysAdminProvinceFormPath({dynamic province}) => '/mon-pays/admin/provinces/form';
-  static String monPaysAdminGovernmentFormPath(String provinceId) => '/mon-pays/admin/provinces/government/$provinceId';
-  static String monPaysAdminEconomicFormPath(String provinceId) => '/mon-pays/admin/provinces/economic/$provinceId';
-  static String monPaysAdminBudgetFormPath(String provinceId) => '/mon-pays/admin/provinces/budget/$provinceId';
-  static String monPaysAdminTourismFormPath(String provinceId) => '/mon-pays/admin/provinces/tourism/$provinceId';
-  static String monPaysAdminEmergencyFormPath(String provinceId) => '/mon-pays/admin/provinces/emergency/$provinceId';
-  static String monPaysAdminAdministrativeFormPath(String provinceId) => '/mon-pays/admin/provinces/administrative/$provinceId';
-  static String monPaysAdminAchievementFormPath(String provinceId) => '/mon-pays/admin/provinces/achievement/$provinceId';
-  static String monPaysAdminMediaFormPath(String provinceId) => '/mon-pays/admin/provinces/media/$provinceId';
+  static String monPaysAdminProvinceFormPath({dynamic province}) =>
+      '/mon-pays/admin/provinces/form';
+  static String monPaysAdminGovernmentFormPath(String provinceId) =>
+      '/mon-pays/admin/provinces/government/$provinceId';
+  static String monPaysAdminEconomicFormPath(String provinceId) =>
+      '/mon-pays/admin/provinces/economic/$provinceId';
+  static String monPaysAdminBudgetFormPath(String provinceId) =>
+      '/mon-pays/admin/provinces/budget/$provinceId';
+  static String monPaysAdminTourismFormPath(String provinceId) =>
+      '/mon-pays/admin/provinces/tourism/$provinceId';
+  static String monPaysAdminEmergencyFormPath(String provinceId) =>
+      '/mon-pays/admin/provinces/emergency/$provinceId';
+  static String monPaysAdminAdministrativeFormPath(String provinceId) =>
+      '/mon-pays/admin/provinces/administrative/$provinceId';
+  static String monPaysAdminAchievementFormPath(String provinceId) =>
+      '/mon-pays/admin/provinces/achievement/$provinceId';
+  static String monPaysAdminMediaFormPath(String provinceId) =>
+      '/mon-pays/admin/provinces/media/$provinceId';
   static const String monPaysLaws = '/mon-pays/laws';
   static const String monPaysArticleType = '/mon-pays/laws/:type';
   static const String monPaysArticleDetail = '/mon-pays/laws/article/:id';
@@ -159,7 +172,8 @@ class AppRoutes {
   static const String monPaysAdminArticles = '/mon-pays/admin/articles';
   static const String monPaysAdminArticleForm = '/mon-pays/admin/articles/form';
   static String monPaysAdminFormPath({dynamic authority}) => '/mon-pays/admin/form';
-  static String monPaysAdminArticleFormPath({dynamic article}) => '/mon-pays/admin/articles/form';
+  static String monPaysAdminArticleFormPath({dynamic article}) =>
+      '/mon-pays/admin/articles/form';
 
   // THIX SANTÉ
   static const String thixSante = '/thix-sante';
@@ -195,23 +209,29 @@ class AppRoutes {
   static const String santeAssuranceSanteDetail = '/thix-sante/assurance-sante';
   static const String santePlusServices = '/thix-sante/plus-services';
   static String santeOrdonnanceDetail(String id) => '/thix-sante/ordonnances/$id';
-  static String santeDossierDetail(String recordId) => '/thix-sante/dossier-medical/$recordId';
-  static String santeTeleconsultationRoom(String roomId) => '/thix-sante/teleconsultation/$roomId';
-  static String santeHopitalDetail(String hopitalId) => '/thix-sante/trouver-hopital/$hopitalId';
-  static String santePharmacieDetail(String pharmacieId) => '/thix-sante/pharmacies-proches/$pharmacieId';
-  
+  static String santeDossierDetail(String recordId) =>
+      '/thix-sante/dossier-medical/$recordId';
+  static String santeTeleconsultationRoom(String roomId) =>
+      '/thix-sante/teleconsultation/$roomId';
+  static String santeHopitalDetail(String hopitalId) =>
+      '/thix-sante/trouver-hopital/$hopitalId';
+  static String santePharmacieDetail(String pharmacieId) =>
+      '/thix-sante/pharmacies-proches/$pharmacieId';
+
   static const String deliveryHome = '/thix-reservation/delivery';
   static const String deliveryCheckout = '/thix-reservation/delivery/checkout';
   static const String deliveryTracking = '/thix-reservation/delivery/tracking';
   static const String deliveryHistory = '/thix-reservation/delivery/history';
   static const String deliveryAdminDashboard = '/thix-reservation/delivery/admin';
   static const String deliveryAdminRoutes = '/thix-reservation/delivery/admin/routes';
-  static const String deliveryAdminShipments = '/thix-reservation/delivery/admin/shipments';
+  static const String deliveryAdminShipments =
+      '/thix-reservation/delivery/admin/shipments';
   static const String deliveryAdminScan = '/thix-reservation/delivery/admin/scan';
   static const String thixUrgent = '/thix-urgent';
   static const String chambreDeCrise = '/thix-urgent/chambre-de-crise';
-  static String chambreDeCrisePath(String criseId) => '/thix-urgent/chambre-de-crise?criseId=$criseId';
-  
+  static String chambreDeCrisePath(String criseId) =>
+      '/thix-urgent/chambre-de-crise?criseId=$criseId';
+
   static const String call = '/call';
   static const String callIncoming = '/call/incoming';
   static const String callOutgoing = '/call/outgoing';
@@ -239,12 +259,34 @@ class AppRoutes {
   static const String tableCallInvites = 'call_invites';
   static const String funcAgoraToken = 'agora-token';
   static const String thixUrgentGardiens = '/thix-urgent/config/gardiens';
-  static String callChannelId(String conversationId) => '$callChannelPrefix$conversationId';
-  static Map<String, dynamic> callOngoingExtra({required String channel, required String name, required String type, String? inviteId, bool isCaller = true, String? avatarUrl, String? calleeId}) => {'channel': channel, 'name': name, 'type': type, 'inviteId': inviteId, 'isCaller': isCaller, 'avatarUrl': avatarUrl, 'calleeId': calleeId};
-  static String enterprisePortalBase(String slug) => '$enterprisePortalBasePath/$slug';
-  static String enterprisePortalDashboard(String slug, String section) => '/company/$slug/dashboard/$section';
+  static String callChannelId(String conversationId) =>
+      '$callChannelPrefix$conversationId';
+  static Map<String, dynamic> callOngoingExtra({
+    required String channel,
+    required String name,
+    required String type,
+    String? inviteId,
+    bool isCaller = true,
+    String? avatarUrl,
+    String? calleeId,
+  }) =>
+      {
+        'channel': channel,
+        'name': name,
+        'type': type,
+        'inviteId': inviteId,
+        'isCaller': isCaller,
+        'avatarUrl': avatarUrl,
+        'calleeId': calleeId,
+      };
+  static String enterprisePortalBase(String slug) =>
+      '$enterprisePortalBasePath/$slug';
+  static String enterprisePortalDashboard(String slug, String section) =>
+      '/company/$slug/dashboard/$section';
   static String networkChat(String userId) => '$networkChatBasePath/$userId';
   static String networkPost(String postId) => '$networkPostBasePath/$postId';
-  static String networkCommunity(String communityId) => '$networkCommunityBasePath/$communityId';
-  static String networkProfile(String userId) => '$networkProfileBasePath/$userId';
+  static String networkCommunity(String communityId) =>
+      '$networkCommunityBasePath/$communityId';
+  static String networkProfile(String userId) =>
+      '$networkProfileBasePath/$userId';
 }
