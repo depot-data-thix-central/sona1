@@ -46,8 +46,12 @@ class _DiscoverTabState extends State<DiscoverTab> with SingleTickerProviderStat
         users = await supa.from('profiles').select('id, display_name, photo_url, avatar_url, profession').limit(20);
       }
 
-      // Popular posts
-      final pop = await supa.from('network_posts').select('id, content, image_url, media_urls, likes_count, created_at, profiles!network_posts_user_id_fkey(display_name, photo_url)').order('likes_count', ascending: false).limit(20);
+      // Popular posts - CORRECTION APPLIQUÉE ICI
+      // Suppression de "!network_posts_user_id_fkey" pour utiliser la relation par défaut
+      final pop = await supa.from('network_posts')
+          .select('id, content, image_url, media_urls, likes_count, created_at, profiles(display_name, photo_url)')
+          .order('likes_count', ascending: false)
+          .limit(20);
 
       if (!mounted) return;
       setState(() {
