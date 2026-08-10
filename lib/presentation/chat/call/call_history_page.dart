@@ -402,30 +402,64 @@ class _SearchCallSheetState extends State<_SearchCallSheet> {
   }
 
   Future<void> _search(String q) async {
-    final query = q.trim();
-    if (query.length < 2) {
-      setState(() => _results = []);
+  final query = q.trim().toLowerCase();
+  final myId = _db.auth.currentUser?.id;
+  if (myId == null) return;
+
+  setState(() => _loading = true);
+  try {
+    // 1) IDs des connexions acceptées
+    final rows = await _db
+        .from('connections')
+        .select('user1_id, user2_id')
+        .or('user1_id.eq.$myId,user2_id.eq.$myId');
+
+    final peerIds = <String>{};
+    for (final r in (rows as List)) {
+      final m = Map<String, dynamic>.from(r as Map);
+      final u1 = '${m['user1_id']}';
+      final u2 = '${m['user2_id']}';
+      if (u1 == myId) peerIds.add(u2);
+      if (u2 == myId) peerIds.add(u1);
+    }
+
+    if (peerIds.isEmpty) {
+      setState(() {
+        _results = [];
+        _loading = false;
+      });
       return;
     }
-    setState(() => _loading = true);
-    try {
-      final rows = await _db
-          .from('profiles')
-          .select('id, display_name, full_name, avatar_url')
-          .or('display_name.ilike.%$query%,full_name.ilike.%$query%')
-          .limit(20);
 
-      setState(() {
-        _results = (rows as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-      });
-    } catch (_) {
-      setState(() => _results = []);
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    // 2) Profiles de ces IDs seulement
+    var profiles = await _db
+        .from('profiles')
+        .select('id, display_name, full_name, avatar_url')
+        .inFilter('id', peerIds.toList());
+
+    var list = (profiles as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+
+    if (query.isNotEmpty) {
+      list = list.where((p) {
+        final name =
+            '${p['display_name'] ?? p['full_name'] ?? ''}'.toLowerCase();
+        return name.contains(query);
+      }).toList();
     }
+
+    setState(() {
+      _results = list;
+      _loading = false;
+    });
+  } catch (_) {
+    setState(() {
+      _results = [];
+      _loading = false;
+    });
   }
+}
 
   @override
   Widget build(BuildContext context) {
