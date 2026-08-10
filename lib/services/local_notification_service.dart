@@ -1,3 +1,4 @@
+// lib/services/local_notification_service.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -7,11 +8,20 @@ class LocalNotificationService {
   static final LocalNotificationService instance = LocalNotificationService._();
   LocalNotificationService._();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  // 🌟 ASTUCE WEB : On type en 'dynamic' pour empêcher le compilateur dart2js 
+  // de déclencher l'erreur "Too many positional arguments" sur le Web.
+  final dynamic _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   Future<void> init() async {
     if (_initialized) return;
+
+    // 🌟 ASTUCE WEB : On bloque l'exécution native si on est sur navigateur
+    if (kIsWeb) {
+      _initialized = true;
+      debugPrint('LocalNotificationService: Désactivé sur le Web');
+      return;
+    }
 
     tz.initializeTimeZones();
 
@@ -53,6 +63,9 @@ class LocalNotificationService {
   }
 
   Future<bool> requestPermission() async {
+    // 🌟 On ignore la permission native sur le Web
+    if (kIsWeb) return true;
+
     if (defaultTargetPlatform == TargetPlatform.android) {
       final status = await Permission.notification.request();
       return status.isGranted;
@@ -67,6 +80,12 @@ class LocalNotificationService {
     String? payload,
   }) async {
     if (!_initialized) await init();
+
+    // 🌟 Sur le Web, on se contente d'afficher un log au lieu de planter
+    if (kIsWeb) {
+      debugPrint('🔔 [Web Notification] $title: $body');
+      return;
+    }
 
     const androidDetails = AndroidNotificationDetails(
       'thix_high_importance',
