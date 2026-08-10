@@ -5,10 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ✅ Design System THIX v1 (conservé pour spacing/radius si besoin)
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 
-// Imports des pages (inchangés)
 import 'screens/mon_medecin_traitant_page.dart';
 import 'screens/dossier_famille_page.dart';
 import 'screens/second_avis_page.dart';
@@ -38,53 +36,34 @@ import 'screens/nutrition_page.dart';
 import 'screens/activite_physique_page.dart';
 import 'screens/gestion_stress_page.dart';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PALETTE CLINIQUE THIX SANTÉ
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// Inspirée des standards du secteur santé numérique (Doctolib, Ada Health,
-// MyChart/Epic, Teladoc) : le bleu-sarcelle (teal) est la couleur dominante
-// du secteur médical car il évoque à la fois la propreté clinique, le calme
-// et la confiance — contrairement au bleu corporate générique ou aux
-// dégradés sombres de type "app fintech".
-//
-// Le rouge est réservé STRICTEMENT aux actions d'urgence réelle (SOS,
-// don de sang) pour ne jamais banaliser le signal d'alerte.
-// ═══════════════════════════════════════════════════════════════════════════
-
 class _Med {
   _Med._();
 
-  // Primaires — bleu-sarcelle clinique
   static const Color primary = Color(0xFF0E7C86);
   static const Color primaryDark = Color(0xFF0B5F68);
   static const Color primaryDeep = Color(0xFF083E44);
   static const Color primarySoft = Color(0xFFE3F2F3);
 
-  // Secondaire — bleu confiance (dossiers, admin)
   static const Color trustBlue = Color(0xFF2D6CDF);
   static const Color trustBlueSoft = Color(0xFFEAF1FC);
 
-  // Accents fonctionnels
-  static const Color sage = Color(0xFF3F9C6D);       // bien-être / validé
+  static const Color sage = Color(0xFF3F9C6D);
   static const Color sageSoft = Color(0xFFE6F4EC);
-  static const Color amber = Color(0xFFC98A1E);       // rappels / attention
+  static const Color amber = Color(0xFFC98A1E);
   static const Color amberSoft = Color(0xFFFBF1E0);
-  static const Color violet = Color(0xFF6D5BD0);      // spécialités / mental
+  static const Color violet = Color(0xFF6D5BD0);
   static const Color violetSoft = Color(0xFFEEEBFB);
-  static const Color rose = Color(0xFFC5455B);        // maternité (doux, non alarmant)
+  static const Color rose = Color(0xFFC5455B);
   static const Color roseSoft = Color(0xFFFAEAED);
-  static const Color emergency = Color(0xFFCC3333);   // urgence réelle uniquement
+  static const Color emergency = Color(0xFFCC3333);
   static const Color emergencySoft = Color(0xFFFBEAEA);
-  static const Color slate = Color(0xFF556270);        // historique / neutre
+  static const Color slate = Color(0xFF556270);
 
-  // Surfaces
   static const Color bgApp = Color(0xFFF4F8F8);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color border = Color(0xFFE1EAEA);
   static const Color divider = Color(0xFFEDF3F3);
 
-  // Texte
   static const Color textPrimary = Color(0xFF122325);
   static const Color textSecondary = Color(0xFF5E7477);
   static const Color textMuted = Color(0xFF93A6A8);
@@ -102,7 +81,6 @@ class _Med {
   );
 }
 
-// ---------------- Données réelles ----------------
 class DashboardStats {
   final int consultations, examens, medicaments, rdvs;
   const DashboardStats({
@@ -170,7 +148,6 @@ class PatientDashboardPage extends ConsumerStatefulWidget {
 }
 
 class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
-  // Palette médicale appliquée par catégorie de service
   late final List<ServiceItem> _dossierServices = [
     ServiceItem('Ordonnances', 'Prescriptions actives', Icons.receipt_long_rounded, _Med.primaryDark, _Med.primarySoft, const MesOrdonnancesPage()),
     ServiceItem('Résultats', 'Labo & imagerie', Icons.biotech_rounded, _Med.trustBlue, _Med.trustBlueSoft, const ResultatsExamensPage()),
@@ -232,30 +209,27 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 130),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      // 1. CARTE DE SYNTHÈSE SANTÉ
                       _buildHealthSummaryCard(stats),
                       const SizedBox(height: 28),
 
-                      // 2. ACCÈS RAPIDE
                       _buildSectionTitle('Accès rapide'),
                       _buildQuickAccessRow(),
                       const SizedBox(height: 32),
 
-                      // 3. SECTIONS DE SERVICES
                       _buildSectionTitle('Dossier médical'),
-                      _buildServiceList(_dossierServices),
+                      _buildServiceGrid(_dossierServices),
                       const SizedBox(height: 28),
 
                       _buildSectionTitle('Parcours de soins'),
-                      _buildServiceList(_careServices),
+                      _buildServiceGrid(_careServices),
                       const SizedBox(height: 28),
 
                       _buildSectionTitle('Famille & proches'),
-                      _buildServiceList(_familyServices),
+                      _buildServiceGrid(_familyServices),
                       const SizedBox(height: 28),
 
                       _buildSectionTitle('Bien-être & prévention'),
-                      _buildServiceList(_wellbeingServices),
+                      _buildServiceGrid(_wellbeingServices),
                     ]),
                   ),
                 ),
@@ -288,71 +262,65 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
       flexibleSpace: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    height: 44, width: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _Med.primarySoft,
-                      border: Border.all(color: _Med.primary.withOpacity(0.18), width: 1.4),
-                      image: (avatarUrl != null && avatarUrl.isNotEmpty)
-                          ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover)
-                          : null,
+              Container(
+                height: 44, width: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _Med.primarySoft,
+                  border: Border.all(color: _Med.primary.withOpacity(0.18), width: 1.4),
+                  image: (avatarUrl != null && avatarUrl.isNotEmpty)
+                      ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover)
+                      : null,
+                ),
+                child: (avatarUrl == null || avatarUrl.isEmpty)
+                    ? const Icon(Icons.person_outline_rounded, color: _Med.primary, size: 22)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Bonjour, $firstName',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _Med.textPrimary, letterSpacing: -0.3),
                     ),
-                    child: (avatarUrl == null || avatarUrl.isEmpty)
-                        ? const Icon(Icons.person_outline_rounded, color: _Med.primary, size: 22)
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 2),
+                    Row(
                       children: [
-                        Text(
-                          'Bonjour, $firstName',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _Med.textPrimary, letterSpacing: -0.3),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            const Icon(Icons.verified_user_rounded, size: 12, color: _Med.sage),
-                            const SizedBox(width: 4),
-                            const Text('Connexion chiffrée', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _Med.textSecondary)),
-                          ],
-                        ),
+                        const Icon(Icons.verified_user_rounded, size: 12, color: _Med.sage),
+                        const SizedBox(width: 4),
+                        const Text('Connexion chiffrée', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _Med.textSecondary)),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  InkWell(
-                    onTap: () => _go(const UrgencesProchesPage()),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              InkWell(
+                onTap: () => _go(const UrgencesProchesPage()),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: _Med.emergency,
                     borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-                      decoration: BoxDecoration(
-                        color: _Med.emergency,
-                        borderRadius: BorderRadius.circular(999),
-                        boxShadow: [BoxShadow(color: _Med.emergency.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 4))],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.emergency_rounded, size: 15, color: Colors.white),
-                          SizedBox(width: 5),
-                          Text('SOS', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.4)),
-                        ],
-                      ),
-                    ),
+                    boxShadow: [BoxShadow(color: _Med.emergency.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 4))],
                   ),
-                ],
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.emergency_rounded, size: 15, color: Colors.white),
+                      SizedBox(width: 5),
+                      Text('SOS', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.4)),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -362,7 +330,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   // =========================================================================
-  // 2. CARTE DE SYNTHÈSE SANTÉ (teal clinique, plus dark navy)
+  // 2. CARTE DE SYNTHÈSE SANTÉ
   // =========================================================================
   Widget _buildHealthSummaryCard(AsyncValue<DashboardStats> statsAsync) {
     return Container(
@@ -526,61 +494,72 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
   }
 
   // =========================================================================
-  // 5. LISTES DE SERVICES — pattern "ligne clinique" avec chevron
+  // 5. GRILLE DE SERVICES — 3 colonnes, icône + titre + sous-titre + flèche
+  //    (remplace la liste verticale, disposition inspirée de la capture)
   // =========================================================================
-  Widget _buildServiceList(List<ServiceItem> items) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _Med.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _Med.border),
+  Widget _buildServiceGrid(List<ServiceItem> items) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.92,
       ),
-      child: Column(
-        children: List.generate(items.length, (index) {
-          final it = items[index];
-          final isLast = index == items.length - 1;
-          return InkWell(
-            onTap: () => _go(it.page),
-            borderRadius: BorderRadius.vertical(
-              top: index == 0 ? const Radius.circular(16) : Radius.zero,
-              bottom: isLast ? const Radius.circular(16) : Radius.zero,
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final it = items[index];
+        return InkWell(
+          onTap: () => _go(it.page),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _Med.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _Med.border),
             ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              decoration: BoxDecoration(
-                border: isLast ? null : const Border(bottom: BorderSide(color: _Med.divider, width: 1)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 38, height: 38,
-                    decoration: BoxDecoration(color: it.bgColor, borderRadius: BorderRadius.circular(10)),
-                    alignment: Alignment.center,
-                    child: Icon(it.icon, color: it.color, size: 19),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(color: it.bgColor, borderRadius: BorderRadius.circular(10)),
+                  alignment: Alignment.center,
+                  child: Icon(it.icon, color: it.color, size: 19),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  it.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _Med.textPrimary, height: 1.15, letterSpacing: -0.1),
+                ),
+                const SizedBox(height: 3),
+                Expanded(
+                  child: Text(
+                    it.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _Med.textSecondary, height: 1.2),
                   ),
-                  const SizedBox(width: 13),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _Med.textPrimary, letterSpacing: -0.15)),
-                        const SizedBox(height: 1),
-                        Text(it.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _Med.textSecondary)),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right_rounded, size: 20, color: _Med.textMuted),
-                ],
-              ),
+                ),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Icon(Icons.arrow_forward_rounded, size: 15, color: it.color),
+                ),
+              ],
             ),
-          );
-        }),
-      ),
+          ),
+        );
+      },
     );
   }
 
   // =========================================================================
-  // 6. NAVIGATION BASSE — clinique, claire, FAB IA teal discret
+  // 6. NAVIGATION BASSE
   // =========================================================================
   Widget _buildClinicalBottomNav() {
     return Align(
@@ -603,7 +582,7 @@ class _PatientDashboardPageState extends ConsumerState<PatientDashboardPage> {
                 children: [
                   _navItem(Icons.home_rounded, 'Accueil', true, () {}),
                   _navItem(Icons.folder_shared_rounded, 'Dossier', false, () => _go(const DossierMedicalPage())),
-                  const SizedBox(width: 54), // Espace pour le FAB IA
+                  const SizedBox(width: 54),
                   _navItem(Icons.search_rounded, 'Soins', false, () => _go(const TrouverHopitalPage())),
                   _navItem(Icons.people_alt_rounded, 'Famille', false, () => _go(const DossierFamillePage())),
                 ],
