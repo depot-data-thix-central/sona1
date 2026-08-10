@@ -189,67 +189,127 @@ class _PostCardState extends ConsumerState<PostCard> with AutomaticKeepAliveClie
   }
 
   void _cacheParsedContent() {
-    final content = widget.post.content;
-    const baseStyle = TextStyle(
-      fontSize: 14,
-      height: 1.48,
-      color: ThixPolicy.textMain,
-    );
-    _cachedFullSpans = _parseContent(content, baseStyle, 0);
-    _isTruncatable = content.length > _maxContentChars;
-    if (_isTruncatable) {
-      var truncated = content.substring(0, _maxContentChars);
-      final lastSpace = truncated.lastIndexOf(' ');
-      if (lastSpace > 0) truncated = truncated.substring(0, lastSpace);
-      _cachedTruncatedSpans = _parseContent('$truncated…', baseStyle, 0);
-    } else {
-      _cachedTruncatedSpans = _cachedFullSpans;
-    }
+  final content = widget.post.content;
+
+  // ✅ Style officiel Thix Policy (Inter + regular)
+  final baseStyle = ThixPolicy.bodyStyle.copyWith(
+    height: 1.48,
+  );
+
+  _cachedFullSpans = _parseContent(content, baseStyle, 0);
+  _isTruncatable = content.length > _maxContentChars;
+
+  if (_isTruncatable) {
+    var truncated = content.substring(0, _maxContentChars);
+    final lastSpace = truncated.lastIndexOf(' ');
+    if (lastSpace > 0) truncated = truncated.substring(0, lastSpace);
+    _cachedTruncatedSpans = _parseContent('$truncated…', baseStyle, 0);
+  } else {
+    _cachedTruncatedSpans = _cachedFullSpans;
+  }
+}
+  List<InlineSpan> _parseContent(String content, TextStyle baseStyle, int depth) {
+  if (depth > _maxParseDepth || content.isEmpty) {
+    return [TextSpan(text: content, style: baseStyle)];
   }
 
-  List<InlineSpan> _parseContent(String content, TextStyle baseStyle, int depth) {
-    if (depth > _maxParseDepth || content.isEmpty) {
-      return [TextSpan(text: content, style: baseStyle)];
+  final spans = <InlineSpan>[];
+  var lastIndex = 0;
+
+  for (final match in _richContentRegex.allMatches(content)) {
+    if (match.start > lastIndex) {
+      spans.add(TextSpan(
+        text: content.substring(lastIndex, match.start),
+        style: baseStyle,
+      ));
     }
-    final spans = <InlineSpan>[];
-    var lastIndex = 0;
-    for (final match in _richContentRegex.allMatches(content)) {
-      if (match.start > lastIndex) {
-        spans.add(TextSpan(text: content.substring(lastIndex, match.start), style: baseStyle));
+
+    // {c:#HEX}texte coloré{c}
+    if (match.group(1) != null) {
+      final hex = match.group(1)!.replaceFirst('#', '');
+      final inner = match.group(2) ?? '';
+      Color color;
+      try {
+        final argb = hex.length == 8 ? hex : 'FF$hex';
+        color = Color(int.parse(argb, radix: 16));
+      } catch (_) {
+        color = baseStyle.color ?? ThixPolicy.textMain;
       }
-      if (match.group(1) != null) {
-        final hex = match.group(1)!.replaceFirst('#', '');
-        final inner = match.group(2) ?? '';
-        Color color;
-        try {
-          final argb = hex.length == 8 ? hex : 'FF$hex';
-          color = Color(int.parse(argb, radix: 16));
-        } catch (_) {
-          color = baseStyle.color ?? ThixPolicy.textMain;
-        }
-        spans.addAll(_parseContent(inner, baseStyle.copyWith(color: color), depth + 1));
-      } else if (match.group(3) != null) {
-        spans.addAll(_parseContent(match.group(3)!, baseStyle.copyWith(fontWeight: FontWeight.w800), depth + 1));
-      } else if (match.group(4) != null) {
-        spans.addAll(_parseContent(match.group(4)!, baseStyle.copyWith(fontStyle: FontStyle.italic), depth + 1));
-      } else if (match.group(5) != null) {
-        final value = match.group(5)!;
-        final r = TapGestureRecognizer()..onTap = () { if (mounted) context.push('/network/profile/$value'); };
-        _recognizers.add(r);
-        spans.add(TextSpan(text: '@$value', style: baseStyle.merge(const TextStyle(color: ThixPolicy.primary, fontWeight: FontWeight.w700)), recognizer: r));
-      } else if (match.group(6) != null) {
-        final value = match.group(6)!;
-        final r = TapGestureRecognizer()..onTap = () { if (mounted) context.push('/hashtag/$value'); };
-        _recognizers.add(r);
-        spans.add(TextSpan(text: '#$value', style: baseStyle.merge(const TextStyle(color: ThixPolicy.gold, fontWeight: FontWeight.w700)), recognizer: r));
-      }
-      lastIndex = match.end;
+      spans.addAll(_parseContent(
+        inner,
+        baseStyle.copyWith(color: color),
+        depth + 1,
+      ));
     }
-    if (lastIndex < content.length) {
-      spans.add(TextSpan(text: content.substring(lastIndex), style: baseStyle));
+
+    // **gras**
+    else if (match.group(3) != null) {
+      spans.addAll(_parseContent(
+        match.group(3)!,
+        baseStyle.copyWith(fontWeight: ThixPolicy.bold), // w700
+        depth + 1,
+      ));
     }
-    return spans;
+
+    // *italique*
+    else if (match.group(4) != null) {
+      spans.addAll(_parseContent(
+        match.group(4)!,
+        baseStyle.copyWith(fontStyle: FontStyle.italic),
+        depth + 1,
+      ));
+    }
+
+    // @mention
+    else if (match.group(5) != null) {
+      final value = match.group(5)!;
+      final r = TapGestureRecognizer()
+        ..onTap = () {
+          if (mounted) context.push('/network/profile/$value');
+        };
+      _recognizers.add(r);
+
+      spans.add(TextSpan(
+        text: '@$value',
+        style: baseStyle.copyWith(
+          color: ThixPolicy.primary,
+          fontWeight: ThixPolicy.semiBold, // w600
+        ),
+        recognizer: r,
+      ));
+    }
+
+    // #hashtag
+    else if (match.group(6) != null) {
+      final value = match.group(6)!;
+      final r = TapGestureRecognizer()
+        ..onTap = () {
+          if (mounted) context.push('/hashtag/$value');
+        };
+      _recognizers.add(r);
+
+      spans.add(TextSpan(
+        text: '#$value',
+        style: baseStyle.copyWith(
+          color: ThixPolicy.gold,
+          fontWeight: ThixPolicy.semiBold, // w600
+        ),
+        recognizer: r,
+      ));
+    }
+
+    lastIndex = match.end;
   }
+
+  if (lastIndex < content.length) {
+    spans.add(TextSpan(
+      text: content.substring(lastIndex),
+      style: baseStyle,
+    ));
+  }
+
+  return spans;
+}
 
   Color? _parseColor(String? hexColor) {
     if (hexColor == null || hexColor.isEmpty) return null;
