@@ -61,8 +61,9 @@ class CommunityDetailNotifier
           .maybeSingle(),
 
       // Membres — join explicite
-      supabase.from('community_members').select('users:profiles!user_id (id, display_name, photo_url, profession)').eq('community_id', communityId).limit(50),
-
+      supabase
+          .from('community_members')
+          .select('users:profiles!user_id (id, display_name, photo_url, profession)')
           .eq('community_id', communityId)
           .limit(50),
 
@@ -101,7 +102,8 @@ class CommunityDetailNotifier
 
     // Normalise les membres
     final members = membersData.map((e) {
-      final profile = e['profiles'] as Map<String, dynamic>?;
+      // Correction ici : 'users' au lieu de 'profiles' à cause de l'alias dans le select
+      final profile = e['users'] as Map<String, dynamic>?; 
       return {
         'id': profile?['id'] ?? e['user_id'],
         'display_name': profile?['display_name'] ?? 'Utilisateur',
