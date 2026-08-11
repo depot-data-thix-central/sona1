@@ -1,3 +1,4 @@
+
 // ============================================================
 // lib/services/chat/connection_service.dart
 // ============================================================
@@ -327,6 +328,46 @@ class ConnectionService extends ChangeNotifier {
     }
   }
 
+  // ✅ NOUVEAU : Supprimer une connexion du réseau
+  Future<bool> removeConnection(String currentUserId, String otherUserId) async {
+    try {
+      await _supabase
+          .from('connections')
+          .delete()
+          .or('and(user1_id.eq.$currentUserId,user2_id.eq.$otherUserId),and(user1_id.eq.$otherUserId,user2_id.eq.$currentUserId)');
+      
+      await loadData(currentUserId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      debugPrint('❌ Erreur removeConnection: $e');
+      return false;
+    }
+  }
+
+  // ✅ NOUVEAU : Bloquer un utilisateur
+  Future<bool> blockUser(String currentUserId, String otherUserId) async {
+    try {
+      // Appel de la fonction SQL intelligente
+      await _supabase.rpc(
+        'block_user_and_clean',
+        params: {
+          'blocker': currentUserId,
+          'blocked': otherUserId,
+        },
+      );
+      
+      await loadData(currentUserId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      debugPrint('❌ Erreur blockUser: $e');
+      return false;
+    }
+  }
+
   Future<bool> checkConnection(String userId1, String userId2) async {
     if (userId1 == userId2) return false;
     try {
@@ -356,6 +397,14 @@ class ConnectionService extends ChangeNotifier {
   Future<String> getStatusBetween(String userId1, String userId2) async {
     if (userId1 == userId2) return 'self';
     try {
+      // 1. Vérifier si un blocage existe (dans les deux sens)
+      final blockCheck = await _supabase
+          .from('blocked_users')
+          .select('id')
+          .or('and(blocker_id.eq.$userId1,blocked_id.eq.$userId2),and(blocker_id.eq.$userId2,blocked_id.eq.$userId1)')
+          .maybeSingle();
+      if (blockCheck != null) return 'blocked';
+
       final conn1 = await _supabase
           .from('connections')
           .select('id')
