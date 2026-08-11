@@ -20,3 +20,16 @@ final myBooksProvider = FutureProvider.family<List<Book>, String>((ref, userId) 
     throw Exception('Erreur lors du chargement des livres : $e');
   }
 });
+final isBookOwnedProvider = FutureProvider.family<bool, String>((ref, bookId) async {
+  final userId = ref.watch(currentUserIdProvider).value;
+  if (userId == null) return false;
+
+  final response = await Supabase.instance.client
+      .from('purchases')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('book_id', bookId)
+      .maybeSingle();
+
+  return response != null; // Retourne true s'il existe une ligne
+});
