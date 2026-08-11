@@ -681,7 +681,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         _resetNavTimer();
         if (idx == 0) context.pushNamed('connections');
         // ✅ CORRECTION BUG DE BUILD WEB : Route statique à la place de l'enum non trouvé
-        else if (idx == 2) context.push('/chat/calls'); 
+        else if (idx == 2) {
+  Navigator.push(context, MaterialPageRoute(builder: (_) => const CallHistoryPage()));
+}
+
         else if (idx == 3) Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatSettingsPage()));
         else setState(() => _selectedNav = idx);
       },
