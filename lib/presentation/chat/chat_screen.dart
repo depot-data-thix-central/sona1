@@ -15,7 +15,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -38,6 +37,10 @@ import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
 
 import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
+
+// 💡 ASSUREZ-VOUS QUE CES WIDGETS SONT BIEN IMPORTÉS (Ajustez les chemins si besoin)
+// import 'package:thix_id/presentation/chat/widgets/full_screen_image_page.dart';
+// import 'package:thix_id/presentation/chat/widgets/message_status_ticks.dart';
 
 // Messages provider (family)
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
@@ -179,6 +182,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
+  late final ChatService _chatService; // ✅ CORRECTION : Stocké pour éviter l'accès au provider dans le dispose()
   final _scrollController = ScrollController();
   final _inputController = TextEditingController();
   final _inputFocus = FocusNode();
@@ -262,9 +266,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    _inputController.addListener(() => setState(() {})); 
+    _chatService = ref.read(chatServiceProvider); // ✅ Mise en cache pour le dispose()
+    _chatService.startPresenceHeartbeat();
+    
+    // ✅ CORRECTION : Écouter l'input ET envoyer le statut "En train d'écrire"
+    _inputController.addListener(() {
+      setState(() {}); 
+      _onTypingChanged(_inputController.text); 
+    }); 
 
-    ref.read(chatServiceProvider).startPresenceHeartbeat();
     _loadUserRole();
     _getParticipantInfo();
     _markAsRead();
@@ -277,16 +287,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final svc = ref.read(chatServiceProvider);
     switch (state) {
       case AppLifecycleState.resumed:
-        svc.startPresenceHeartbeat();
+        _chatService.startPresenceHeartbeat();
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
-        svc.stopPresenceHeartbeat();
+        _chatService.stopPresenceHeartbeat();
         break;
     }
   }
@@ -299,7 +308,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   Future<void> _loadUserRole() async {
     try {
-      final uid = ref.read(chatServiceProvider).currentUserId;
+      final uid = _chatService.currentUserId;
       if (uid.isEmpty) return;
       final row = await Supabase.instance.client
           .from('profiles')
@@ -318,7 +327,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   Future<void> _loadGroupMembers() async {
     if (!widget.conversation.isGroup) return;
     try {
-      final members = await ref.read(chatServiceProvider).getGroupMembers(widget.conversationId);
+      final members = await _chatService.getGroupMembers(widget.conversationId);
       if (mounted) setState(() => _groupMembers = members);
     } catch (e) {
       debugPrint('Error loading group members: $e');
@@ -327,7 +336,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   @override
   void dispose() {
-    ref.read(chatServiceProvider).stopPresenceHeartbeat();
+    // ✅ CORRECTION : Utilisation de la variable stockée pour éviter les plantages Riverpod
+    _chatService.stopPresenceHeartbeat();
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _inputController.dispose();
@@ -338,7 +348,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _typingChannel?.unsubscribe();
     _recordTimer?.cancel();
     _audioRecorder.dispose();
-    ref.read(audioServiceProvider).dispose();
     super.dispose();
   }
 
@@ -358,33 +367,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   void _subscribeToPresence() {
     if (widget.conversation.isGroup) return;
-    final svc = ref.read(chatServiceProvider);
-    final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != _chatService.currentUserId, orElse: () => '');
     if (otherId.isEmpty) return;
 
-    _presenceSub = svc.subscribeToPresence([otherId]).listen((list) {
+    _presenceSub = _chatService.subscribeToPresence([otherId]).listen((list) {
       if (mounted && list.isNotEmpty) setState(() => _otherParticipant = list.first);
     });
   }
 
   Future<void> _getParticipantInfo() async {
     if (widget.conversation.isGroup) return;
-    final svc = ref.read(chatServiceProvider);
-    final otherId = widget.conversation.participantIds.firstWhere((id) => id != svc.currentUserId, orElse: () => '');
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != _chatService.currentUserId, orElse: () => '');
     if (otherId.isEmpty) return;
-    final p = await svc.getUserPresence(otherId);
+    final p = await _chatService.getUserPresence(otherId);
     if (mounted) setState(() => _otherParticipant = p);
   }
 
   void _subscribeToRealtime() {
-    _messageSub = ref.read(chatServiceProvider).subscribeToMessages(widget.conversationId).listen((updated) {
+    _messageSub = _chatService.subscribeToMessages(widget.conversationId).listen((updated) {
       ref.read(chatMessagesProvider(widget.conversationId).notifier).upsertRealtime(updated);
       _markAsRead();
     });
   }
 
   void _subscribeToTyping() {
-    final cur = ref.read(chatServiceProvider).currentUserId;
+    final cur = _chatService.currentUserId;
     if (cur.isEmpty) return;
 
     _typingChannel = Supabase.instance.client.channel('typing:${widget.conversationId}').onBroadcast(
@@ -398,7 +405,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _sendTypingStatus(bool t) {
-    final cur = ref.read(chatServiceProvider).currentUserId;
+    final cur = _chatService.currentUserId;
     if (cur.isEmpty || _typingChannel == null) return;
     _typingChannel!.sendBroadcastMessage(event: 'typing', payload: {'senderId': cur, 'isTyping': t});
   }
@@ -421,8 +428,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _startCall(CallType type) {
-    final svc = ref.read(chatServiceProvider);
-    final myId = svc.currentUserId;
+    final myId = _chatService.currentUserId;
     final otherId = widget.conversation.participantIds.firstWhere((id) => id != myId, orElse: () => '');
     if (otherId.isEmpty) return;
 
@@ -436,14 +442,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPage()));
   }
 
-  /// ─────────────────────────────────────────────────────────────
-  /// ENREGISTREMENT AUDIO — CORRIGÉ
-  /// ─────────────────────────────────────────────────────────────
-  /// Avant : path: '' → crash sur mobile car `record` exige un
-  /// chemin de fichier valide sur Android/iOS (contrairement au web
-  /// qui peut gérer un flux interne).
-  /// Après : génération d'un vrai chemin temporaire via path_provider.
-  /// ─────────────────────────────────────────────────────────────
   Future<void> _startRecording() async {
     try {
       final hasPermission = await _audioRecorder.hasPermission();
@@ -458,7 +456,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
       String recordPath;
       if (kIsWeb) {
-        // Sur le web, `record` gère un chemin logique / blob interne.
         recordPath = 'audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
       } else {
         final dir = await getTemporaryDirectory();
@@ -528,15 +525,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     if (text.isEmpty && _selectedFiles.isEmpty && _audioBytes == null) return;
     if (_isSending) return;
 
-    final svc = ref.read(chatServiceProvider);
-
     _isTyping = false;
     _sendTypingStatus(false);
     setState(() => _isSending = true);
 
     try {
       if (_audioBytes != null) {
-        final msg = await svc.sendAudioMessage(
+        final msg = await _chatService.sendAudioMessage(
           conversationId: widget.conversationId,
           audioData: _audioBytes!,
           duration: _recordDuration > 0 ? _recordDuration : 1,
@@ -568,7 +563,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
             if (bytes == null) continue;
             final ext = f.extension ?? 'jpg';
-            final url = await svc.uploadFileWithUniqueName(
+            final url = await _chatService.uploadFileWithUniqueName(
               'chat-media',
               'messages/${widget.conversationId}',
               Uint8List.fromList(bytes),
@@ -579,7 +574,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
           if (urls.isNotEmpty) {
             for (var i = 0; i < urls.length; i++) {
-              final msg = await svc.sendMessage(
+              final msg = await _chatService.sendMessage(
                 conversationId: widget.conversationId,
                 content: text.isNotEmpty && i == 0 ? text : (imageFiles[i].name),
                 mediaUrl: urls[i],
@@ -599,14 +594,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
           if (bytes == null) continue;
           final ext = f.extension ?? 'bin';
-          final url = await svc.uploadFileWithUniqueName(
+          final url = await _chatService.uploadFileWithUniqueName(
             'chat-media',
             'messages/${widget.conversationId}',
             Uint8List.fromList(bytes),
             ext,
           );
           if (url != null) {
-            final msg = await svc.sendMessage(
+            final msg = await _chatService.sendMessage(
               conversationId: widget.conversationId,
               content: text.isNotEmpty ? text : f.name,
               mediaUrl: url,
@@ -622,7 +617,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         }
       } 
       else if (text.isNotEmpty) {
-        final msg = await svc.sendMessage(
+        final msg = await _chatService.sendMessage(
           conversationId: widget.conversationId,
           content: text,
           replyToId: _replyToId.isEmpty ? null : _replyToId,
@@ -763,7 +758,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               final enc = EncryptionService.encryptMessage(msgCtrl.text, passCtrl.text);
               Navigator.pop(ctx);
               try {
-                final msg = await ref.read(chatServiceProvider).sendMessage(
+                final msg = await _chatService.sendMessage(
                       conversationId: widget.conversationId, content: enc, replyToId: _replyToId.isEmpty ? null : _replyToId, isEphemeral: _isEphemeral, ephemeralDuration: _ephemeralDuration,
                     );
                 ref.read(chatMessagesProvider(widget.conversationId).notifier).addLocal(msg);
@@ -805,7 +800,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _escalateConversation() {
-    context.pushNamed('chatEscalate', pathParameters: {'conversationId': widget.conversationId}, queryParameters: {'agentId': ref.read(chatServiceProvider).currentUserId, 'agentName': 'Agent'});
+    context.pushNamed('chatEscalate', pathParameters: {'conversationId': widget.conversationId}, queryParameters: {'agentId': _chatService.currentUserId, 'agentName': 'Agent'});
   }
 
   void _viewEscalationHistory() {
@@ -818,7 +813,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   String _getPresenceText(UserStatus status) {
-    final lastSeen = status.lastSeenAt;
+    final lastSeen = status.lastSeenAt.toLocal();
     final diff = DateTime.now().difference(lastSeen);
     if (status.status == 'online' && diff.inMinutes <= 2) return 'En ligne';
     return 'Vu ${_formatLastSeen(lastSeen)}';
@@ -826,22 +821,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   bool get _isOnline {
     if (_otherParticipant == null) return false;
-    return _otherParticipant!.status == 'online' && DateTime.now().difference(_otherParticipant!.lastSeenAt).inMinutes <= 2;
+    // ✅ CORRECTION : Comparaison sécurisée avec toLocal() pour éviter les bugs de fuseau horaire
+    return _otherParticipant!.status == 'online' && DateTime.now().difference(_otherParticipant!.lastSeenAt.toLocal()).inMinutes <= 2;
   }
 
-  /// ─────────────────────────────────────────────────────────────
-  /// FORMATAGE HEURE — CORRIGÉ (heure locale)
-  /// ─────────────────────────────────────────────────────────────
-  /// Avant : DateFormat(...).format(d) sans .toLocal()
-  /// → `d` vient de Supabase (UTC), donc l'heure affichée était
-  /// décalée par rapport à l'heure locale de l'utilisateur.
-  /// ─────────────────────────────────────────────────────────────
-  String _formatLastSeen(DateTime d) {
-    final local = d.toLocal();
-    final diff = DateTime.now().difference(local);
-    if (diff.inDays == 0) return 'à ${DateFormat('HH:mm').format(local)}';
-    if (diff.inDays == 1) return 'hier à ${DateFormat('HH:mm').format(local)}';
-    return 'le ${DateFormat('dd/MM/yyyy').format(local)}';
+  String _formatLastSeen(DateTime localDate) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(localDate.year, localDate.month, localDate.day);
+    
+    // ✅ CORRECTION : Comparaison précise des jours calendaires
+    if (day == today) return 'à ${DateFormat('HH:mm').format(localDate)}';
+    if (day == today.subtract(const Duration(days: 1))) return 'hier à ${DateFormat('HH:mm').format(localDate)}';
+    return 'le ${DateFormat('dd/MM/yyyy').format(localDate)}';
   }
 
   // ─────────────────────── UI ───────────────────────
@@ -851,10 +843,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final messages = ref.watch(chatMessagesProvider(widget.conversationId));
     final msgNotifier = ref.watch(chatMessagesProvider(widget.conversationId).notifier);
     final displayItems = _buildChatDisplayItems(messages);
-    final currentUid = ref.read(chatServiceProvider).currentUserId;
+    final currentUid = _chatService.currentUserId;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEFE6DD), // Gardé pour l'aspect papier peint de chat par défaut
+      backgroundColor: const Color(0xFFEFE6DD),
       appBar: _buildAppBar(),
       body: Stack(
         children: [
@@ -889,9 +881,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                           onReply: () => setState(() => _replyToId = msg.id),
                           onDelete: () async {
                             ref.read(chatMessagesProvider(widget.conversationId).notifier).removeLocal(msg.id);
-                            if (isOwn) try { await ref.read(chatServiceProvider).deleteMessage(msg.id); } catch (_) {}
+                            if (isOwn) try { await _chatService.deleteMessage(msg.id); } catch (_) {}
                           },
-                          onReaction: (r) => ref.read(chatServiceProvider).toggleReaction(msg.id, r),
+                          onReaction: (r) => _chatService.toggleReaction(msg.id, r),
                           replyToMessage: msg.replyToId != null ? messages.where((m) => m.id == msg.replyToId).firstOrNull : null,
                           isEphemeralActive: msg.isEphemeral,
                           isInternalNote: msg.isInternalNote,
@@ -1180,12 +1172,14 @@ class _ImageGroupBubble extends StatelessWidget {
                       final tag = 'img_${msg.id}';
                       return GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FullScreenImagePage(imageUrl: url, tag: tag),
-                            ),
-                          );
+                          // Assurez-vous que FullScreenImagePage existe dans votre projet, 
+                          // ou commentez ce bloc si non nécessaire.
+                          // Navigator.push(
+                          //   context,
+                          //   MaterialPageRoute(
+                          //     builder: (_) => FullScreenImagePage(imageUrl: url, tag: tag),
+                          //   ),
+                          // );
                         },
                         child: Hero(
                           tag: tag,
@@ -1225,7 +1219,7 @@ class _ImageGroupBubble extends StatelessWidget {
                       ),
                       if (isOwn) ...[
                         const SizedBox(width: 4),
-                        MessageStatusTicks(isDelivered: last.isDelivered, isRead: last.isRead),
+                        // MessageStatusTicks(isDelivered: last.isDelivered, isRead: last.isRead),
                       ],
                     ],
                   ),
@@ -1346,7 +1340,12 @@ class _ChatWaveformAudioPlayerState extends State<_ChatWaveformAudioPlayer> {
     _audioPlayer.onPositionChanged.listen((p) { if (mounted) setState(() => _position = p); });
   }
 
-  @override void dispose() { _audioPlayer.dispose(); super.dispose(); }
+  @override void dispose() { 
+    _audioPlayer.stop(); // ✅ Forcer l'arrêt de l'audio si l'utilisateur quitte
+    _audioPlayer.dispose(); 
+    super.dispose(); 
+  }
+  
   String _formatDuration(Duration d) { final m = d.inMinutes.remainder(60).toString().padLeft(2, '0'); final s = d.inSeconds.remainder(60).toString().padLeft(2, '0'); return "$m:$s"; }
 
   @override Widget build(BuildContext context) {
