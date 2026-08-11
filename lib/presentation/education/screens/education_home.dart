@@ -715,18 +715,24 @@ class _ExplorePage extends ConsumerWidget {
   }
 }
 
+  // ============================================================================
+// ONGLET 3 : VÉRITABLE BIBLIOTHÈQUE (Recherche Titre & Auteur + Prix)
 // ============================================================================
-// ONGLET 3 : VÉRITABLE BIBLIOTHÈQUE (Uniquement les Livres)
-// ============================================================================
-class _LibraryPage extends ConsumerWidget {
+class _LibraryPage extends ConsumerStatefulWidget {
   const _LibraryPage();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_LibraryPage> createState() => _LibraryPageState();
+}
+
+class _LibraryPageState extends ConsumerState<_LibraryPage> {
+  String _searchQuery = ''; // Stocke le texte de la recherche
+
+  @override
+  Widget build(BuildContext context) {
     final userId = ref.watch(currentUserIdProvider).value;
     if (userId == null) return const Center(child: Text('Non connecté'));
 
-    // ⚠️ Assurez-vous que ce provider existe et retourne un Future<List<Book>> ou Stream<List<Book>>
     final booksAsync = ref.watch(myBooksProvider(userId)); 
 
     return Scaffold(
@@ -736,44 +742,89 @@ class _LibraryPage extends ConsumerWidget {
         elevation: 0,
         title: const Text('Ma Bibliothèque', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: -0.5)),
       ),
-      body: booksAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: _eduAccentBlue)),
-        error: (err, stack) => Center(child: Text('Erreur de chargement des livres: $err')),
-        data: (List<Book> books) {
-          if (books.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.menu_book_rounded, size: 64, color: Colors.grey.withOpacity(0.5)),
-                  const SizedBox(height: ThixPolicy.s16),
-                  const Text('Vos étagères sont vides.', style: TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: ThixPolicy.s8),
-                  const Text('Aucun livre n\'est actuellement chargé.', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                  const SizedBox(height: ThixPolicy.s24),
-                  ElevatedButton(
-                    onPressed: () => ref.read(_eduTabIndexProvider.notifier).state = 1,
-                    style: ElevatedButton.styleFrom(backgroundColor: _eduAccentBlue, foregroundColor: Colors.white),
-                    child: const Text('Explorer les livres'),
-                  ),
-                ],
+      body: Column(
+        children: [
+          // ─── BARRE DE RECHERCHE ───
+          Container(
+            color: _eduNavyBlue,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Container(
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
               ),
-            );
-          }
+              child: TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher par titre ou auteur...',
+                  hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                  prefixIcon: Icon(Icons.search_rounded, color: Colors.grey),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ),
+          
+          // ─── CONTENU DE LA BIBLIOTHÈQUE ───
+          Expanded(
+            child: booksAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator(color: _eduAccentBlue)),
+              error: (err, stack) => Center(child: Text('Erreur de chargement des livres: $err')),
+              data: (List<Book> allBooks) {
+                
+                // Filtrer par TITRE ou par AUTEUR
+                final books = allBooks.where((b) {
+                  final query = _searchQuery.toLowerCase();
+                  final matchTitle = b.title.toLowerCase().contains(query);
+                  final matchAuthor = b.author.toLowerCase().contains(query);
+                  return matchTitle || matchAuthor;
+                }).toList();
 
-          List<List<Book>> shelves = [];
-          for (var i = 0; i < books.length; i += 3) {
-            shelves.add(books.sublist(i, i + 3 > books.length ? books.length : i + 3));
-          }
+                if (books.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.menu_book_rounded, size: 64, color: Colors.grey.withOpacity(0.5)),
+                        const SizedBox(height: 16),
+                        Text(
+                          _searchQuery.isEmpty ? 'Vos étagères sont vides.' : 'Aucun résultat pour "$_searchQuery"', 
+                          style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.bold)
+                        ),
+                        if (_searchQuery.isEmpty) ...[
+                          const SizedBox(height: 8),
+                          const Text('Aucun livre n\'est actuellement chargé.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: () => ref.read(_eduTabIndexProvider.notifier).state = 1,
+                            style: ElevatedButton.styleFrom(backgroundColor: _eduAccentBlue, foregroundColor: Colors.white),
+                            child: const Text('Explorer les livres'),
+                          ),
+                        ]
+                      ],
+                    ),
+                  );
+                }
 
-          return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 120, top: 24),
-            itemCount: shelves.length,
-            itemBuilder: (context, index) {
-              return _LibraryShelf(booksOnShelf: shelves[index]);
-            },
-          );
-        },
+                // Séparer les livres par groupe de 3 pour remplir les "étagères"
+                List<List<Book>> shelves = [];
+                for (var i = 0; i < books.length; i += 3) {
+                  shelves.add(books.sublist(i, i + 3 > books.length ? books.length : i + 3));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 120, top: 16),
+                  itemCount: shelves.length,
+                  itemBuilder: (context, index) {
+                    return _LibraryShelf(booksOnShelf: shelves[index]);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -831,8 +882,13 @@ class _BookSpineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isFree = book.price == 0.0; // Vérifie si c'est gratuit
+
     return GestureDetector(
-      onTap: () => context.push('/education/book/${book.id}'),
+      onTap: () {
+        // Redirection vers le lecteur (À configurer dans votre routeur)
+        context.push('/education/book/${book.id}');
+      },
       child: Container(
         height: 170, 
         decoration: BoxDecoration(
@@ -845,18 +901,43 @@ class _BookSpineCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // 1. Couverture du livre + BADGE DE PRIX
             Expanded(
               flex: 5,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
-                child: book.imageUrl != null && book.imageUrl!.isNotEmpty
-                    ? Image.network(book.imageUrl!, fit: BoxFit.cover)
-                    : Container(
-                        color: _eduNavyBlue, 
-                        child: const Center(child: Icon(Icons.auto_stories, color: Colors.white, size: 36))
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
+                    child: book.imageUrl != null && book.imageUrl!.isNotEmpty
+                        ? Image.network(book.imageUrl!, fit: BoxFit.cover)
+                        : Container(
+                            color: _eduNavyBlue, 
+                            child: const Center(child: Icon(Icons.auto_stories, color: Colors.white, size: 36))
+                          ),
+                  ),
+                  
+                  // BADGE PRIX / GRATUIT
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isFree ? Colors.green.shade600 : _eduAccentBlue,
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [const BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1))],
                       ),
+                      child: Text(
+                        isFree ? 'Gratuit' : '${book.price.toStringAsFixed(0)} ${book.currency}',
+                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+            // 2. Bas du livre / Dos de couverture avec Titre et Auteur
             Expanded(
               flex: 4, 
               child: Container(
@@ -883,13 +964,6 @@ class _BookSpineCard extends StatelessWidget {
                       maxLines: 1, 
                       overflow: TextOverflow.ellipsis, 
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 9, color: Colors.grey)
-                    ),
-                    const Spacer(),
-                    LinearProgressIndicator(
-                      value: 0.0, 
-                      minHeight: 3, 
-                      backgroundColor: Colors.grey[200], 
-                      color: _eduAccentBlue
                     ),
                   ],
                 ),
