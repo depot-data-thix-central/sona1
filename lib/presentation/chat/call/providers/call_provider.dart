@@ -2,15 +2,16 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ Import de Supabase
-import 'package:intl/intl.dart'; // ✅ Import pour formater la durée
+import 'package:supabase_flutter/supabase_flutter.dart'; 
+import 'package:intl/intl.dart'; 
 
 import '../../../../models/chat/call_invite.dart';
 import '../../../../models/chat/call_status.dart';
 import '../../../../services/chat/call_service.dart';
 import '../../../../services/chat/call_signaling_service.dart';
-// ✅ Import nécessaire pour utiliser le ChatService
-import '../../../providers/chat_providers.dart'; 
+
+import '../../providers/chat_providers.dart';
+
 
 class CallState {
   final CallStatus status;
@@ -28,7 +29,7 @@ class CallState {
   final bool isCaller;
   final Duration duration;
   final String? error;
-  final String? conversationId; // ✅ Ajout du conversationId pour cibler le bon chat
+  final String? conversationId; 
 
   const CallState({
     this.status = CallStatus.idle,
@@ -46,7 +47,7 @@ class CallState {
     this.isCaller = true,
     this.duration = Duration.zero,
     this.error,
-    this.conversationId, // ✅ Initialisation
+    this.conversationId, 
   });
 
   CallState copyWith({
@@ -66,7 +67,7 @@ class CallState {
     Duration? duration,
     String? error,
     bool clearError = false,
-    String? conversationId, // ✅ Paramètre copyWith
+    String? conversationId, 
   }) {
     return CallState(
       status: status ?? this.status,
@@ -84,7 +85,7 @@ class CallState {
       isCaller: isCaller ?? this.isCaller,
       duration: duration ?? this.duration,
       error: clearError ? null : (error ?? this.error),
-      conversationId: conversationId ?? this.conversationId, // ✅ Assignation copyWith
+      conversationId: conversationId ?? this.conversationId, 
     );
   }
 
@@ -98,8 +99,7 @@ class CallState {
 class CallNotifier extends StateNotifier<CallState> {
   final _media = CallMediaService();
   final _signal = CallSignalingService();
-  final Ref ref; // ✅ Ajout d'une référence Riverpod pour accéder au ChatService
-
+  final Ref ref; 
   Timer? _timer;
   Timer? _ringTimeout;
   StreamSubscription? _statusSub;
@@ -116,7 +116,7 @@ class CallNotifier extends StateNotifier<CallState> {
     return uid == 0 ? 1 : uid;
   }
 
-  /// ✅ Outil pour récupérer ou créer un ID de conversation 1v1
+  
   Future<String?> _getOrCreateConversationId(String currentUserId, String otherUserId) async {
     try {
       final db = Supabase.instance.client;
