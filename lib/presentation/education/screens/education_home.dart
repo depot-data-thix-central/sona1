@@ -10,6 +10,7 @@ import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 import '../providers/education_provider.dart' hide certificatesProvider;
 import '../providers/certificate_provider.dart';
+import '../models/book.dart'; // Importation du modèle Book
 import '../widgets/common/education_category_chip.dart';
 import '../widgets/common/formation_card.dart';
 import '../models/category.dart';
@@ -17,18 +18,17 @@ import '../models/formation.dart';
 import '../models/certificate.dart';
 
 // ============================================================================
-// CONSTANTES COULEURS "ENTREPRISE ÉDUCATION" (Compléments à ThixPolicy)
+// CONSTANTES COULEURS "ENTREPRISE ÉDUCATION"
 // ============================================================================
-const Color _eduNavyBlue = Color(0xFF0F172A); // Ardoise foncée / Navy profond
-const Color _eduAccentBlue = Color(0xFF0284C7); // Bleu institutionnel dynamique
-const Color _eduShelfWood = Color(0xFFD4A373); // Couleur bois inspirée de 1000104931.jpg
+const Color _eduNavyBlue = Color(0xFF0F172A); 
+const Color _eduAccentBlue = Color(0xFF0284C7); 
+const Color _eduShelfWood = Color(0xFFD4A373); 
 const Color _eduShelfShadow = Color(0xFFB5835A);
 
 // ============================================================================
 // PROVIDERS
 // ============================================================================
 final _eduTabIndexProvider = StateProvider<int>((ref) => 0);
-
 final _selectedCategoryProvider = StateProvider<String?>((ref) => null);
 
 final _unreadNotificationsProvider = FutureProvider.autoDispose<int>((ref) async {
@@ -45,24 +45,6 @@ final _unreadNotificationsProvider = FutureProvider.autoDispose<int>((ref) async
     return 0;
   }
 });
-
-class _CustomCollectionsNotifier extends StateNotifier<List<String>> {
-  _CustomCollectionsNotifier() : super([]);
-
-  void add(String name) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty || state.contains(trimmed)) return;
-    state = [...state, trimmed];
-  }
-
-  void remove(String name) {
-    state = state.where((c) => c != name).toList();
-  }
-}
-
-final _customCollectionsProvider = StateNotifierProvider<_CustomCollectionsNotifier, List<String>>(
-  (ref) => _CustomCollectionsNotifier(),
-);
 
 // ============================================================================
 // PAGE PRINCIPALE (HUB E-LEARNING)
@@ -224,7 +206,6 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
         slivers: [
-          // ─── HEADER ENTREPRISE ───
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top + ThixPolicy.s12, bottom: ThixPolicy.s16),
@@ -286,8 +267,6 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
                     ),
                   ),
                   const SizedBox(height: ThixPolicy.s16),
-                  
-                  // ─── BARRE DE RECHERCHE ───
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
                     child: GestureDetector(
@@ -300,11 +279,11 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
                           borderRadius: BorderRadius.circular(ThixPolicy.inputRadius), 
                           border: Border.all(color: ThixPolicy.border)
                         ),
-                        child: Row(
+                        child: const Row(
                           children: [
-                            const Icon(Icons.search_rounded, color: ThixPolicy.textSecondary, size: 22),
-                            const SizedBox(width: ThixPolicy.s10),
-                            const Expanded(
+                            Icon(Icons.search_rounded, color: ThixPolicy.textSecondary, size: 22),
+                            SizedBox(width: ThixPolicy.s10),
+                            Expanded(
                               child: Text('Rechercher un programme, une certification...', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
                             ),
                           ],
@@ -313,8 +292,6 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
                     ),
                   ),
                   const SizedBox(height: ThixPolicy.s16),
-                  
-                  // ─── RACCOURCIS RAPIDES ───
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16),
                     child: Row(
@@ -330,9 +307,7 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
               ),
             ),
           ),
-
           const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s20)),
-
           formationsAsync.when(
             loading: () => const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: _eduAccentBlue)))),
             error: (_, __) => const SliverToBoxAdapter(child: Center(child: Text('Erreur de chargement.'))),
@@ -345,12 +320,8 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
                 delegate: SliverChildListDelegate([
                   if (user != null) Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16), child: _ContinueLearningCard(userId: user.id)),
                   const SizedBox(height: ThixPolicy.s20),
-
-                  // ─── HERO AUTO-SCROLLING ───
                   Padding(padding: const EdgeInsets.symmetric(horizontal: ThixPolicy.s16), child: _HeroCarousel(recentFormations: recentFormations)),
                   const SizedBox(height: ThixPolicy.s24),
-
-                  // ─── CATÉGORIES ───
                   _SectionHeader(title: 'Programmes d\'Expertise', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 1),
                   const SizedBox(height: ThixPolicy.s12),
                   categoriesAsync.when(
@@ -387,9 +358,7 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
                     loading: () => const SizedBox.shrink(),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
-
                   const SizedBox(height: ThixPolicy.s24),
-
                   if (topFormations.isNotEmpty) ...[
                     _SectionHeader(title: 'Top des formations', onSeeAll: () => ref.read(_eduTabIndexProvider.notifier).state = 1),
                     const SizedBox(height: ThixPolicy.s12),
@@ -408,7 +377,6 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
                     ),
                     const SizedBox(height: ThixPolicy.s24),
                   ],
-
                   const SizedBox(height: 120),
                 ]),
               );
@@ -420,9 +388,6 @@ class _HomePageState extends ConsumerState<_HomePage> with AutomaticKeepAliveCli
   }
 }
 
-// ============================================================================
-// RACCOURCI RAPIDE 
-// ============================================================================
 class _QuickIcon extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -543,7 +508,6 @@ class _ContinueLearningCard extends ConsumerWidget {
   }
 }
 
-/// ─── HERO CAROUSEL AVEC AUTO-SCROLLING ───
 class _HeroCarousel extends StatefulWidget {
   final List<Formation> recentFormations;
   const _HeroCarousel({required this.recentFormations});
@@ -724,7 +688,6 @@ class _ExplorePage extends ConsumerWidget {
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
-
           Expanded(
             child: formationsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(color: _eduAccentBlue)),
@@ -753,9 +716,8 @@ class _ExplorePage extends ConsumerWidget {
   }
 }
 
-
 // ============================================================================
-// ONGLET 3 : VÉRITABLE BIBLIOTHÈQUE (Typage fort avec Book)
+// ONGLET 3 : VÉRITABLE BIBLIOTHÈQUE (Uniquement les Livres)
 // ============================================================================
 class _LibraryPage extends ConsumerWidget {
   const _LibraryPage();
@@ -765,11 +727,11 @@ class _LibraryPage extends ConsumerWidget {
     final userId = ref.watch(currentUserIdProvider).value;
     if (userId == null) return const Center(child: Text('Non connecté'));
 
-    // Ton provider qui retourne un Future<List<Book>>
+    // ⚠️ Assurez-vous que ce provider existe et retourne un Future<List<Book>> ou Stream<List<Book>>
     final booksAsync = ref.watch(myBooksProvider(userId)); 
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6), // Fond texturé derrière l'étagère
+      backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
         backgroundColor: _eduNavyBlue,
         elevation: 0,
@@ -779,7 +741,6 @@ class _LibraryPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator(color: _eduAccentBlue)),
         error: (err, stack) => Center(child: Text('Erreur de chargement des livres: $err')),
         data: (List<Book> books) {
-          
           if (books.isEmpty) {
             return Center(
               child: Column(
@@ -801,7 +762,6 @@ class _LibraryPage extends ConsumerWidget {
             );
           }
 
-          // Séparer les livres par groupe de 3 pour remplir les "étagères"
           List<List<Book>> shelves = [];
           for (var i = 0; i < books.length; i += 3) {
             shelves.add(books.sublist(i, i + 3 > books.length ? books.length : i + 3));
@@ -845,7 +805,6 @@ class _LibraryShelf extends StatelessWidget {
               }
             }),
           ),
-          // La base en bois de l'étagère
           Container(
             height: 18,
             decoration: BoxDecoration(
@@ -887,7 +846,6 @@ class _BookSpineCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Couverture du livre utilisant imageUrl du modèle
             Expanded(
               flex: 5,
               child: ClipRRect(
@@ -900,9 +858,8 @@ class _BookSpineCard extends StatelessWidget {
                       ),
               ),
             ),
-            // 2. Bas du livre / Dos de couverture avec Titre et Auteur
             Expanded(
-              flex: 4, // Légèrement agrandi pour accommoder l'auteur
+              flex: 4, 
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
@@ -929,9 +886,8 @@ class _BookSpineCard extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 9, color: Colors.grey)
                     ),
                     const Spacer(),
-                    // Barre stylisée optionnelle
                     LinearProgressIndicator(
-                      value: 0.0, // À relier à un système de progression plus tard si besoin
+                      value: 0.0, 
                       minHeight: 3, 
                       backgroundColor: Colors.grey[200], 
                       color: _eduAccentBlue
@@ -946,108 +902,6 @@ class _BookSpineCard extends StatelessWidget {
     );
   }
 }
-
-
-class _LibraryShelf extends StatelessWidget {
-  final List<Formation> booksOnShelf;
-  const _LibraryShelf({required this.booksOnShelf});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: [
-          // Les "Livres/Cours" posés sur l'étagère
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: booksOnShelf.map((formation) {
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: _BookSpineCard(formation: formation),
-                ),
-              );
-            }).toList(),
-          ),
-          // La base en bois de l'étagère (référence visuelle à 1000104931.jpg)
-          Container(
-            height: 18,
-            decoration: BoxDecoration(
-              color: _eduShelfWood,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: [
-                BoxShadow(color: _eduShelfShadow.withOpacity(0.8), offset: const Offset(0, 4), blurRadius: 4),
-              ],
-              border: const Border(
-                bottom: BorderSide(color: Color(0xFF8A5A35), width: 4),
-                top: BorderSide(color: Color(0xFFF3D2B3), width: 1),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-}
-
-class _BookSpineCard extends StatelessWidget {
-  final Formation formation;
-  const _BookSpineCard({required this.formation});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/education/formation/${formation.id}'),
-      child: Container(
-        height: 190, // Fixer la hauteur pour donner l'aspect d'un livre
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(-4, 0)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Couverture du livre
-            Expanded(
-              flex: 3,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
-                child: formation.imageUrl != null
-                    ? Image.network(formation.imageUrl!, fit: BoxFit.cover)
-                    : Container(color: _eduNavyBlue, child: const Icon(Icons.school, color: Colors.white, size: 40)),
-              ),
-            ),
-            // Dos / Titre du livre
-            Expanded(
-              flex: 2,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  border: Border(left: BorderSide(color: Colors.black12, width: 4)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(formation.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: _eduNavyBlue, height: 1.2)),
-                    const Spacer(),
-                    LinearProgressIndicator(value: 0.4, minHeight: 4, backgroundColor: Colors.grey[200], color: _eduAccentBlue),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 
 // ============================================================================
 // ONGLET 4 : CERTIFICATS
@@ -1181,9 +1035,7 @@ class _ProfilePage extends ConsumerWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: ThixPolicy.s24),
-
             SizedBox(
               width: double.infinity, height: 54,
               child: ElevatedButton.icon(
@@ -1197,9 +1049,7 @@ class _ProfilePage extends ConsumerWidget {
                 ),
               ),
             ),
-
             const SizedBox(height: ThixPolicy.s32),
-
             Align(alignment: Alignment.centerLeft, child: Text('Outils Institutionnels', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _eduNavyBlue.withOpacity(0.7)))),
             const SizedBox(height: ThixPolicy.s12),
             Container(
@@ -1216,9 +1066,7 @@ class _ProfilePage extends ConsumerWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: ThixPolicy.s24),
-
             Container(
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(ThixPolicy.rMd), border: Border.all(color: const Color(0xFFE2E8F0))),
               child: _ProfileMenuTile(icon: Icons.help_center_rounded, label: 'Support Technique', color: Colors.grey[700]!, onTap: () => context.push('/education/help')),
