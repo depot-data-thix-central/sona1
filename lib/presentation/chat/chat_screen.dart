@@ -17,10 +17,11 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:cross_file/cross_file.dart';
+
 import 'package:thix_id/core/theme/thix_design_policy.dart';
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
+import 'package:thix_id/services/chat/connection_service.dart'; // ✅ Sécurité ajoutée
 import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/models/chat/user_status.dart';
@@ -174,6 +175,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
   late final ChatService _chatService; 
+  late final ConnectionService _connectionService; 
   final _scrollController = ScrollController();
   final _inputController = TextEditingController();
   final _inputFocus = FocusNode();
@@ -187,6 +189,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _isTyping = false;
   bool _otherUserTyping = false;
   bool _isSending = false;
+  bool _isConnectionValid = true; // Sécurité de la connexion
 
   final AudioRecorder _audioRecorder = AudioRecorder();
   Timer? _recordTimer;
@@ -258,6 +261,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
     
     _chatService = ref.read(chatServiceProvider); 
+    _connectionService = ConnectionService(); 
     _chatService.startPresenceHeartbeat();
     
     _inputController.addListener(() {
@@ -265,6 +269,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       _onTypingChanged(_inputController.text); 
     }); 
 
+    _checkConnectionSecurity();
     _loadUserRole();
     _getParticipantInfo();
     _markAsRead();
@@ -275,11 +280,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _scrollController.addListener(_onScroll);
   }
 
+  Future<void> _checkConnectionSecurity() async {
+    if (widget.conversation.isGroup || _isAgent) return;
+
+    final myId = _chatService.currentUserId;
+    final otherId = widget.conversation.participantIds.firstWhere((id) => id != myId, orElse: () => '');
+    
+    if (otherId.isEmpty) return;
+
+    final isConnected = await _connectionService.checkConnection(myId, otherId);
+    if (mounted) {
+      setState(() {
+        _isConnectionValid = isConnected;
+      });
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
         _chatService.startPresenceHeartbeat();
+        _checkConnectionSecurity(); 
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
@@ -394,6 +416,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _sendTypingStatus(bool t) {
+    if (!_isConnectionValid) return; 
     final cur = _chatService.currentUserId;
     if (cur.isEmpty || _typingChannel == null) return;
     _typingChannel!.sendBroadcastMessage(event: 'typing', payload: {'senderId': cur, 'isTyping': t});
@@ -417,6 +440,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _startCall(CallType type) {
+    if (!_isConnectionValid) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible d\'appeler : connexion inactive.'), backgroundColor: ThixPolicy.danger));
+      return;
+    }
+
     final myId = _chatService.currentUserId;
     final otherId = widget.conversation.participantIds.firstWhere((id) => id != myId, orElse: () => '');
     if (otherId.isEmpty) return;
@@ -432,6 +460,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   Future<void> _startRecording() async {
+    if (!_isConnectionValid) return; 
     try {
       final hasPermission = await _audioRecorder.hasPermission();
       if (!hasPermission) {
@@ -489,7 +518,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           final response = await http.get(Uri.parse(path));
           bytes = response.bodyBytes;
         } else {
-          final file = XFile(path);
+          final file = File(path); // Utilise File de dart:io (Compatible Web car on est dans le bloc else)
           bytes = await file.readAsBytes();
         }
         if (mounted) {
@@ -510,6 +539,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   Future<void> _sendMessage() async {
+    if (!_isConnectionValid) return; 
+
     final text = _inputController.text.trim();
     if (text.isEmpty && _selectedFiles.isEmpty && _audioBytes == null) return;
     if (_isSending) return;
@@ -823,8 +854,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     return 'le ${DateFormat('dd/MM/yyyy').format(localDate)}';
   }
 
-  // ─────────────────────── UI ───────────────────────
-
   @override
   Widget build(BuildContext context) {
     final messages = ref.watch(chatMessagesProvider(widget.conversationId));
@@ -862,7 +891,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         final msg = item.messages.first;
                         final isOwn = msg.senderId == currentUid;
 
-                        // ✅ NOUVEAU : Interception des messages d'appel
                         if (msg.mediaType == 'call_audio' || msg.mediaType == 'call_video') {
                           return _CallBubble(
                             message: msg,
@@ -897,10 +925,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 onClose: () => setState(() => _replyToId = ''),
               ),
 
-              _buildInputBar(),
+              // ✅ SÉCURITÉ : Affiche la bannière bloquée si on n'a plus le droit de parler
+              if (_isConnectionValid) 
+                _buildInputBar()
+              else 
+                _buildBlockedBanner(), 
 
               if (_showStickers) _buildStickerPicker(),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Banniére si bloqué / retiré
+  Widget _buildBlockedBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: ThixPolicy.border)),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.person_off_rounded, color: ThixPolicy.textSecondary, size: 32),
+          SizedBox(height: 12),
+          Text(
+            "Vous ne pouvez plus répondre à cette conversation",
+            style: TextStyle(color: ThixPolicy.textMain, fontWeight: FontWeight.w700, fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 4),
+          Text(
+            "La connexion a été interrompue ou cet utilisateur n'est plus dans votre réseau.",
+            style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 13),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -1121,7 +1182,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 }
 
-// ✅ NOUVEAU : Le Widget de bulle d'appel
 class _CallBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isOwn;
