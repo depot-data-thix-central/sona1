@@ -1,197 +1,285 @@
-class MediaContent {
-  final String id;
-  final String title;
-  final String? subtitle;
-  final String type;
-  final String? year;
-  final String coverUrl;
-  final String videoUrl;
-  final int viewCount;
-  final int likeCount; 
-  final int commentCount; 
-  final int? rankPosition;
-  final bool isTrending;
-  final bool isNewRelease;
-  final bool isRecommended;
-  final bool isPublished;
-  final bool isFeedOnly; 
+// lib/services/media_service.dart
+import 'dart:async';
+import 'package:file_picker/file_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thix_id/models/media_content.dart';
+import 'package:uuid/uuid.dart';
+import 'package:path/path.dart' as p;
+
+typedef ProgressCallback = void Function(double progress);
+
+class FeedPage {
+  final List<MediaContent> items;
+  final List<Map<String, dynamic>> raw;
+  FeedPage({required this.items, required this.raw});
+}
+
+class MediaService {
+  static final MediaService _instance = MediaService._internal();
+  factory MediaService({SupabaseClient? client, String? bucket}) => _instance;
+  MediaService._internal();
   
-  // NOUVEAUX CHAMPS (Créateur, Monétisation, Filtres, Séries)
-  final String? userId; 
-  final bool isPaid;
-  final double price;
-  final String filterApplied;
-  final List<String> episodesUrls;
+  SupabaseClient get supabase => Supabase.instance.client;
+  final Uuid _uuid = const Uuid();
 
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  MediaContent({
-    required this.id,
-    required this.title,
-    this.subtitle,
-    required this.type,
-    this.year,
-    required this.coverUrl,
-    required this.videoUrl,
-    this.viewCount = 0,
-    this.likeCount = 0,
-    this.commentCount = 0,
-    this.rankPosition,
-    this.isTrending = false,
-    this.isNewRelease = false,
-    this.isRecommended = false,
-    this.isPublished = true,
-    this.isFeedOnly = false,
-    
-    // Initialisation des nouveaux champs
-    this.userId,
-    this.isPaid = false,
-    this.price = 0.0,
-    this.filterApplied = 'Normal',
-    this.episodesUrls = const [],
-
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  factory MediaContent.fromJson(Map<String, dynamic> json) {
-    // 🛡️ ANTI-CRASH : Sécurité absolue pour la date de création
-    DateTime parsedCreatedAt;
-    try {
-      parsedCreatedAt = json['created_at'] != null && json['created_at'].toString().trim().isNotEmpty
-          ? DateTime.parse(json['created_at'].toString()).toLocal()
-          : DateTime.now();
-    } catch (_) {
-      parsedCreatedAt = DateTime.now();
+  // ---- BATCH VUES 1M ----
+  static final Set<String> _pendingViews = {};
+  static Timer? _viewTimer;
+  
+  void registerView(String id) { 
+    _pendingViews.add(id); 
+    _viewTimer ??= Timer(const Duration(seconds: 8), _flush); 
+  }
+  
+  static Future<void> _flush() async {
+    if (_pendingViews.isEmpty) { 
+      _viewTimer = null; 
+      return; 
     }
-
-    // 🛡️ ANTI-CRASH : Sécurité absolue pour la date de mise à jour
-    DateTime parsedUpdatedAt;
-    try {
-      parsedUpdatedAt = json['updated_at'] != null && json['updated_at'].toString().trim().isNotEmpty
-          ? DateTime.parse(json['updated_at'].toString()).toLocal()
-          : DateTime.now();
-    } catch (_) {
-      parsedUpdatedAt = DateTime.now();
+    final b = _pendingViews.toList(); 
+    _pendingViews.clear(); 
+    _viewTimer = null;
+    try { 
+      await Supabase.instance.client.rpc('batch_register_views', params: {'p_media_ids': b}); 
+    } catch (_) { 
+      _pendingViews.addAll(b); 
     }
-
-    return MediaContent(
-      id: json['id'].toString(),
-      title: json['title'] ?? '',
-      subtitle: json['subtitle'],
-      type: json['type'] ?? '',
-      year: json['year'],
-      coverUrl: json['cover_url'] ?? '',
-      videoUrl: json['video_url'] ?? '',
-      viewCount: (json['view_count'] as num?)?.toInt() ?? 0,
-      likeCount: (json['like_count'] as num?)?.toInt() ?? 0,
-      commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
-      rankPosition: (json['rank_position'] as num?)?.toInt(),
-      isTrending: json['is_trending'] ?? false,
-      isNewRelease: json['is_new_release'] ?? false,
-      isRecommended: json['is_recommended'] ?? false,
-      isPublished: json['is_published'] ?? true,
-      isFeedOnly: json['is_feed_only'] ?? false,
-      
-      // Récupération sécurisée des nouveaux champs depuis Supabase
-      userId: json['user_id']?.toString(),
-      isPaid: json['is_paid'] ?? false,
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
-      filterApplied: json['filter_applied']?.toString() ?? 'Normal',
-      episodesUrls: (json['episodes_urls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-
-      createdAt: parsedCreatedAt,
-      updatedAt: parsedUpdatedAt,
-    );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'subtitle': subtitle,
-        'type': type,
-        'year': year,
-        'cover_url': coverUrl,
-        'video_url': videoUrl,
-        'view_count': viewCount,
-        'like_count': likeCount,
-        'comment_count': commentCount,
-        'rank_position': rankPosition,
-        'is_trending': isTrending,
-        'is_new_release': isNewRelease,
-        'is_recommended': isRecommended,
-        'is_published': isPublished,
-        'is_feed_only': isFeedOnly,
-        
-        // Sérialisation des nouveaux champs
-        'user_id': userId,
-        'is_paid': isPaid,
-        'price': price,
-        'filter_applied': filterApplied,
-        'episodes_urls': episodesUrls,
+  // ---- FEED ENRICHI ----
+  Future<FeedPage> fetchEnrichedFeed({required List<String> seenIds, int limit = 12}) async {
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      final data = await supabase.rpc('get_feed_with_creator', params: {'p_seen_ids': seenIds, 'p_limit': limit, 'p_uid': uid}) as List;
+      final items = data.map((e) => MediaContent.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      final raw = data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return FeedPage(items: items, raw: raw);
+    } catch (_) {
+      // Sécurité : Retourne une liste vide au lieu de crasher l'UI
+      return FeedPage(items: [], raw: []);
+    }
+  }
 
-        'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt.toIso8601String(),
+  Future<FeedPage> fetchShuffledFeed({required List<String> seenIds, int limit = 12}) async {
+    try {
+      final data = await supabase.rpc('get_shuffled_feed', params: {'p_seen_ids': seenIds, 'p_limit': limit}) as List;
+      return FeedPage(items: data.map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList(), raw: []);
+    } catch (_) {
+      return FeedPage(items: [], raw: []);
+    }
+  }
+
+  // ---- LIKES / FOLLOW ----
+  Future<bool> toggleLike(String id) async { 
+    try {
+      final r = await supabase.rpc('toggle_media_like', params: {'p_media_id': id}); 
+      if (r is bool) return r;
+      return true; 
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> toggleFollow(String targetId) async {
+    final uid = supabase.auth.currentUser?.id; 
+    if (uid == null || targetId.isEmpty || uid == targetId) return false;
+    
+    try {
+      final ex = await supabase.from('follows').select().eq('follower_id', uid).eq('following_id', targetId).maybeSingle();
+      if (ex != null) { 
+        await supabase.from('follows').delete().eq('follower_id', uid).eq('following_id', targetId); 
+        return false; 
+      } else { 
+        await supabase.from('follows').insert({'follower_id': uid, 'following_id': targetId}); 
+        return true; 
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> isFollowing(String targetId) async {
+    final uid = supabase.auth.currentUser?.id; 
+    if (uid == null || targetId.isEmpty || uid == targetId) return false;
+    try {
+      final ex = await supabase.from('follows').select().eq('follower_id', uid).eq('following_id', targetId).maybeSingle();
+      return ex != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Set<String>> getLikedMediaIds(List<String> ids) async {
+    if (ids.isEmpty) return {}; 
+    try { 
+      final r = await supabase.rpc('get_liked_media_ids', params: {'p_media_ids': ids}); 
+      return (r as List).map((e) => e.toString()).toSet(); 
+    } catch (_) { 
+      final uid = supabase.auth.currentUser?.id; 
+      if (uid == null) return {}; 
+      final r = await supabase.from('media_likes').select('media_id').eq('user_id', uid).inFilter('media_id', ids); 
+      return (r as List).map((e) => e['media_id'].toString()).toSet(); 
+    }
+  }
+
+  // ---- PROFILE ----
+  Future<Map<String, dynamic>?> fetchProfile(String userId) async {
+    try {
+      return await supabase.from('profiles').select().eq('id', userId).maybeSingle();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchUserStats(String userId) async {
+    try {
+      final followersCount = await supabase.from('follows').count(CountOption.exact).eq('following_id', userId);
+      final followingCount = await supabase.from('follows').count(CountOption.exact).eq('follower_id', userId);
+      final postsCount = await supabase.from('media_content').count(CountOption.exact).eq('user_id', userId);
+      
+      return {
+        'followers': followersCount, 
+        'following': followingCount, 
+        'posts': postsCount
       };
-
-  MediaContent copyWith({
-    String? id,
-    String? title,
-    String? subtitle,
-    String? type,
-    String? year,
-    String? coverUrl,
-    String? videoUrl,
-    int? viewCount,
-    int? likeCount,
-    int? commentCount,
-    int? rankPosition,
-    bool? isTrending,
-    bool? isNewRelease,
-    bool? isRecommended,
-    bool? isPublished,
-    bool? isFeedOnly,
-    
-    // Ajout au copyWith
-    String? userId,
-    bool? isPaid,
-    double? price,
-    String? filterApplied,
-    List<String>? episodesUrls,
-
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return MediaContent(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      subtitle: subtitle ?? this.subtitle,
-      type: type ?? this.type,
-      year: year ?? this.year,
-      coverUrl: coverUrl ?? this.coverUrl,
-      videoUrl: videoUrl ?? this.videoUrl,
-      viewCount: viewCount ?? this.viewCount,
-      likeCount: likeCount ?? this.likeCount,
-      commentCount: commentCount ?? this.commentCount,
-      rankPosition: rankPosition ?? this.rankPosition,
-      isTrending: isTrending ?? this.isTrending,
-      isNewRelease: isNewRelease ?? this.isNewRelease,
-      isRecommended: isRecommended ?? this.isRecommended,
-      isPublished: isPublished ?? this.isPublished,
-      isFeedOnly: isFeedOnly ?? this.isFeedOnly,
-      
-      // Remplacement si valeur fournie
-      userId: userId ?? this.userId,
-      isPaid: isPaid ?? this.isPaid,
-      price: price ?? this.price,
-      filterApplied: filterApplied ?? this.filterApplied,
-      episodesUrls: episodesUrls ?? this.episodesUrls,
-
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
+    } catch (_) {
+      return {'followers': 0, 'following': 0, 'posts': 0};
+    }
   }
 
-  String get rankDisplay => rankPosition != null ? '#$rankPosition' : '';
+  // ---- ADMIN ----
+  Future<List<MediaContent>> fetchAllMedia({int page = 0, int limit = 50}) async {
+    try {
+      final s = page * limit; 
+      final data = await supabase.from('media_content').select().order('created_at', ascending: false).range(s, s + limit - 1) as List;
+      return data.map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<MediaContent>> fetchAllMediaPaginated({int limit = 30, int offset = 0}) async {
+    try {
+      final data = await supabase.from('media_content').select().order('created_at', ascending: false).range(offset, offset + limit - 1) as List;
+      return data.map((e) => MediaContent.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<String> _upload(PlatformFile f, String base) async {
+    if (f.bytes == null) throw Exception('withData:true requis');
+    final name = '${_uuid.v4()}${p.extension(f.name)}'; 
+    final path = '$base/$name';
+    await supabase.storage.from('media').uploadBinary(path, f.bytes!, fileOptions: const FileOptions(cacheControl: '31536000', upsert: true));
+    return supabase.storage.from('media').getPublicUrl(path);
+  }
+
+  // ------------------------------------------------------------------------------------
+  // MÉTHODES DE PUBLICATION / ÉDITION
+  // ------------------------------------------------------------------------------------
+
+  Future<MediaContent> insertWithFiles(MediaContent item, {PlatformFile? coverFile, PlatformFile? videoFile, ProgressCallback? onProgress}) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      throw Exception("Utilisateur non connecté. Impossible de publier.");
+    }
+
+    final nid = _uuid.v4(); 
+    String? c = item.coverUrl, v = item.videoUrl;
+    
+    if (coverFile != null) {
+      c = await _upload(coverFile, 'thix_media/$nid/covers'); 
+    }
+    onProgress?.call(0.5);
+    
+    if (videoFile != null) {
+      v = await _upload(videoFile, 'thix_media/$nid/videos'); 
+    }
+    onProgress?.call(1.0);
+    
+    final ins = item.copyWith(
+      id: nid, 
+      userId: user.id, 
+      coverUrl: c, 
+      videoUrl: v, 
+      createdAt: DateTime.now(), 
+      updatedAt: DateTime.now()
+    ).toJson(); // ✅ Correction : toJson()
+
+    final res = await supabase.from('media_content').insert(ins).select().single();
+    return MediaContent.fromJson(res as Map<String, dynamic>);
+  }
+
+  Future<MediaContent> updateWithFiles(MediaContent ex, {PlatformFile? newCoverFile, PlatformFile? newVideoFile, ProgressCallback? onProgress}) async {
+    String? c = ex.coverUrl, v = ex.videoUrl;
+    
+    if (newCoverFile != null) {
+      c = await _upload(newCoverFile, 'thix_media/${ex.id}/covers'); 
+    }
+    onProgress?.call(0.5);
+    
+    if (newVideoFile != null) {
+      v = await _upload(newVideoFile, 'thix_media/${ex.id}/videos'); 
+    }
+    onProgress?.call(1.0);
+    
+    final up = ex.copyWith(coverUrl: c, videoUrl: v, updatedAt: DateTime.now()).toJson(); // ✅ Correction : toJson()
+    await supabase.from('media_content').update(up).eq('id', ex.id);
+    
+    return ex.copyWith(coverUrl: c, videoUrl: v);
+  }
+
+  // ✅ NOUVELLE MÉTHODE AJOUTÉE : Gère 1 ou plusieurs vidéos (Pour les séries/formations)
+  Future<void> insertComplexMedia(
+    MediaContent content, {
+    required List<PlatformFile> videos,
+    required PlatformFile coverFile,
+    required void Function(double) onProgress,
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      throw Exception("Utilisateur non connecté. Impossible de publier.");
+    }
+
+    final nid = _uuid.v4();
+
+    // 1. Upload de la couverture (10% du progrès)
+    onProgress(0.0);
+    final finalCoverUrl = await _upload(coverFile, 'thix_media/$nid/covers');
+    onProgress(0.1);
+
+    // 2. Upload des vidéos (90% du progrès)
+    List<String> finalVideoUrls = [];
+    
+    for (int i = 0; i < videos.length; i++) {
+      final vUrl = await _upload(videos[i], 'thix_media/$nid/videos/episode_$i');
+      finalVideoUrls.add(vUrl);
+      
+      final currentProgress = 0.1 + (0.9 * ((i + 1) / videos.length));
+      onProgress(currentProgress); 
+    }
+
+    // 3. Mise à jour de l'objet
+    final updatedContent = content.copyWith(
+      id: nid,
+      userId: user.id,
+      videoUrl: finalVideoUrls.isNotEmpty ? finalVideoUrls.first : '', 
+      episodesUrls: finalVideoUrls.length > 1 ? finalVideoUrls.sublist(1) : [], 
+      coverUrl: finalCoverUrl,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // 4. Insertion Finale BDD
+    await supabase.from('media_content').insert(updatedContent.toJson()); // ✅ Correction : toJson()
+  }
+
+  Future<void> deleteMedia(MediaContent item) async { 
+    try {
+      await supabase.from('media_content').delete().eq('id', item.id); 
+    } catch (_) {
+      // Ignorer l'erreur
+    }
+  }
 }
