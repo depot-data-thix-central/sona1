@@ -9,7 +9,7 @@ import '../../../../models/chat/call_invite.dart';
 import '../../../../models/chat/call_status.dart';
 import '../../../../services/chat/call_service.dart';
 import '../../../../services/chat/call_signaling_service.dart';
-import '../../../providers/chat_providers.dart'; 
+import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 
 class CallState {
   final CallStatus status;
