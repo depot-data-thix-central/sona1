@@ -1,19 +1,15 @@
+// lib/presentation/media/create_post_page.dart
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+// ✅ Imports existants
 import '../../services/media_service.dart';
 import '../../models/media_content.dart';
-
-const Color kBg = Color(0xFF050507);
-const Color kSurface = Color(0xFF121214);
-const Color kSurfaceLight = Color(0xFF1E1E28);
-const Color kRed = Color(0xFFFF1A1A);
-const Color kTextWhite = Color(0xFFFFFFFF);
-const Color kTextGrey = Color(0xFF9CA3AF);
-const Color kTdiaBlue = Color(0xFF2D6CDF);
+import 'package:thix_id/core/theme/thix_design_policy.dart'; // Design System THIX
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({super.key});
@@ -27,20 +23,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _subtitleController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
 
-  PlatformFile? _selectedVideo;
+  // ─── GESTION DES VIDÉOS (Support des Séries) ───
   PlatformFile? _selectedCover;
-  
+  List<PlatformFile> _selectedVideos = []; // Support multi-vidéos pour les séries
+  int _currentVideoIndex = 0; // Pour la prévisualisation
+
   VideoPlayerController? _videoPlayerController;
   bool _isVideoInitialized = false;
 
-  // Options demandées
-  String _selectedContentType = 'Fil'; // 'Fil', 'Série', 'Film', 'Formation', etc.
-  bool _isPaid = false; // Gratuit ou Payant
-  String _selectedFilter = 'Normal'; // Filtre esthétique appliqué
+  // ─── OPTIONS DU CONTENU ───
+  String _selectedContentType = 'Fil'; // 'Fil', 'Série', 'NOVA Originals', etc.
+  bool _isPaid = false; 
+  String _selectedFilter = 'Normal'; 
   final List<String> _filters = ['Normal', 'Cinématique', 'Éclat', 'Vintage', 'Cyberpunk', 'Beauté Douce'];
 
   bool _isUploading = false;
   double _progress = 0.0;
+  String _uploadStatus = '';
 
   @override
   void dispose() {
@@ -52,20 +51,19 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   // --- GESTION VIDÉO & PRÉVISUALISATION ---
-  Future<void> _initializeVideoPlayer() async {
-    if (_selectedVideo == null) return;
-    
+  Future<void> _initializeVideoPlayer(PlatformFile file) async {
     if (_videoPlayerController != null) {
       await _videoPlayerController!.dispose();
     }
+    setState(() => _isVideoInitialized = false);
 
     if (kIsWeb) {
-      if (_selectedVideo!.bytes != null) {
-        _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(_selectedVideo!.path ?? ''));
+      if (file.bytes != null) {
+        _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(file.path ?? ''));
       }
     } else {
-      if (_selectedVideo!.path != null) {
-        _videoPlayerController = VideoPlayerController.file(File(_selectedVideo!.path!));
+      if (file.path != null) {
+        _videoPlayerController = VideoPlayerController.file(File(file.path!));
       }
     }
 
@@ -82,36 +80,73 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   Future<void> _pickVideo() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.video, withData: true);
+    // Si c'est une série, on permet plusieurs fichiers
+    final allowMultiple = _selectedContentType == 'Série' || _selectedContentType == 'Formation';
+    
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.video, 
+      allowMultiple: allowMultiple,
+      withData: kIsWeb, // Obligatoire sur le web pour lire la vidéo
+    );
+
     if (result != null && result.files.isNotEmpty) {
-      setState(() => _selectedVideo = result.files.first);
-      await _initializeVideoPlayer();
+      setState(() {
+        if (allowMultiple) {
+          _selectedVideos.addAll(result.files);
+        } else {
+          _selectedVideos = [result.files.first];
+        }
+        _currentVideoIndex = _selectedVideos.length - 1;
+      });
+      await _initializeVideoPlayer(_selectedVideos.last);
     }
   }
 
+  void _removeVideo(int index) {
+    setState(() {
+      _selectedVideos.removeAt(index);
+      if (_selectedVideos.isEmpty) {
+        _videoPlayerController?.dispose();
+        _videoPlayerController = null;
+        _isVideoInitialized = false;
+      } else {
+        _currentVideoIndex = 0;
+        _initializeVideoPlayer(_selectedVideos.first);
+      }
+    });
+  }
+
   Future<void> _pickCover() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image, 
+      withData: kIsWeb,
+    );
     if (result != null && result.files.isNotEmpty) {
       setState(() => _selectedCover = result.files.first);
     }
   }
 
-  // Simulation ouverture caméra avec filtres beauté
   void _openCameraWithBeautyFilters() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("Module Caméra & Filtres Beauté natifs (Intégrer package 'camera' ici)"),
-        backgroundColor: kTdiaBlue,
+        content: Text("Module Caméra (En développement)"),
+        backgroundColor: ThixPolicy.primary,
       ),
     );
   }
 
-  // --- PUBLICATION ---
+  // --- PUBLICATION ET ENVOI SUR SUPABASE ---
   Future<void> _publishPost() async {
-    if (_titleController.text.trim().isEmpty || _selectedVideo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez ajouter un titre et une vidéo.'), backgroundColor: kRed),
-      );
+    if (_titleController.text.trim().isEmpty) {
+      _showError('Veuillez ajouter un titre.');
+      return;
+    }
+    if (_selectedVideos.isEmpty) {
+      _showError('Veuillez ajouter au moins une vidéo.');
+      return;
+    }
+    if (_selectedCover == null) {
+      _showError('Veuillez ajouter une image de couverture.');
       return;
     }
 
@@ -119,73 +154,99 @@ class _CreatePostPageState extends State<CreatePostPage> {
     if (_isPaid) {
       price = double.tryParse(_priceController.text.trim()) ?? 0.0;
       if (price <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Veuillez indiquer un prix valide pour le contenu payant.'), backgroundColor: kRed),
-        );
+        _showError('Veuillez indiquer un prix valide.');
         return;
       }
+    }
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      _showError('Vous devez être connecté pour publier.');
+      return;
     }
 
     setState(() { 
       _isUploading = true; 
       _progress = 0.0; 
+      _uploadStatus = 'Préparation des fichiers...';
     });
 
     try {
+      // 1. Gérer l'upload multiple si c'est une série
+      final mediaService = MediaService();
+      
+      // On crée l'objet initial (sans les URLs qui seront ajoutées par le service)
       final newContent = MediaContent(
-        id: '',
+        id: '', // Sera généré par le backend
+        userId: userId,
         title: _titleController.text.trim(),
         subtitle: _subtitleController.text.trim().isEmpty ? null : _subtitleController.text.trim(),
-        videoUrl: '',
-        coverUrl: '',
+        videoUrl: '', // Injecté après upload
+        coverUrl: '', // Injecté après upload
+        episodesUrls: [], // Injecté après upload
         type: _selectedContentType, 
+        isPaid: _isPaid,
+        price: price,
+        filterApplied: _selectedFilter,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
-      // Note: Tu peux stocker _isPaid et price dans ta table Supabase si tu as ajouté les colonnes correspondantes.
-      await MediaService().insertWithFiles(
+      // 2. Upload personnalisé gérant 1 ou plusieurs vidéos
+      setState(() => _uploadStatus = 'Envoi en cours...');
+      
+      await mediaService.insertComplexMedia(
         newContent,
-        videoFile: _selectedVideo,
-        coverFile: _selectedCover,
+        videos: _selectedVideos,
+        coverFile: _selectedCover!,
         onProgress: (p) => setState(() => _progress = p),
       );
 
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Publication réussie !'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Publication réussie !'), backgroundColor: ThixPolicy.success),
       );
+
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: kRed),
-      );
+      _showError('Erreur lors de la publication : $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
   }
 
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: ThixPolicy.danger),
+    );
+  }
+
+  // =======================================================================
+  // INTERFACE UTILISATEUR
+  // =======================================================================
   @override
   Widget build(BuildContext context) {
+    final bool isSeries = _selectedContentType == 'Série' || _selectedContentType == 'Formation';
+
     return Scaffold(
-      backgroundColor: kBg,
+      backgroundColor: ThixPolicy.inkDeep,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Studio de Publication', style: TextStyle(color: kTextWhite, fontWeight: FontWeight.bold, fontSize: 18)),
-        iconTheme: const IconThemeData(color: kTextWhite),
+        title: const Text('Studio THIX', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 1. SECTION PREVIEW & CAMERA
             Container(
-              height: 220,
+              height: 250,
               decoration: BoxDecoration(
-                color: kSurface,
+                color: ThixPolicy.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white12),
               ),
@@ -217,15 +278,25 @@ class _CreatePostPageState extends State<CreatePostPage> {
                               }),
                             ),
                           ),
+                          // Badge de l'épisode en cours
+                          if (_selectedVideos.length > 1)
+                            Positioned(
+                              top: 10, left: 10,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                                child: Text('Partie ${_currentVideoIndex + 1}/${_selectedVideos.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            )
                         ],
                       ),
                     )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.movie_creation_outlined, color: kTextGrey, size: 48),
+                        const Icon(Icons.movie_creation_outlined, color: ThixPolicy.textSecondary, size: 48),
                         const SizedBox(height: 12),
-                        const Text('Aucune vidéo sélectionnée', style: TextStyle(color: kTextGrey, fontSize: 13)),
+                        const Text('Aucune vidéo', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 13)),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -234,14 +305,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
                               onPressed: _pickVideo,
                               icon: const Icon(Icons.folder_open, size: 16),
                               label: const Text('Importer'),
-                              style: ElevatedButton.styleFrom(backgroundColor: kSurfaceLight, foregroundColor: Colors.white),
+                              style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.surfaceSoft, foregroundColor: Colors.white),
                             ),
                             const SizedBox(width: 12),
                             ElevatedButton.icon(
                               onPressed: _openCameraWithBeautyFilters,
                               icon: const Icon(Icons.camera_alt, size: 16),
-                              label: const Text('Caméra & Beauté'),
-                              style: ElevatedButton.styleFrom(backgroundColor: kRed, foregroundColor: Colors.white),
+                              label: const Text('Caméra'),
+                              style: ElevatedButton.styleFrom(backgroundColor: ThixPolicy.primary, foregroundColor: Colors.white),
                             ),
                           ],
                         )
@@ -249,12 +320,127 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     ),
             ),
 
+            // ── LISTE DES ÉPISODES (Si série) ──
+            if (isSeries && _selectedVideos.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 70,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _selectedVideos.length + 1, // +1 pour le bouton Ajouter
+                  itemBuilder: (context, index) {
+                    if (index == _selectedVideos.length) {
+                      return GestureDetector(
+                        onTap: _pickVideo,
+                        child: Container(
+                          width: 70,
+                          margin: const EdgeInsets.only(left: 8),
+                          decoration: BoxDecoration(color: ThixPolicy.surfaceSoft, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
+                          child: const Icon(Icons.add_rounded, color: Colors.white54),
+                        ),
+                      );
+                    }
+                    
+                    final isSelected = index == _currentVideoIndex;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() => _currentVideoIndex = index);
+                        _initializeVideoPlayer(_selectedVideos[index]);
+                      },
+                      child: Container(
+                        width: 70,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: ThixPolicy.surface, 
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isSelected ? ThixPolicy.primary : Colors.white12, width: isSelected ? 2 : 1),
+                        ),
+                        child: Stack(
+                          children: [
+                            Center(child: Text('Pt. ${index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                            Positioned(
+                              top: -2, right: -2,
+                              child: GestureDetector(
+                                onTap: () => _removeVideo(index),
+                                child: const Icon(Icons.cancel, color: ThixPolicy.danger, size: 18),
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+
             const SizedBox(height: 20),
 
-            // 2. FILTRES ESTHÉTIQUES DE RETRAVAIL VIDÉO
-            if (_selectedVideo != null) ...[
-              const Text('Filtre esthétique appliqué', style: TextStyle(color: kTextGrey, fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+            // 2. CHOIX DU TYPE DE FORMAT
+            DropdownButtonFormField<String>(
+              value: _selectedContentType,
+              dropdownColor: ThixPolicy.surfaceSoft,
+              style: const TextStyle(color: Colors.white),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: ThixPolicy.textSecondary),
+              decoration: InputDecoration(
+                labelText: 'Format du contenu',
+                labelStyle: const TextStyle(color: ThixPolicy.textSecondary),
+                filled: true,
+                fillColor: ThixPolicy.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+              items: ['Fil', 'Série', 'NOVA Originals', 'Musique', 'Gaming', 'Formation']
+                  .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                  .toList(),
+              onChanged: (val) {
+                setState(() {
+                  _selectedContentType = val ?? 'Fil';
+                  // Si on repasse en Fil, on ne garde qu'une seule vidéo
+                  if (_selectedContentType != 'Série' && _selectedContentType != 'Formation' && _selectedVideos.length > 1) {
+                    _selectedVideos = [_selectedVideos.first];
+                    _currentVideoIndex = 0;
+                  }
+                });
+              },
+            ),
+
+            const SizedBox(height: 20),
+
+            // 3. INFORMATIONS PRINCIPALES
+            TextField(
+              controller: _titleController,
+              style: const TextStyle(color: Colors.white),
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: 'Titre de la publication',
+                labelStyle: const TextStyle(color: ThixPolicy.textSecondary),
+                filled: true,
+                fillColor: ThixPolicy.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _subtitleController,
+              style: const TextStyle(color: Colors.white),
+              maxLines: 3,
+              minLines: 1,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: 'Description / Synopsis / #Tags',
+                labelStyle: const TextStyle(color: ThixPolicy.textSecondary),
+                filled: true,
+                fillColor: ThixPolicy.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // 4. FILTRES ESTHÉTIQUES
+            if (_selectedVideos.isNotEmpty) ...[
+              const Text('Filtre esthétique (Thème)', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
               SizedBox(
                 height: 38,
                 child: ListView.builder(
@@ -269,96 +455,60 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         label: Text(filter),
                         selected: isSelected,
                         onSelected: (selected) => setState(() => _selectedFilter = filter),
-                        selectedColor: kTdiaBlue,
-                        backgroundColor: kSurfaceLight,
-                        labelStyle: TextStyle(color: isSelected ? Colors.white : kTextGrey, fontSize: 12),
+                        selectedColor: ThixPolicy.primary,
+                        backgroundColor: ThixPolicy.surface,
+                        side: BorderSide.none,
+                        showCheckmark: false,
+                        labelStyle: TextStyle(color: isSelected ? Colors.white : ThixPolicy.textSecondary, fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
                       ),
                     );
                   },
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
             ],
-
-            // 3. INFORMATIONS PRINCIPALES
-            TextField(
-              controller: _titleController,
-              style: const TextStyle(color: kTextWhite),
-              decoration: InputDecoration(
-                labelText: 'Titre de la publication / Série',
-                labelStyle: const TextStyle(color: kTextGrey),
-                filled: true,
-                fillColor: kSurface,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: _subtitleController,
-              style: const TextStyle(color: kTextWhite),
-              maxLines: 2,
-              decoration: InputDecoration(
-                labelText: 'Description / Synopsis',
-                labelStyle: const TextStyle(color: kTextGrey),
-                filled: true,
-                fillColor: kSurface,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // 4. CHOIX DU TYPE (Fil, Série, etc.)
-            DropdownButtonFormField<String>(
-              value: _selectedContentType,
-              dropdownColor: kSurfaceLight,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Format de diffusion',
-                labelStyle: const TextStyle(color: kTextGrey),
-                filled: true,
-                fillColor: kSurface,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-              items: ['Fil', 'Série', 'NOVA Originals', 'Musique', 'Gaming', 'Formation']
-                  .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                  .toList(),
-              onChanged: (val) => setState(() => _selectedContentType = val ?? 'Fil'),
-            ),
-
-            const SizedBox(height: 20),
 
             // 5. GRATUIT OU PAYANT (MONÉTISATION)
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: ThixPolicy.surface, borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
                     children: [
-                      const Text('Contenu Payant (Verrouillé)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      const Row(
+                        children: [
+                          Icon(Icons.monetization_on_rounded, color: ThixPolicy.gold, size: 20),
+                          SizedBox(width: 8),
+                          Text('Monétiser ce contenu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                        ],
+                      ),
                       Switch(
                         value: _isPaid,
-                        activeColor: kRed,
+                        activeColor: ThixPolicy.gold,
+                        activeTrackColor: ThixPolicy.gold.withOpacity(0.3),
+                        inactiveTrackColor: ThixPolicy.surfaceSoft,
                         onChanged: (val) => setState(() => _isPaid = val),
                       ),
                     ],
                   ),
                   if (_isPaid) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
+                    const Text('Un extrait de 30s sera gratuit. Ensuite, l\'utilisateur devra payer pour débloquer la vidéo.', style: TextStyle(color: ThixPolicy.textSecondary, fontSize: 12)),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
-                        labelText: 'Prix en USD / Équivalent',
-                        labelStyle: const TextStyle(color: kTextGrey),
+                        labelText: 'Prix de déblocage',
+                        labelStyle: const TextStyle(color: ThixPolicy.textSecondary),
                         filled: true,
-                        fillColor: kSurfaceLight,
+                        fillColor: ThixPolicy.surfaceSoft,
                         prefixText: '\$ ',
+                        prefixStyle: const TextStyle(color: ThixPolicy.gold, fontWeight: FontWeight.bold, fontSize: 16),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       ),
                     ),
@@ -370,39 +520,73 @@ class _CreatePostPageState extends State<CreatePostPage> {
             const SizedBox(height: 20),
 
             // 6. COUVERTURE
-            ElevatedButton.icon(
-              onPressed: _pickCover,
-              icon: const Icon(Icons.image_outlined),
-              label: Text(_selectedCover == null ? 'Choisir une image de couverture' : 'Couverture sélectionnée avec succès'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kSurfaceLight,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            GestureDetector(
+              onTap: _pickCover,
+              child: Container(
+                height: 140,
+                decoration: BoxDecoration(
+                  color: ThixPolicy.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _selectedCover == null ? ThixPolicy.primary.withOpacity(0.3) : Colors.transparent, width: 2),
+                  image: _selectedCover != null 
+                    ? DecorationImage(
+                        image: kIsWeb 
+                          ? MemoryImage(_selectedCover!.bytes!) as ImageProvider 
+                          : FileImage(File(_selectedCover!.path!)),
+                        fit: BoxFit.cover,
+                        colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
+                      )
+                    : null,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(_selectedCover == null ? Icons.add_photo_alternate_rounded : Icons.check_circle_rounded, color: _selectedCover == null ? ThixPolicy.primary : ThixPolicy.success, size: 36),
+                      const SizedBox(height: 8),
+                      Text(
+                        _selectedCover == null ? 'Ajouter une image de couverture' : 'Couverture prête (Appuyer pour changer)',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 40),
 
-            // 7. BOUTON DE PUBLICATION OU PROGRESSION
+            // 7. BOUTON DE PUBLICATION
             if (_isUploading) ...[
-              LinearProgressIndicator(value: _progress, color: kRed, backgroundColor: kSurfaceLight),
-              const SizedBox(height: 12),
-              Text(
-                'Publication en cours... ${(_progress * 100).toStringAsFixed(0)}%',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: kTextGrey, fontSize: 13),
+              Text(_uploadStatus, textAlign: TextAlign.center, style: const TextStyle(color: ThixPolicy.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(value: _progress, color: ThixPolicy.primary, backgroundColor: ThixPolicy.surface, minHeight: 8),
               ),
+              const SizedBox(height: 8),
+              Text('${(_progress * 100).toStringAsFixed(0)}%', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             ] else
               ElevatedButton(
                 onPressed: _publishPost,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: kRed,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: ThixPolicy.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 5,
+                  shadowColor: ThixPolicy.primary.withOpacity(0.5),
                 ),
-                child: const Text('Publier maintenant', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 10),
+                    Text('Mettre en ligne', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+                  ],
+                ),
               ),
+              
+            const SizedBox(height: 40),
           ],
         ),
       ),
