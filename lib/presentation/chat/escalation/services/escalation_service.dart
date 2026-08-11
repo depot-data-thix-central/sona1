@@ -76,11 +76,18 @@ class EscalationService {
         'from_agent_name': fromAgentName,
       };
 
+      // ✅ CORRECTION ICI : Remplacement de .single() par limit(1) pour éviter l'erreur 406
       final response = await _supabase
           .from('escalation_steps')
           .insert(data)
           .select()
-          .single();
+          .limit(1);
+
+      if (response.isEmpty) {
+        throw Exception("Échec de la création de l'escalade");
+      }
+
+      final record = response.first;
 
       await _supabase
           .from('conversations')
@@ -92,7 +99,7 @@ class EscalationService {
           })
           .eq('id', conversationId);
 
-      return EscalationStep.fromJson(response);
+      return EscalationStep.fromJson(record);
     } catch (e) {
       print('❌ Erreur création escalade : $e');
       rethrow;
@@ -102,6 +109,7 @@ class EscalationService {
   // Accepter une escalade
   Future<EscalationStep> acceptEscalation(String escalationId, String agentId) async {
     try {
+      // ✅ CORRECTION ICI : Remplacement de .single() par limit(1)
       final response = await _supabase
           .from('escalation_steps')
           .update({
@@ -111,9 +119,11 @@ class EscalationService {
           })
           .eq('id', escalationId)
           .select()
-          .single();
+          .limit(1);
 
-      final step = EscalationStep.fromJson(response);
+      if (response.isEmpty) throw Exception("Échec de l'acceptation");
+
+      final step = EscalationStep.fromJson(response.first);
 
       await _supabase
           .from('conversations')
@@ -143,6 +153,7 @@ class EscalationService {
 
   // Refuser une escalade
   Future<EscalationStep> rejectEscalation(String escalationId, String reason) async {
+    // ✅ CORRECTION ICI : Remplacement de .single() par limit(1)
     final response = await _supabase
         .from('escalation_steps')
         .update({
@@ -152,9 +163,12 @@ class EscalationService {
         })
         .eq('id', escalationId)
         .select()
-        .single();
+        .limit(1);
 
-    final step = EscalationStep.fromJson(response);
+    if (response.isEmpty) throw Exception("Échec du rejet de l'escalade");
+
+    final step = EscalationStep.fromJson(response.first);
+    
     await _supabase
         .from('conversations')
         .update({
@@ -169,6 +183,7 @@ class EscalationService {
 
   // Résoudre une escalade
   Future<EscalationStep> resolveEscalation(String escalationId) async {
+    // ✅ CORRECTION ICI : Remplacement de .single() par limit(1)
     final response = await _supabase
         .from('escalation_steps')
         .update({
@@ -177,9 +192,12 @@ class EscalationService {
         })
         .eq('id', escalationId)
         .select()
-        .single();
+        .limit(1);
 
-    final step = EscalationStep.fromJson(response);
+    if (response.isEmpty) throw Exception("Échec de la résolution de l'escalade");
+
+    final step = EscalationStep.fromJson(response.first);
+    
     await _supabase
         .from('conversations')
         .update({
@@ -231,34 +249,35 @@ class EscalationService {
   }
 
   ///// Toutes les escalades destinées à cet agent (pending + accepted + rejected…).
-/// Sert d'historique « Escalades reçues ».
-Future<List<EscalationStep>> getReceivedEscalations(
-  String agentId, {
-  int limit = 20,
-  int offset = 0,
-}) async {
-  final response = await _supabase
-      .from('escalation_steps')
-      .select()
-      .eq('to_agent_id', agentId)
-      .order('created_at', ascending: false)
-      .range(offset, offset + limit - 1);
+  /// Sert d'historique « Escalades reçues ».
+  Future<List<EscalationStep>> getReceivedEscalations(
+    String agentId, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final response = await _supabase
+        .from('escalation_steps')
+        .select()
+        .eq('to_agent_id', agentId)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
 
-  return (response as List)
-      .map((json) => EscalationStep.fromJson(json))
-      .toList();
-}
+    return (response as List)
+        .map((json) => EscalationStep.fromJson(json))
+        .toList();
+  }
 
-/// Uniquement les pending (pour le badge).
-Future<int> countPendingReceived(String agentId) async {
-  final r = await _supabase
-      .from('escalation_steps')
-      .select('id')
-      .eq('to_agent_id', agentId)
-      .eq('status', EscalationStatus.pending.index)
-      .count();
-  return (r.count as int?) ?? 0;
-}
+  /// Uniquement les pending (pour le badge).
+  Future<int> countPendingReceived(String agentId) async {
+    final r = await _supabase
+        .from('escalation_steps')
+        .select('id')
+        .eq('to_agent_id', agentId)
+        .eq('status', EscalationStatus.pending.index)
+        .count();
+    return (r.count as int?) ?? 0;
+  }
+  
   // Récupérer la conversation associée à une escalade
   Future<Map<String, dynamic>?> getConversation(String conversationId) async {
     try {
