@@ -753,8 +753,9 @@ class _ExplorePage extends ConsumerWidget {
   }
 }
 
-/// ============================================================================
-// ONGLET 3 : VÉRITABLE BIBLIOTHÈQUE (Uniquement les Livres)
+
+// ============================================================================
+// ONGLET 3 : VÉRITABLE BIBLIOTHÈQUE (Typage fort avec Book)
 // ============================================================================
 class _LibraryPage extends ConsumerWidget {
   const _LibraryPage();
@@ -764,8 +765,7 @@ class _LibraryPage extends ConsumerWidget {
     final userId = ref.watch(currentUserIdProvider).value;
     if (userId == null) return const Center(child: Text('Non connecté'));
 
-    // ⚠️ Remplacez `myBooksProvider` par le provider que vous utilisez 
-    // pour récupérer les données de votre table `books` (ou livres téléchargés)
+    // Ton provider qui retourne un Future<List<Book>>
     final booksAsync = ref.watch(myBooksProvider(userId)); 
 
     return Scaffold(
@@ -778,7 +778,7 @@ class _LibraryPage extends ConsumerWidget {
       body: booksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: _eduAccentBlue)),
         error: (err, stack) => Center(child: Text('Erreur de chargement des livres: $err')),
-        data: (books) { // "books" doit être une List<Book>
+        data: (List<Book> books) {
           
           if (books.isEmpty) {
             return Center(
@@ -801,8 +801,8 @@ class _LibraryPage extends ConsumerWidget {
             );
           }
 
-          // Séparer les livres par groupe de 3 pour remplir les "étagères" de manière réaliste
-          List<List<dynamic>> shelves = []; // Remplacez 'dynamic' par 'Book'
+          // Séparer les livres par groupe de 3 pour remplir les "étagères"
+          List<List<Book>> shelves = [];
           for (var i = 0; i < books.length; i += 3) {
             shelves.add(books.sublist(i, i + 3 > books.length ? books.length : i + 3));
           }
@@ -821,7 +821,7 @@ class _LibraryPage extends ConsumerWidget {
 }
 
 class _LibraryShelf extends StatelessWidget {
-  final List<dynamic> booksOnShelf; // Remplacez 'dynamic' par 'Book'
+  final List<Book> booksOnShelf; 
   const _LibraryShelf({required this.booksOnShelf});
 
   @override
@@ -830,10 +830,8 @@ class _LibraryShelf extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         children: [
-          // Les "Livres" posés sur l'étagère
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
-            // On force 3 emplacements par étagère pour que les livres aient tous la même largeur
             children: List.generate(3, (index) {
               if (index < booksOnShelf.length) {
                 return Expanded(
@@ -843,23 +841,22 @@ class _LibraryShelf extends StatelessWidget {
                   ),
                 );
               } else {
-                // Espace vide si l'étagère n'est pas pleine (maintient l'alignement à gauche)
                 return const Expanded(child: SizedBox.shrink());
               }
             }),
           ),
-          // La base en bois de l'étagère (Design inspiré de votre image 1000104931.jpg)
+          // La base en bois de l'étagère
           Container(
             height: 18,
             decoration: BoxDecoration(
-              color: _eduShelfWood, // Constante définie au début du code : Color(0xFFD4A373)
+              color: _eduShelfWood,
               borderRadius: BorderRadius.circular(4),
               boxShadow: [
                 BoxShadow(color: _eduShelfShadow.withOpacity(0.8), offset: const Offset(0, 4), blurRadius: 4),
               ],
               border: const Border(
-                bottom: BorderSide(color: Color(0xFF8A5A35), width: 4), // Ombre sous l'étagère
-                top: BorderSide(color: Color(0xFFF3D2B3), width: 1), // Reflet lumière au dessus
+                bottom: BorderSide(color: Color(0xFF8A5A35), width: 4), 
+                top: BorderSide(color: Color(0xFFF3D2B3), width: 1), 
               ),
             ),
           ),
@@ -871,19 +868,15 @@ class _LibraryShelf extends StatelessWidget {
 }
 
 class _BookSpineCard extends StatelessWidget {
-  final dynamic book; // Remplacez 'dynamic' par 'Book'
+  final Book book; 
   const _BookSpineCard({required this.book});
 
   @override
   Widget build(BuildContext context) {
-    // Adapter selon les attributs de votre modèle Book (ex: book.id, book.title, book.coverUrl)
-    final String title = book.title ?? 'Livre sans titre';
-    final String? coverUrl = book.coverUrl; // Ou imageUrl
-
     return GestureDetector(
-      onTap: () => context.push('/education/book/${book.id}'), // Route vers la lecture du livre
+      onTap: () => context.push('/education/book/${book.id}'),
       child: Container(
-        height: 170, // Hauteur fixe pour faire ressembler à un vrai livre
+        height: 170, 
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
@@ -894,27 +887,27 @@ class _BookSpineCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Couverture du livre (Moitié supérieure)
+            // 1. Couverture du livre utilisant imageUrl du modèle
             Expanded(
               flex: 5,
               child: ClipRRect(
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
-                child: coverUrl != null
-                    ? Image.network(coverUrl, fit: BoxFit.cover)
+                child: book.imageUrl != null && book.imageUrl!.isNotEmpty
+                    ? Image.network(book.imageUrl!, fit: BoxFit.cover)
                     : Container(
                         color: _eduNavyBlue, 
                         child: const Center(child: Icon(Icons.auto_stories, color: Colors.white, size: 36))
                       ),
               ),
             ),
-            // 2. Bas du livre / Dos de couverture avec Titre
+            // 2. Bas du livre / Dos de couverture avec Titre et Auteur
             Expanded(
-              flex: 3,
+              flex: 4, // Légèrement agrandi pour accommoder l'auteur
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: const Border(left: BorderSide(color: Colors.black12, width: 3)), // Effet de reliure
+                  border: const Border(left: BorderSide(color: Colors.black12, width: 3)), 
                   boxShadow: [
                     BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(0, -2), blurRadius: 2)
                   ]
@@ -923,15 +916,22 @@ class _BookSpineCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title, 
-                      maxLines: 3, 
+                      book.title, 
+                      maxLines: 2, 
                       overflow: TextOverflow.ellipsis, 
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: _eduNavyBlue, height: 1.1)
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      book.author, 
+                      maxLines: 1, 
+                      overflow: TextOverflow.ellipsis, 
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 9, color: Colors.grey)
+                    ),
                     const Spacer(),
-                    // Petite barre de progression de lecture (optionnelle)
+                    // Barre stylisée optionnelle
                     LinearProgressIndicator(
-                      value: 0.15, // Remplacer par book.progress si disponible
+                      value: 0.0, // À relier à un système de progression plus tard si besoin
                       minHeight: 3, 
                       backgroundColor: Colors.grey[200], 
                       color: _eduAccentBlue
@@ -946,6 +946,7 @@ class _BookSpineCard extends StatelessWidget {
     );
   }
 }
+
 
 class _LibraryShelf extends StatelessWidget {
   final List<Formation> booksOnShelf;
