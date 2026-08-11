@@ -2,11 +2,15 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ Import de Supabase
+import 'package:intl/intl.dart'; // ✅ Import pour formater la durée
 
 import '../../../../models/chat/call_invite.dart';
 import '../../../../models/chat/call_status.dart';
 import '../../../../services/chat/call_service.dart';
 import '../../../../services/chat/call_signaling_service.dart';
+// ✅ Import nécessaire pour utiliser le ChatService
+import '../../../providers/chat_providers.dart'; 
 
 class CallState {
   final CallStatus status;
@@ -24,6 +28,7 @@ class CallState {
   final bool isCaller;
   final Duration duration;
   final String? error;
+  final String? conversationId; // ✅ Ajout du conversationId pour cibler le bon chat
 
   const CallState({
     this.status = CallStatus.idle,
@@ -41,6 +46,7 @@ class CallState {
     this.isCaller = true,
     this.duration = Duration.zero,
     this.error,
+    this.conversationId, // ✅ Initialisation
   });
 
   CallState copyWith({
@@ -60,6 +66,7 @@ class CallState {
     Duration? duration,
     String? error,
     bool clearError = false,
+    String? conversationId, // ✅ Paramètre copyWith
   }) {
     return CallState(
       status: status ?? this.status,
@@ -77,6 +84,7 @@ class CallState {
       isCaller: isCaller ?? this.isCaller,
       duration: duration ?? this.duration,
       error: clearError ? null : (error ?? this.error),
+      conversationId: conversationId ?? this.conversationId, // ✅ Assignation copyWith
     );
   }
 
@@ -90,12 +98,13 @@ class CallState {
 class CallNotifier extends StateNotifier<CallState> {
   final _media = CallMediaService();
   final _signal = CallSignalingService();
+  final Ref ref; // ✅ Ajout d'une référence Riverpod pour accéder au ChatService
 
   Timer? _timer;
   Timer? _ringTimeout;
   StreamSubscription? _statusSub;
 
-  CallNotifier() : super(const CallState());
+  CallNotifier(this.ref) : super(const CallState()); // ✅ Constructeur mis à jour
 
   int _uidFrom(String userId) {
     var hash = 0x811c9dc5;
@@ -107,6 +116,35 @@ class CallNotifier extends StateNotifier<CallState> {
     return uid == 0 ? 1 : uid;
   }
 
+  /// ✅ Outil pour récupérer ou créer un ID de conversation 1v1
+  Future<String?> _getOrCreateConversationId(String currentUserId, String otherUserId) async {
+    try {
+      final db = Supabase.instance.client;
+      // 1. Chercher si une conversation existe (table `conversations` ou similaire)
+      // On suppose une table `conversations` avec un array `participant_ids`
+      final res = await db
+          .from('conversations')
+          .select('id')
+          .contains('participant_ids', [currentUserId, otherUserId])
+          .eq('is_group', false)
+          .maybeSingle();
+
+      if (res != null) {
+        return res['id'] as String;
+      } else {
+        // 2. Si non, on la crée
+        final newConv = await db.from('conversations').insert({
+          'participant_ids': [currentUserId, otherUserId],
+          'is_group': false,
+        }).select('id').single();
+        return newConv['id'] as String;
+      }
+    } catch (e) {
+      debugPrint('Erreur pour trouver la conversation d\'appel: $e');
+      return null;
+    }
+  }
+
   /// Caller démarre
   Future<void> start({
     required String myUserId,
@@ -114,8 +152,12 @@ class CallNotifier extends StateNotifier<CallState> {
     required String calleeName,
     String? calleeAvatar,
     required CallType type,
+    String? conversationId, // ✅ Option d'injecter directement l'ID
   }) async {
     try {
+      // ✅ Si l'ID de conversation n'est pas passé, on le cherche ou on le crée
+      final convId = conversationId ?? await _getOrCreateConversationId(myUserId, calleeId);
+
       state = state.copyWith(
         status: CallStatus.ringing,
         type: type,
@@ -123,6 +165,7 @@ class CallNotifier extends StateNotifier<CallState> {
         remoteUserId: calleeId,
         remoteName: calleeName,
         remoteAvatar: calleeAvatar,
+        conversationId: convId, // ✅ Stockage de l'ID
         clearError: true,
       );
 
@@ -171,6 +214,9 @@ class CallNotifier extends StateNotifier<CallState> {
     String? callerAvatar,
   }) async {
     try {
+      // ✅ Récupération de l'ID de conversation
+      final convId = await _getOrCreateConversationId(myUserId, invite.callerId);
+
       state = state.copyWith(
         status: CallStatus.accepted,
         type: invite.callType,
@@ -180,6 +226,7 @@ class CallNotifier extends StateNotifier<CallState> {
         remoteUserId: invite.callerId,
         remoteName: callerName ?? invite.callerName,
         remoteAvatar: callerAvatar ?? invite.callerAvatar,
+        conversationId: convId, // ✅ Stockage
         clearError: true,
       );
 
@@ -262,15 +309,20 @@ class CallNotifier extends StateNotifier<CallState> {
     state = state.copyWith(speakerOn: next);
   }
 
+  /// ✅ Logique d'historique ajoutée dans hangUp()
   Future<void> hangUp({bool skipSignal = false}) async {
-    _timer?.cancel();
-    _ringTimeout?.cancel();
-    _statusSub?.cancel();
-
+    // 1. Sauvegarde des infos locales de l'état avant de le réinitialiser
     final inviteId = state.inviteId;
     final secs = state.duration.inSeconds;
     final wasCaller = state.isCaller;
     final wasRinging = state.status == CallStatus.ringing;
+    final convId = state.conversationId;
+    final isVideoCall = state.isVideo;
+    final duration = state.duration;
+
+    _timer?.cancel();
+    _ringTimeout?.cancel();
+    _statusSub?.cancel();
 
     await _media.leave();
 
@@ -282,6 +334,39 @@ class CallNotifier extends StateNotifier<CallState> {
           await _signal.end(inviteId, durationSec: secs);
         }
       } catch (_) {}
+    }
+
+    // ✅ 2. Injection du message d'historique dans la conversation
+    if (convId != null && convId.isNotEmpty) {
+      try {
+        final chatSvc = ref.read(chatServiceProvider);
+        
+        final isMissed = duration.inSeconds == 0;
+        final mediaTypeStr = isVideoCall ? 'call_video' : 'call_audio';
+        final textType = isVideoCall ? 'Appel vidéo' : 'Appel audio';
+        
+        // Formatage manuel de la durée "HH:mm:ss" ou "mm:ss"
+        final m = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+        final s = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+        final h = duration.inHours;
+        final timeStr = h > 0 ? '$h:$m:$s' : '$m:$s';
+
+        final textDuration = isMissed ? 'manqué' : '($timeStr)';
+        final content = '$textType $textDuration';
+
+        // L'appel ne s'envoie que si je suis le "Caller" (pour éviter les doublons 
+        // d'historique des deux côtés si les deux raccrochent en même temps)
+        // ou si l'appel a été manqué (le Caller l'enregistre de toute façon).
+        if (wasCaller) {
+          await chatSvc.sendMessage(
+            conversationId: convId,
+            content: content,
+            mediaType: mediaTypeStr,
+          );
+        }
+      } catch (e) {
+        debugPrint('Erreur sauvegarde historique appel dans chat: $e');
+      }
     }
 
     state = const CallState();
@@ -298,7 +383,7 @@ class CallNotifier extends StateNotifier<CallState> {
   }
 }
 
-final callProvider =
-    StateNotifierProvider<CallNotifier, CallState>((ref) {
-  return CallNotifier();
+// ✅ Modification : on passe la 'ref' au constructeur du Notifier
+final callProvider = StateNotifierProvider<CallNotifier, CallState>((ref) {
+  return CallNotifier(ref);
 });
