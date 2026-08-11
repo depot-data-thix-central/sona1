@@ -73,7 +73,6 @@ class MediaService {
   Future<bool> toggleLike(String id) async { 
     try {
       final r = await supabase.rpc('toggle_media_like', params: {'p_media_id': id}); 
-      // Sécurité anti-crash si la fonction SQL ne retourne pas un vrai booléen
       if (r is bool) return r;
       return true; 
     } catch (_) {
@@ -118,7 +117,6 @@ class MediaService {
     } catch (_) { 
       final uid = supabase.auth.currentUser?.id; 
       if (uid == null) return {}; 
-      // Correction de la syntaxe inFilter -> in_ (standard Supabase v2)
       final r = await supabase.from('media_likes').select('media_id').eq('user_id', uid).inFilter('media_id', ids); 
       return (r as List).map((e) => e['media_id'].toString()).toSet(); 
     }
@@ -135,7 +133,6 @@ class MediaService {
 
   Future<Map<String, dynamic>> fetchUserStats(String userId) async {
     try {
-      // CORRECTION CRITIQUE : .count() retourne directement un int dans les versions récentes
       final followersCount = await supabase.from('follows').count(CountOption.exact).eq('following_id', userId);
       final followingCount = await supabase.from('follows').count(CountOption.exact).eq('follower_id', userId);
       final postsCount = await supabase.from('media_content').count(CountOption.exact).eq('user_id', userId);
@@ -208,7 +205,7 @@ class MediaService {
       videoUrl: v, 
       createdAt: DateTime.now(), 
       updatedAt: DateTime.now()
-    ).toJson();
+    ).toJson(); // ✅ Correction : toJson()
 
     final res = await supabase.from('media_content').insert(ins).select().single();
     return MediaContent.fromJson(res as Map<String, dynamic>);
@@ -227,7 +224,7 @@ class MediaService {
     }
     onProgress?.call(1.0);
     
-    final up = ex.copyWith(coverUrl: c, videoUrl: v, updatedAt: DateTime.now()).toJson();
+    final up = ex.copyWith(coverUrl: c, videoUrl: v, updatedAt: DateTime.now()).toJson(); // ✅ Correction : toJson()
     await supabase.from('media_content').update(up).eq('id', ex.id);
     
     return ex.copyWith(coverUrl: c, videoUrl: v);
@@ -245,46 +242,44 @@ class MediaService {
       throw Exception("Utilisateur non connecté. Impossible de publier.");
     }
 
-    // Identifiant unique pour ce dossier de média
     final nid = _uuid.v4();
 
-    // 1. Upload de la couverture (Compte pour 10% du progrès)
+    // 1. Upload de la couverture (10% du progrès)
     onProgress(0.0);
     final finalCoverUrl = await _upload(coverFile, 'thix_media/$nid/covers');
     onProgress(0.1);
 
-    // 2. Upload des vidéos (Compte pour les 90% restants)
+    // 2. Upload des vidéos (90% du progrès)
     List<String> finalVideoUrls = [];
     
     for (int i = 0; i < videos.length; i++) {
       final vUrl = await _upload(videos[i], 'thix_media/$nid/videos/episode_$i');
       finalVideoUrls.add(vUrl);
       
-      // Mise à jour fine de la barre de progression
       final currentProgress = 0.1 + (0.9 * ((i + 1) / videos.length));
       onProgress(currentProgress); 
     }
 
-    // 3. Mise à jour de l'objet avec les URLs cloud générées
+    // 3. Mise à jour de l'objet
     final updatedContent = content.copyWith(
       id: nid,
       userId: user.id,
-      videoUrl: finalVideoUrls.isNotEmpty ? finalVideoUrls.first : '', // La première vidéo
-      episodesUrls: finalVideoUrls.length > 1 ? finalVideoUrls.sublist(1) : [], // Les vidéos suivantes
+      videoUrl: finalVideoUrls.isNotEmpty ? finalVideoUrls.first : '', 
+      episodesUrls: finalVideoUrls.length > 1 ? finalVideoUrls.sublist(1) : [], 
       coverUrl: finalCoverUrl,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
     // 4. Insertion Finale BDD
-    await supabase.from('media_content').insert(updatedContent.toJson());
+    await supabase.from('media_content').insert(updatedContent.toJson()); // ✅ Correction : toJson()
   }
 
   Future<void> deleteMedia(MediaContent item) async { 
     try {
       await supabase.from('media_content').delete().eq('id', item.id); 
     } catch (_) {
-      // Ignorer l'erreur silencieusement
+      // Ignorer l'erreur
     }
   }
 }
