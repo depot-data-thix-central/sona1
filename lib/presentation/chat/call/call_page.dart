@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-
 import '../../../models/chat/call_status.dart';
 import '../../../services/chat/call_service.dart';
 import 'providers/call_provider.dart';
+import '../providers/chat_providers.dart'; 
 
 class CallPage extends ConsumerWidget {
   const CallPage({super.key});
@@ -174,6 +174,31 @@ class CallPage extends ConsumerWidget {
                     icon: Icons.call_end,
                     label: 'Raccrocher',
                     onTap: () async {
+                      
+                      try {
+                        final isMissed = state.duration.inSeconds == 0;
+                        final type = state.isVideo ? 'call_video' : 'call_audio';
+                        final textType = state.isVideo ? 'Appel vidéo' : 'Appel audio';
+                        final textDuration = isMissed ? 'manqué' : '(${_fmt(state.duration)})';
+                        final content = '$textType $textDuration';
+
+                        final chatSvc = ref.read(chatServiceProvider);
+                        
+                        
+                        final convId = state.conversationId; 
+                        
+                        if (convId != null && convId.isNotEmpty) {
+                          await chatSvc.sendMessage(
+                            conversationId: convId,
+                            content: content,
+                            mediaType: type,
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('Erreur lors de la création de la bulle d\'historique : $e');
+                      }
+
+                      //  2. Fermeture normale de l'appel
                       await notifier.hangUp();
                       if (context.mounted) Navigator.pop(context);
                     },
