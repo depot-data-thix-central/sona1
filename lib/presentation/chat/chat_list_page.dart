@@ -286,7 +286,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
                       const SliverToBoxAdapter(child: SizedBox(height: ThixPolicy.s8)),
 
-                      // Liste des conversations (Dans un conteneur blanc pour détacher du fond gris)
+                      // Liste des conversations
                       SliverToBoxAdapter(
                         child: Container(
                           decoration: const BoxDecoration(
@@ -324,7 +324,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Changement du titre ici !
               const Text('THIX Chat', style: TextStyle(color: ThixPolicy.textMain, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
               Row(
                 children: [
@@ -338,7 +337,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           
           const SizedBox(height: ThixPolicy.s20),
 
-          // Statuts / Stories intégrés proprement
+          // Statuts / Stories
           StatusStoryRow(currentUserId: currentUserId, currentUserAvatar: userPhoto, currentUserName: userName),
 
           if (online.isNotEmpty) ...[
@@ -409,7 +408,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               ],
             ),
             const SizedBox(height: 4),
-            // Correction couleur pour meilleure visibilité
             Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: ThixPolicy.textMain)),
           ],
         ),
@@ -500,7 +498,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // ─────────────────────── LISTE DES CONVERSATIONS ───────────────────────
+  // ─────────────────────── LISTE DES CONVERSATIONS (CORRIGÉE) ───────────────────────
   Widget _chatList(List<ChatConversation> list, String currentUserId, String currentUserName, Set<String> onlineUserIds) {
     if (list.isEmpty) {
       return Padding(
@@ -529,9 +527,21 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         final otherUserId = conv.participantIds.firstWhere((id) => id != currentUserId, orElse: () => '');
         final isOnline = onlineUserIds.contains(otherUserId);
 
+        // ✅ CORRECTION BUG : Séparation stricte de l'affichage du nom
         String chatName = conv.displayName;
-        if (!conv.isGroup && chatName == currentUserName) {
-          chatName = 'Contact (ID: ${otherUserId.length > 4 ? otherUserId.substring(0, 4) : ''}...)';
+        String? chatAvatar = conv.displayAvatar;
+
+        if (conv.isGroup) {
+          // 1. C'est un Groupe : on conserve le nom du groupe
+          if (chatName.isEmpty) chatName = 'Groupe THIX';
+        } else {
+          // 2. C'est un 1v1 ou une Escalade
+          // Si le backend a renvoyé NOTRE nom au lieu de celui de l'autre participant
+          if (chatName.trim() == currentUserName.trim() || chatName.isEmpty) {
+            chatName = 'Contact THIX (ID: ${otherUserId.length > 4 ? otherUserId.substring(0, 4) : ''})';
+            // Optionnel: réinitialiser l'avatar si c'est le nôtre
+            // chatAvatar = null; 
+          }
         }
 
         return Material(
@@ -546,8 +556,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     children: [
                       CircleAvatar(
                         radius: 26, backgroundColor: ThixPolicy.surface,
-                        backgroundImage: conv.displayAvatar != null ? CachedNetworkImageProvider(conv.displayAvatar!) : null,
-                        child: conv.displayAvatar == null ? Text(chatName.isNotEmpty ? chatName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.w700, color: ThixPolicy.textSecondary, fontSize: 18)) : null,
+                        backgroundImage: chatAvatar != null && chatAvatar.isNotEmpty ? CachedNetworkImageProvider(chatAvatar) : null,
+                        child: (chatAvatar == null || chatAvatar.isEmpty) ? Text(chatName.isNotEmpty ? chatName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.w700, color: ThixPolicy.textSecondary, fontSize: 18)) : null,
                       ),
                       if (!conv.isGroup && isOnline)
                         Positioned(right: 0, bottom: 0, child: Container(width: 14, height: 14, decoration: BoxDecoration(color: ThixPolicy.success, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.5)))),
@@ -560,7 +570,18 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       children: [
                         Row(
                           children: [
-                            Expanded(child: Text(chatName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, fontWeight: unread ? FontWeight.w800 : FontWeight.w600, color: ThixPolicy.textMain))),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Flexible(child: Text(chatName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, fontWeight: unread ? FontWeight.w800 : FontWeight.w600, color: ThixPolicy.textMain))),
+                                  // Petit badge pour indiquer visuellement une escalade/groupe (Optionnel)
+                                  if (conv.isGroup) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.groups_rounded, size: 14, color: ThixPolicy.textSecondary),
+                                  ]
+                                ],
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Text(_fmt(t), style: TextStyle(fontSize: 11, fontWeight: unread ? FontWeight.w700 : FontWeight.w500, color: unread ? ThixPolicy.primary : ThixPolicy.textSecondary)),
                           ],
@@ -597,7 +618,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // ─────────────────────── GLASS BOTTOM NAV (ENTERPRISE) ───────────────────────
+  // ─────────────────────── GLASS BOTTOM NAV (CORRIGÉE) ───────────────────────
   Widget _buildGlassBottomNav(int unread) {
     return Positioned(
       bottom: 24, left: 0, right: 0,
@@ -659,7 +680,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         HapticFeedback.lightImpact();
         _resetNavTimer();
         if (idx == 0) context.pushNamed('connections');
-        else if (idx == 2) context.push(AppRoutes.callHistory);
+        // ✅ CORRECTION BUG DE BUILD WEB : Route statique à la place de l'enum non trouvé
+        else if (idx == 2) context.push('/chat/calls'); 
         else if (idx == 3) Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatSettingsPage()));
         else setState(() => _selectedNav = idx);
       },
@@ -677,9 +699,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     );
   }
 
-  // Conversion en temps local garantie
   String _fmt(DateTime d) {
-    final localDate = d.toLocal(); // Fix: Conversion vers le fuseau horaire de l'utilisateur
+    final localDate = d.toLocal(); 
     final now = DateTime.now();
     final day = DateTime(localDate.year, localDate.month, localDate.day);
     final today = DateTime(now.year, now.month, now.day);
