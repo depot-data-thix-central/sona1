@@ -15,12 +15,15 @@ import 'package:thix_id/presentation/education/pages/forum_topic_detail_page.dar
 import 'package:thix_id/presentation/education/pages/recommendations_page.dart';
 import 'package:thix_id/presentation/education/models/certificate.dart';
 
+// ✅ IMPORT DU MODÈLE ET DE L'ÉCRAN DE DÉTAIL DU LIVRE
+import 'package:thix_id/presentation/education/models/book.dart';
+import 'package:thix_id/presentation/education/screens/book_detail_screen.dart';
+
 // Lecteur de leçon
 import 'package:thix_id/presentation/education/widgets/formation_detail/formation_lesson_player.dart';
 
 // Formateur – routes fonctionnelles
 import 'package:thix_id/presentation/education/instructor/dashboard/instructor_dashboard.dart';
-// ✅ CORRECTION : Import de la vraie page de gestion des cours
 import 'package:thix_id/presentation/education/instructor/course_management_page.dart';
 import 'package:thix_id/presentation/education/instructor/courses/course_create_page.dart';
 import 'package:thix_id/presentation/education/instructor/content/module_management_page.dart';
@@ -45,6 +48,17 @@ List<GoRoute> educationRoutes = [
         final id = state.pathParameters['formationId']!;
         return NoTransitionPage(child: FormationDetailPage(formationId: id));
       }),
+
+      // ✅ ROUTE AJOUTÉE : Détail du livre (Achat / Lecture)
+      GoRoute(
+        path: 'book/:id',
+        name: 'educationBookDetail',
+        pageBuilder: (_, state) {
+          final id = state.pathParameters['id']!;
+          final book = state.extra as Book; // Récupération de l'objet Book passé en extra
+          return NoTransitionPage(child: BookDetailScreen(bookId: id, book: book));
+        },
+      ),
 
       // Route pour la lecture d'une leçon
       GoRoute(path: 'lesson/:id', name: 'educationLessonPlayer', pageBuilder: (_, state) {
@@ -85,10 +99,7 @@ List<GoRoute> educationRoutes = [
 
 List<GoRoute> instructorRoutes = [
   GoRoute(path: '/instructor/dashboard', name: 'instructorDashboard', pageBuilder: (_, __) => const NoTransitionPage(child: InstructorDashboard())),
-  
-  // ✅ CORRECTION : Utilisation de CourseManagementPage
   GoRoute(path: '/instructor/courses', name: 'instructorCourses', pageBuilder: (_, __) => const NoTransitionPage(child: CourseManagementPage())),
-  
   GoRoute(path: '/instructor/courses/create', name: 'instructorCreateCourse', pageBuilder: (_, __) => const NoTransitionPage(child: CourseCreatePage())),
   GoRoute(path: '/instructor/courses/edit/:courseId', name: 'instructorEditCourse', pageBuilder: (_, state) {
     final id = state.pathParameters['courseId']!;
