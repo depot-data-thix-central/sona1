@@ -131,3 +131,5 @@ flutter:
     - assets/images/
     - assets/icons/
     - lib/l10n/translations/
+    - assets/sounds/ringtone.mp3
+    - assets/sounds/offline.mp3
