@@ -1,4 +1,6 @@
-Class MediaContent {
+import 'package:flutter/foundation.dart';
+
+class MediaContent {
   final String id;
   final String title;
   final String? subtitle;
@@ -16,7 +18,6 @@ Class MediaContent {
   final bool isPublished;
   final bool isFeedOnly; 
   
-  // NOUVEAUX CHAMPS (Créateur, Monétisation, Filtres, Séries)
   final String? userId; 
   final bool isPaid;
   final double price;
@@ -44,7 +45,6 @@ Class MediaContent {
     this.isPublished = true,
     this.isFeedOnly = false,
     
-    // Initialisation des nouveaux champs
     this.userId,
     this.isPaid = false,
     this.price = 0.0,
@@ -56,7 +56,6 @@ Class MediaContent {
   });
 
   factory MediaContent.fromJson(Map<String, dynamic> json) {
-    // 🛡️ ANTI-CRASH : Sécurité absolue pour la date de création
     DateTime parsedCreatedAt;
     try {
       parsedCreatedAt = json['created_at'] != null && json['created_at'].toString().trim().isNotEmpty
@@ -66,7 +65,6 @@ Class MediaContent {
       parsedCreatedAt = DateTime.now();
     }
 
-    // 🛡️ ANTI-CRASH : Sécurité absolue pour la date de mise à jour
     DateTime parsedUpdatedAt;
     try {
       parsedUpdatedAt = json['updated_at'] != null && json['updated_at'].toString().trim().isNotEmpty
@@ -94,7 +92,6 @@ Class MediaContent {
       isPublished: json['is_published'] ?? true,
       isFeedOnly: json['is_feed_only'] ?? false,
       
-      // Récupération sécurisée des nouveaux champs depuis Supabase
       userId: json['user_id']?.toString(),
       isPaid: json['is_paid'] ?? false,
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
@@ -124,7 +121,6 @@ Class MediaContent {
         'is_published': isPublished,
         'is_feed_only': isFeedOnly,
         
-        // Sérialisation des nouveaux champs
         'user_id': userId,
         'is_paid': isPaid,
         'price': price,
@@ -153,7 +149,6 @@ Class MediaContent {
     bool? isPublished,
     bool? isFeedOnly,
     
-    // Ajout au copyWith
     String? userId,
     bool? isPaid,
     double? price,
@@ -181,7 +176,6 @@ Class MediaContent {
       isPublished: isPublished ?? this.isPublished,
       isFeedOnly: isFeedOnly ?? this.isFeedOnly,
       
-      // Remplacement si valeur fournie
       userId: userId ?? this.userId,
       isPaid: isPaid ?? this.isPaid,
       price: price ?? this.price,
@@ -192,6 +186,4 @@ Class MediaContent {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-
-  String get rankDisplay => rankPosition != null ? '#$rankPosition' : '';
 }
