@@ -51,14 +51,12 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
         .map((r) => CallInvite.fromJson(Map<String, dynamic>.from(r as Map)))
         .toList();
 
-    // IDs des autres participants
     final peerIds = <String>{};
     for (final inv in invites) {
       final peer = inv.callerId == uid ? inv.calleeId : inv.callerId;
       if (peer.isNotEmpty) peerIds.add(peer);
     }
 
-    // Profiles (adapte les colonnes si besoin)
     final nameById = <String, String>{};
     final avatarById = <String, String?>{};
 
@@ -85,9 +83,8 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
       final name = nameFromInvite.trim().isNotEmpty
           ? nameFromInvite.trim()
           : (nameById[peerId] ?? 'Contact');
-      final avatar = inv.callerId == uid
-          ? inv.calleeAvatar
-          : inv.callerAvatar;
+      final avatar =
+          inv.callerId == uid ? inv.calleeAvatar : inv.callerAvatar;
 
       return _CallRow(
         invite: inv,
@@ -129,14 +126,14 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => _SearchCallSheet(
-        onPick: (id, name, avatar) async {
+        onPick: (id, name, avatar, {required bool video}) async {
           Navigator.pop(ctx);
           await ref.read(callProvider.notifier).start(
                 myUserId: _myId,
                 calleeId: id,
                 calleeName: name,
                 calleeAvatar: avatar,
-                type: CallType.audio,
+                type: video ? CallType.video : CallType.audio,
               );
           if (!mounted) return;
           Navigator.of(context).push(
@@ -207,7 +204,7 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF16A34A),
+        backgroundColor: const Color(0xFF0A1F44),
         onPressed: _openSearchToCall,
         child: const Icon(Icons.add_call, color: Colors.white),
       ),
@@ -260,7 +257,8 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                     return ListView(
                       children: const [
                         SizedBox(height: 100),
-                        Icon(Icons.call_outlined, size: 48, color: Colors.black26),
+                        Icon(Icons.call_outlined,
+                            size: 48, color: Colors.black26),
                         SizedBox(height: 12),
                         Center(
                           child: Text(
@@ -340,18 +338,25 @@ class _CallHistoryPageState extends ConsumerState<CallHistoryPage> {
                                 fontSize: 12,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 4),
                             IconButton(
-                              icon: Icon(
-                                inv.isVideo ? Icons.videocam : Icons.call,
-                                color: const Color(0xFF0B3D91),
+                              icon: const Icon(
+                                Icons.videocam_outlined,
+                                color: Color(0xFF0A1F44),
                               ),
                               onPressed: () =>
-                                  _callBack(row, video: inv.isVideo),
+                                  _callBack(row, video: true),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.call_outlined,
+                                color: Color(0xFF0A1F44),
+                              ),
+                              onPressed: () =>
+                                  _callBack(row, video: false),
                             ),
                           ],
                         ),
-                        onTap: () => _callBack(row, video: inv.isVideo),
                       );
                     },
                   );
@@ -379,9 +384,14 @@ class _CallRow {
   });
 }
 
-/// Bottom sheet : chercher un profil et appeler
+/// Bottom sheet : contacts (connexions) + appel audio / vidéo
 class _SearchCallSheet extends StatefulWidget {
-  final void Function(String id, String name, String? avatar) onPick;
+  final void Function(
+    String id,
+    String name,
+    String? avatar, {
+    required bool video,
+  }) onPick;
 
   const _SearchCallSheet({required this.onPick});
 
@@ -396,70 +406,74 @@ class _SearchCallSheetState extends State<_SearchCallSheet> {
   bool _loading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _search(''); // affiche les contacts tout de suite
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
   }
 
   Future<void> _search(String q) async {
-  final query = q.trim().toLowerCase();
-  final myId = _db.auth.currentUser?.id;
-  if (myId == null) return;
+    final query = q.trim().toLowerCase();
+    final myId = _db.auth.currentUser?.id;
+    if (myId == null) return;
 
-  setState(() => _loading = true);
-  try {
-    // 1) IDs des connexions acceptées
-    final rows = await _db
-        .from('connections')
-        .select('user1_id, user2_id')
-        .or('user1_id.eq.$myId,user2_id.eq.$myId');
+    setState(() => _loading = true);
+    try {
+      final rows = await _db
+          .from('connections')
+          .select('user1_id, user2_id')
+          .or('user1_id.eq.$myId,user2_id.eq.$myId');
 
-    final peerIds = <String>{};
-    for (final r in (rows as List)) {
-      final m = Map<String, dynamic>.from(r as Map);
-      final u1 = '${m['user1_id']}';
-      final u2 = '${m['user2_id']}';
-      if (u1 == myId) peerIds.add(u2);
-      if (u2 == myId) peerIds.add(u1);
-    }
+      final peerIds = <String>{};
+      for (final r in (rows as List)) {
+        final m = Map<String, dynamic>.from(r as Map);
+        final u1 = '${m['user1_id']}';
+        final u2 = '${m['user2_id']}';
+        if (u1 == myId) peerIds.add(u2);
+        if (u2 == myId) peerIds.add(u1);
+      }
 
-    if (peerIds.isEmpty) {
+      if (peerIds.isEmpty) {
+        setState(() {
+          _results = [];
+          _loading = false;
+        });
+        return;
+      }
+
+      final profiles = await _db
+          .from('profiles')
+          .select('id, display_name, full_name, avatar_url')
+          .inFilter('id', peerIds.toList());
+
+      var list = (profiles as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+      if (query.isNotEmpty) {
+        list = list.where((p) {
+          final name =
+              '${p['display_name'] ?? p['full_name'] ?? ''}'.toLowerCase();
+          return name.contains(query);
+        }).toList();
+      }
+
+      setState(() {
+        _results = list;
+        _loading = false;
+      });
+    } catch (_) {
       setState(() {
         _results = [];
         _loading = false;
       });
-      return;
     }
-
-    // 2) Profiles de ces IDs seulement
-    var profiles = await _db
-        .from('profiles')
-        .select('id, display_name, full_name, avatar_url')
-        .inFilter('id', peerIds.toList());
-
-    var list = (profiles as List)
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
-
-    if (query.isNotEmpty) {
-      list = list.where((p) {
-        final name =
-            '${p['display_name'] ?? p['full_name'] ?? ''}'.toLowerCase();
-        return name.contains(query);
-      }).toList();
-    }
-
-    setState(() {
-      _results = list;
-      _loading = false;
-    });
-  } catch (_) {
-    setState(() {
-      _results = [];
-      _loading = false;
-    });
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -490,7 +504,6 @@ class _SearchCallSheetState extends State<_SearchCallSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 controller: _ctrl,
-                autofocus: true,
                 onChanged: _search,
                 decoration: InputDecoration(
                   hintText: 'Nom du contact...',
@@ -506,31 +519,70 @@ class _SearchCallSheetState extends State<_SearchCallSheet> {
             ),
             if (_loading) const LinearProgressIndicator(),
             Expanded(
-              child: ListView.builder(
-                itemCount: _results.length,
-                itemBuilder: (context, i) {
-                  final p = _results[i];
-                  final id = '${p['id'] ?? ''}';
-                  final name =
-                      '${p['display_name'] ?? p['full_name'] ?? 'Contact'}'
-                          .trim();
-                  final avatar = p['avatar_url']?.toString();
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage:
-                          avatar != null && avatar.isNotEmpty
-                              ? NetworkImage(avatar)
-                              : null,
-                      child: avatar == null || avatar.isEmpty
-                          ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?')
-                          : null,
+              child: _results.isEmpty && !_loading
+                  ? const Center(
+                      child: Text(
+                        'Aucune connexion',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _results.length,
+                      itemBuilder: (context, i) {
+                        final p = _results[i];
+                        final id = '${p['id'] ?? ''}';
+                        final name =
+                            '${p['display_name'] ?? p['full_name'] ?? 'Contact'}'
+                                .trim();
+                        final avatar = p['avatar_url']?.toString();
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage:
+                                avatar != null && avatar.isNotEmpty
+                                    ? NetworkImage(avatar)
+                                    : null,
+                            child: avatar == null || avatar.isEmpty
+                                ? Text(
+                                    name.isNotEmpty
+                                        ? name[0].toUpperCase()
+                                        : '?',
+                                  )
+                                : null,
+                          ),
+                          title: Text(name),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.videocam_outlined,
+                                  color: Color(0xFF0A1F44),
+                                ),
+                                onPressed: () => widget.onPick(
+                                  id,
+                                  name,
+                                  avatar,
+                                  video: true,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.call_outlined,
+                                  color: Color(0xFF0A1F44),
+                                ),
+                                onPressed: () => widget.onPick(
+                                  id,
+                                  name,
+                                  avatar,
+                                  video: false,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                    title: Text(name),
-                    trailing: const Icon(Icons.call, color: Color(0xFF16A34A)),
-                    onTap: () => widget.onPick(id, name, avatar),
-                  );
-                },
-              ),
             ),
           ],
         ),
