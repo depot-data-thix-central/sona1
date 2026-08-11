@@ -17,24 +17,19 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-
-// ✅ Import de la Policy de Design
+import 'package:cross_file/cross_file.dart';
 import 'package:thix_id/core/theme/thix_design_policy.dart';
-
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
-
 import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/models/chat/user_status.dart';
 import 'package:thix_id/models/chat/group_info.dart';
 import 'package:thix_id/models/chat/call_status.dart';
-
 import 'package:thix_id/presentation/chat/widgets/chat_message_bubble.dart';
 import 'package:thix_id/presentation/chat/encryption_service.dart';
 import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
-
 import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
 
