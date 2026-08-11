@@ -1,35 +1,27 @@
-// lib/presentation/education/providers/book_provider.dart
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/book.dart'; // Assurez-vous que le chemin vers votre modèle Book est correct
+import '../models/book.dart';
 
-/// Provider pour récupérer la liste des livres depuis Supabase
-final myBooksProvider = FutureProvider.family<List<Book>, String>((ref, userId) async {
-  try {
-    // Requête vers votre table 'books'
-    final response = await Supabase.instance.client
-        .from('books')
-        // .eq('created_by', userId) // 💡 Décommentez cette ligne si vous voulez afficher UNIQUEMENT les livres ajoutés par cet utilisateur
-        .select()
-        .order('created_at', ascending: false);
-
-    // Conversion de la réponse JSON en liste d'objets Book
-    return (response as List<dynamic>).map((data) => Book.fromJson(data)).toList();
-  } catch (e) {
-    throw Exception('Erreur lors du chargement des livres : $e');
-  }
+/// Provider pour récupérer la liste des livres
+final myBooksProvider = StreamProvider.family<List<Book>, String>((ref, userId) {
+  return Supabase.instance.client
+      .from('books')
+      .stream(primaryKey: ['id'])
+      .order('created_at', ascending: false)
+      .map((list) => list.map((data) => Book.fromJson(data)).toList());
 });
+
+/// Provider pour vérifier si l'utilisateur possède le livre
 final isBookOwnedProvider = FutureProvider.family<bool, String>((ref, bookId) async {
-  final userId = ref.watch(currentUserIdProvider).value;
-  if (userId == null) return false;
+  final user = Supabase.instance.client.auth.currentUser;
+  if (user == null) return false;
 
   final response = await Supabase.instance.client
       .from('purchases')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('book_id', bookId)
       .maybeSingle();
 
-  return response != null; // Retourne true s'il existe une ligne
+  return response != null;
 });
