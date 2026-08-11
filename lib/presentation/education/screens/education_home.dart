@@ -10,7 +10,7 @@ import 'package:thix_id/core/theme/thix_design_policy.dart';
 
 import '../providers/education_provider.dart' hide certificatesProvider;
 import '../providers/certificate_provider.dart';
-import '../models/book.dart'; // Importation du modèle Book
+import 'package:thix_id/presentation/education/models/book.dart';
 import '../widgets/common/education_category_chip.dart';
 import '../widgets/common/formation_card.dart';
 import '../models/category.dart';
