@@ -885,10 +885,11 @@ class _BookSpineCard extends StatelessWidget {
     final isFree = book.price == 0.0; // Vérifie si c'est gratuit
 
     return GestureDetector(
-      onTap: () {
-        // Redirection vers le lecteur (À configurer dans votre routeur)
-        context.push('/education/book/${book.id}');
-      },
+  onTap: () {
+    // ✅ On passe l'objet 'book' complet via le paramètre 'extra'
+    // Cela correspond exactement à : final book = state.extra as Book; dans votre routeur.
+    context.push('/education/book/${book.id}', extra: book);
+  },
       child: Container(
         height: 170, 
         decoration: BoxDecoration(
