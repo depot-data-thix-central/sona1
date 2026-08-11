@@ -7,9 +7,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../services/chat/connection_service.dart';
-// Note: Assurez-vous d'importer vos providers de Chat et d'Appel pour lancer les actions
-// import 'providers/chat_providers.dart';
-// import 'call/providers/call_provider.dart';
+
+// ✅ Imports nécessaires pour lancer les appels et les chats
+import 'call/providers/call_provider.dart';
+import 'call/call_page.dart';
+import '../../../models/chat/call_status.dart'; // Pour CallType
+import 'providers/chat_providers.dart'; // Si vous avez besoin du ChatService
 
 // Palette "Grandeur Entreprise" (Thème Clair & Lumineux)
 class _C {
@@ -145,33 +148,35 @@ class ConnectionsNotifier extends StateNotifier<ConnectionsState> {
     return ok;
   }
 
-  // ✅ NOUVEAU : Retirer une connexion
-  Future<bool> removeConnection(String connectionId) async {
+  // ✅ Retirer une connexion avec mise à jour UI
+  Future<bool> removeConnection(String otherUserId) async {
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return false;
     try {
-      // TODO: Appeler votre _svc.removeConnection(connectionId)
-      // Simulation locale pour la fluidité UI :
-      state = state.copyWith(
-        connections: state.connections.where((c) => c['id'] != connectionId).toList()
-      );
-      return true;
+      final ok = await _svc.removeConnection(uid, otherUserId);
+      if (ok) {
+        state = state.copyWith(
+          connections: state.connections.where((c) => c['user_id'] != otherUserId).toList()
+        );
+      }
+      return ok;
     } catch (e) {
       return false;
     }
   }
 
-  // ✅ NOUVEAU : Bloquer un utilisateur
+  // ✅ Bloquer un utilisateur avec mise à jour UI
   Future<bool> blockUser(String otherUserId) async {
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return false;
     try {
-      // TODO: Appeler votre _svc.blockUser(uid, otherUserId)
-      // Simulation locale : on le retire de la liste des connexions
-      state = state.copyWith(
-        connections: state.connections.where((c) => c['id'] != otherUserId).toList()
-      );
-      return true;
+      final ok = await _svc.blockUser(uid, otherUserId);
+      if (ok) {
+        state = state.copyWith(
+          connections: state.connections.where((c) => c['user_id'] != otherUserId).toList()
+        );
+      }
+      return ok;
     } catch (e) {
       return false;
     }
@@ -207,31 +212,150 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
     super.dispose(); 
   }
 
-  // --- Actions de Communication ---
+  // ─── ACTIONS DE COMMUNICATION (LANCER APPELS ET CHAT) ───
 
-  void _startChat(Map<String, dynamic> connection) {
-    // Logique pour ouvrir ou créer une conversation 1v1
-    // Exemple :
-    // context.pushNamed('chatScreen', pathParameters: {'userId': connection['id']});
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ouverture du chat...')));
+  Future<void> _startChat(Map<String, dynamic> connection) async {
+    try {
+      // Afficher un indicateur de chargement si la création prend du temps
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ouverture de la discussion...'), duration: Duration(seconds: 1)));
+      
+      final currentUserId = Supabase.instance.client.auth.currentUser!.id;
+      final otherUserId = connection['user_id'];
+      
+      // Ici, vous pouvez chercher ou créer la conversation via votre backend.
+      // Si vous avez un routeur GoRouter paramétré pour chercher automatiquement via l'ID utilisateur :
+      // context.pushNamed('chatScreenByUserId', pathParameters: {'userId': otherUserId});
+      
+      // Exemple avec recherche directe Supabase (si applicable dans votre architecture) :
+      final res = await Supabase.instance.client
+          .from('conversations')
+          .select('id')
+          .contains('participant_ids', [currentUserId, otherUserId])
+          .eq('is_group', false)
+          .maybeSingle();
+
+      if (res != null && mounted) {
+        // Conversation trouvée, on ouvre le ChatScreen !
+        context.push('/chat/${res['id']}'); // Adaptez avec votre route exacte
+      } else {
+        // Logique de création à insérer ici ou via votre ChatService
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible de démarrer le chat directement.'), backgroundColor: _C.orange));
+      }
+    } catch (e) {
+      debugPrint('Erreur lancement chat: $e');
+    }
   }
 
   void _startAudioCall(Map<String, dynamic> connection) {
-    // ref.read(callProvider.notifier).start(..., type: CallType.audio);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Démarrage de l\'appel audio...')));
+    final myId = Supabase.instance.client.auth.currentUser!.id;
+    ref.read(callProvider.notifier).start(
+      myUserId: myId,
+      calleeId: connection['user_id'], // L'ID cible de l'utilisateur
+      calleeName: connection['display_name'] ?? 'Contact',
+      calleeAvatar: connection['avatar_url'],
+      type: CallType.audio,
+    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPage()));
   }
 
   void _startVideoCall(Map<String, dynamic> connection) {
-    // ref.read(callProvider.notifier).start(..., type: CallType.video);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Démarrage de l\'appel vidéo...')));
+    final myId = Supabase.instance.client.auth.currentUser!.id;
+    ref.read(callProvider.notifier).start(
+      myUserId: myId,
+      calleeId: connection['user_id'], // L'ID cible de l'utilisateur
+      calleeName: connection['display_name'] ?? 'Contact',
+      calleeAvatar: connection['avatar_url'],
+      type: CallType.video,
+    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPage()));
   }
 
-  // --- Bottom Sheet Menu (Entreprise) ---
+  // ─── BOÎTES DE DIALOGUE (SÉCURITÉ ENTREPRISE) ───
+
+  Future<void> _confirmCancel(String id) async {
+    final ok = await showDialog<bool>(
+      context: context, 
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white, 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: _C.border)),
+        title: const Text('Annuler la demande ?', style: TextStyle(color: _C.textMain, fontWeight: FontWeight.bold, fontSize: 18)),
+        content: const Text('Cette action retirera votre demande de connexion en attente.', style: TextStyle(color: _C.textMuted, fontSize: 14)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non', style: TextStyle(color: _C.textMuted, fontWeight: FontWeight.w600))), 
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _C.red, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), 
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text('Oui, annuler', style: TextStyle(fontWeight: FontWeight.bold))
+          )
+        ],
+      )
+    );
+    
+    if (ok == true) { 
+      final svc = ref.read(connectionsProvider.notifier); 
+      final res = await svc.cancel(id); 
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res ? 'Demande annulée avec succès' : 'Erreur lors de l\'annulation'), backgroundColor: res ? _C.textMuted : _C.red)); 
+      }
+    }
+  }
+
+  Future<void> _confirmRemove(Map<String, dynamic> connection) async {
+    final ok = await showDialog<bool>(
+      context: context, 
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white, 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Retirer du réseau', style: TextStyle(color: _C.textMain, fontWeight: FontWeight.bold, fontSize: 18)),
+        content: Text('Voulez-vous vraiment retirer ${connection['display_name']} de vos connexions ?', style: const TextStyle(color: _C.textMuted, fontSize: 14)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler', style: TextStyle(color: _C.textMuted, fontWeight: FontWeight.w600))), 
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _C.orange, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), 
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text('Retirer', style: TextStyle(fontWeight: FontWeight.bold))
+          )
+        ],
+      )
+    );
+    
+    if (ok == true) { 
+      final res = await ref.read(connectionsProvider.notifier).removeConnection(connection['user_id']); 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res ? 'Connexion retirée' : 'Erreur'), backgroundColor: res ? _C.textMuted : _C.red)); 
+    }
+  }
+
+  Future<void> _confirmBlock(Map<String, dynamic> connection) async {
+    final ok = await showDialog<bool>(
+      context: context, 
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white, 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [Icon(Icons.block, color: _C.red), SizedBox(width: 8), Text('Bloquer l\'utilisateur', style: TextStyle(color: _C.red, fontWeight: FontWeight.bold, fontSize: 18))]),
+        content: const Text('Cette personne ne pourra plus vous contacter ni voir votre profil. Cette action est définitive.', style: TextStyle(color: _C.textMuted, fontSize: 14)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler', style: TextStyle(color: _C.textMuted, fontWeight: FontWeight.w600))), 
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _C.red, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), 
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text('Bloquer', style: TextStyle(fontWeight: FontWeight.bold))
+          )
+        ],
+      )
+    );
+    
+    if (ok == true) { 
+      final res = await ref.read(connectionsProvider.notifier).blockUser(connection['user_id']); 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res ? 'Utilisateur bloqué' : 'Erreur'), backgroundColor: _C.red)); 
+    }
+  }
+
+  // ─── BOTTOM SHEET (MENU ACTIONS) ───
 
   void _showConnectionActions(Map<String, dynamic> connection) {
     HapticFeedback.selectionClick();
     final name = connection['display_name'] ?? 'Utilisateur inconnu';
-    final role = connection['role'] ?? 'Membre du réseau'; // Exemple de donnée entreprise
+    final role = connection['role'] ?? 'Membre du réseau';
     final avatarUrl = connection['avatar_url'];
 
     showModalBottomSheet(
@@ -307,32 +431,26 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
 
             const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1, color: _C.border)),
 
-            // Liste des actions de gestion
+            // Liste des actions de gestion de réseau sécurisées
             _ActionListTile(
               icon: Icons.person_outline_rounded, title: 'Voir le profil complet',
-              onTap: () { Navigator.pop(ctx); /* context.push('/profile/${connection['id']}'); */ },
+              onTap: () { Navigator.pop(ctx); /* context.push('/profile/${connection['user_id']}'); */ },
             ),
             _ActionListTile(
               icon: Icons.person_remove_rounded, title: 'Retirer du réseau', color: _C.orange,
-              onTap: () async {
-                Navigator.pop(ctx);
-                final ok = await ref.read(connectionsProvider.notifier).removeConnection(connection['id']);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'Connexion retirée' : 'Erreur')));
-              },
+              onTap: () { Navigator.pop(ctx); _confirmRemove(connection); },
             ),
             _ActionListTile(
               icon: Icons.block_rounded, title: 'Bloquer cet utilisateur', color: _C.red,
-              onTap: () async {
-                Navigator.pop(ctx);
-                final ok = await ref.read(connectionsProvider.notifier).blockUser(connection['id']);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'Utilisateur bloqué' : 'Erreur'), backgroundColor: _C.red));
-              },
+              onTap: () { Navigator.pop(ctx); _confirmBlock(connection); },
             ),
           ],
         ),
       ),
     );
   }
+
+  // ─── CONSTRUCTION DE L'INTERFACE ───
 
   @override 
   Widget build(BuildContext context) {
@@ -437,7 +555,6 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
   }
 
   Widget _buildReceivedRequestCard(ConnectionRequest r, ConnectionsNotifier notifier) {
-    // ... Code existant inchangé ...
     final name = r.sender?['display_name'] ?? 'Utilisateur inconnu';
     final sub = r.message ?? 'Souhaite se connecter avec vous';
     final avatarUrl = r.sender?['avatar_url'];
@@ -509,7 +626,6 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
   }
 
   Widget _buildSentRequestCard(ConnectionRequest r) {
-    // ... Code existant inchangé ...
     final name = r.receiver?['display_name'] ?? 'Utilisateur inconnu';
     final avatarUrl = r.receiver?['avatar_url'];
 
@@ -532,7 +648,7 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
           ],
         ),
         trailing: TextButton(
-          onPressed: () {}, // Ajouter _confirmCancel si nécessaire
+          onPressed: () => _confirmCancel(r.id), // ✅ Ajout du Cancel
           style: TextButton.styleFrom(foregroundColor: _C.textMuted),
           child: const Text('Annuler', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
@@ -540,7 +656,6 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
     );
   }
 
-  // ✅ NOUVEAU : Item cliquable pour ouvrir les actions
   Widget _buildConnectionItem(Map<String, dynamic> c) {
     final name = c['display_name'] ?? 'Utilisateur inconnu';
     final role = c['role'] ?? 'Réseau'; 
@@ -565,12 +680,13 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
         icon: const Icon(Icons.more_horiz_rounded, color: _C.textMuted),
         onPressed: () => _showConnectionActions(c),
       ),
-      onTap: () => _showConnectionActions(c), // Ouvre le menu complet au lieu du chat
+      onTap: () => _showConnectionActions(c), // Ouvre le menu complet
     );
   }
 }
 
-// Composants UI Annexes pour le Bottom Sheet
+// ─── COMPOSANTS UI ANNEXES POUR LE BOTTOM SHEET ───
+
 class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
