@@ -17,22 +17,26 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:cross_file/cross_file.dart';
+
+// ✅ Import de la Policy de Design
 import 'package:thix_id/core/theme/thix_design_policy.dart';
+
 import 'package:thix_id/services/chat/chat_service.dart';
 import 'package:thix_id/services/chat/audio_service.dart';
+
 import 'package:thix_id/models/chat/chat_message.dart';
 import 'package:thix_id/models/chat/chat_conversation.dart';
 import 'package:thix_id/models/chat/user_status.dart';
 import 'package:thix_id/models/chat/group_info.dart';
 import 'package:thix_id/models/chat/call_status.dart';
+
 import 'package:thix_id/presentation/chat/widgets/chat_message_bubble.dart';
 import 'package:thix_id/presentation/chat/encryption_service.dart';
 import 'package:thix_id/presentation/chat/call/call_page.dart';
 import 'package:thix_id/presentation/chat/call/providers/call_provider.dart';
+
 import 'package:thix_id/presentation/chat/providers/chat_providers.dart';
 import 'package:thix_id/presentation/chat/providers/chat_list_provider.dart';
-
 
 // Messages provider (family)
 final chatMessagesProvider = StateNotifierProvider.family<ChatMsgNotifier, List<ChatMessage>, String>((ref, conversationId) {
@@ -174,7 +178,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
-  late final ChatService _chatService; // ✅ CORRECTION : Stocké pour éviter l'accès au provider dans le dispose()
+  late final ChatService _chatService; 
   final _scrollController = ScrollController();
   final _inputController = TextEditingController();
   final _inputFocus = FocusNode();
@@ -258,10 +262,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    _chatService = ref.read(chatServiceProvider); // ✅ Mise en cache pour le dispose()
+    _chatService = ref.read(chatServiceProvider); 
     _chatService.startPresenceHeartbeat();
     
-    // ✅ CORRECTION : Écouter l'input ET envoyer le statut "En train d'écrire"
     _inputController.addListener(() {
       setState(() {}); 
       _onTypingChanged(_inputController.text); 
@@ -328,7 +331,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   @override
   void dispose() {
-    // ✅ CORRECTION : Utilisation de la variable stockée pour éviter les plantages Riverpod
     _chatService.stopPresenceHeartbeat();
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
@@ -813,7 +815,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   bool get _isOnline {
     if (_otherParticipant == null) return false;
-    // ✅ CORRECTION : Comparaison sécurisée avec toLocal() pour éviter les bugs de fuseau horaire
     return _otherParticipant!.status == 'online' && DateTime.now().difference(_otherParticipant!.lastSeenAt.toLocal()).inMinutes <= 2;
   }
 
@@ -822,7 +823,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(localDate.year, localDate.month, localDate.day);
     
-    // ✅ CORRECTION : Comparaison précise des jours calendaires
     if (day == today) return 'à ${DateFormat('HH:mm').format(localDate)}';
     if (day == today.subtract(const Duration(days: 1))) return 'hier à ${DateFormat('HH:mm').format(localDate)}';
     return 'le ${DateFormat('dd/MM/yyyy').format(localDate)}';
@@ -866,6 +866,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
                         final msg = item.messages.first;
                         final isOwn = msg.senderId == currentUid;
+
+                        // ✅ NOUVEAU : Interception des messages d'appel
+                        if (msg.mediaType == 'call_audio' || msg.mediaType == 'call_video') {
+                          return _CallBubble(
+                            message: msg,
+                            isOwn: isOwn,
+                            onCallback: () => _startCall(msg.mediaType == 'call_video' ? CallType.video : CallType.audio),
+                          );
+                        }
 
                         return ChatMessageBubble(
                           message: msg,
@@ -1117,6 +1126,98 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 }
 
+// ✅ NOUVEAU : Le Widget de bulle d'appel
+class _CallBubble extends StatelessWidget {
+  final ChatMessage message;
+  final bool isOwn;
+  final VoidCallback onCallback;
+
+  const _CallBubble({
+    required this.message,
+    required this.isOwn,
+    required this.onCallback,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isVideo = message.mediaType == 'call_video';
+    final isMissed = message.content.toLowerCase().contains('manqué');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Align(
+        alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: EdgeInsets.only(left: isOwn ? 50 : 0, right: isOwn ? 0 : 50),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: ThixPolicy.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isMissed ? ThixPolicy.danger.withOpacity(0.3) : ThixPolicy.border),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isMissed ? ThixPolicy.danger.withOpacity(0.1) : ThixPolicy.tint,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isVideo ? Icons.videocam_rounded : Icons.call_rounded,
+                  color: isMissed ? ThixPolicy.danger : ThixPolicy.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.content,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: isMissed ? ThixPolicy.danger : ThixPolicy.textMain,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(isOwn ? Icons.call_made_rounded : Icons.call_received_rounded, size: 12, color: ThixPolicy.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormat('HH:mm').format(message.createdAt.toLocal()),
+                        style: const TextStyle(fontSize: 11, color: ThixPolicy.textSecondary, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: onCallback,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: ThixPolicy.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.refresh_rounded, size: 20, color: ThixPolicy.primary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ImageGroupBubble extends StatelessWidget {
   final List<ChatMessage> images;
   final bool isOwn;
@@ -1163,16 +1264,7 @@ class _ImageGroupBubble extends StatelessWidget {
                       final url = msg.mediaUrl!;
                       final tag = 'img_${msg.id}';
                       return GestureDetector(
-                        onTap: () {
-                          // Assurez-vous que FullScreenImagePage existe dans votre projet, 
-                          // ou commentez ce bloc si non nécessaire.
-                          // Navigator.push(
-                          //   context,
-                          //   MaterialPageRoute(
-                          //     builder: (_) => FullScreenImagePage(imageUrl: url, tag: tag),
-                          //   ),
-                          // );
-                        },
+                        onTap: () {},
                         child: Hero(
                           tag: tag,
                           child: Image.network(
@@ -1209,10 +1301,6 @@ class _ImageGroupBubble extends StatelessWidget {
                         DateFormat('HH:mm').format(last.createdAt.toLocal()),
                         style: TextStyle(fontSize: 10, color: isOwn ? Colors.white70 : ThixPolicy.textSecondary),
                       ),
-                      if (isOwn) ...[
-                        const SizedBox(width: 4),
-                        // MessageStatusTicks(isDelivered: last.isDelivered, isRead: last.isRead),
-                      ],
                     ],
                   ),
                 ),
@@ -1333,7 +1421,7 @@ class _ChatWaveformAudioPlayerState extends State<_ChatWaveformAudioPlayer> {
   }
 
   @override void dispose() { 
-    _audioPlayer.stop(); // ✅ Forcer l'arrêt de l'audio si l'utilisateur quitte
+    _audioPlayer.stop();
     _audioPlayer.dispose(); 
     super.dispose(); 
   }
