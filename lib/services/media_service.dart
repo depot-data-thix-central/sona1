@@ -1,3 +1,4 @@
+// lib/services/media_service.dart
 import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -177,6 +178,10 @@ class MediaService {
     return supabase.storage.from('media').getPublicUrl(path);
   }
 
+  // ------------------------------------------------------------------------------------
+  // MÉTHODES DE PUBLICATION / ÉDITION
+  // ------------------------------------------------------------------------------------
+
   Future<MediaContent> insertWithFiles(MediaContent item, {PlatformFile? coverFile, PlatformFile? videoFile, ProgressCallback? onProgress}) async {
     final user = supabase.auth.currentUser;
     if (user == null) {
@@ -196,7 +201,6 @@ class MediaService {
     }
     onProgress?.call(1.0);
     
-    // 🔥 L'INJECTION PARFAITE DU USER_ID EST ICI 🔥
     final ins = item.copyWith(
       id: nid, 
       userId: user.id, 
@@ -207,7 +211,6 @@ class MediaService {
     ).toJson();
 
     final res = await supabase.from('media_content').insert(ins).select().single();
-    
     return MediaContent.fromJson(res as Map<String, dynamic>);
   }
 
@@ -228,6 +231,53 @@ class MediaService {
     await supabase.from('media_content').update(up).eq('id', ex.id);
     
     return ex.copyWith(coverUrl: c, videoUrl: v);
+  }
+
+  // ✅ NOUVELLE MÉTHODE AJOUTÉE : Gère 1 ou plusieurs vidéos (Pour les séries/formations)
+  Future<void> insertComplexMedia(
+    MediaContent content, {
+    required List<PlatformFile> videos,
+    required PlatformFile coverFile,
+    required void Function(double) onProgress,
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      throw Exception("Utilisateur non connecté. Impossible de publier.");
+    }
+
+    // Identifiant unique pour ce dossier de média
+    final nid = _uuid.v4();
+
+    // 1. Upload de la couverture (Compte pour 10% du progrès)
+    onProgress(0.0);
+    final finalCoverUrl = await _upload(coverFile, 'thix_media/$nid/covers');
+    onProgress(0.1);
+
+    // 2. Upload des vidéos (Compte pour les 90% restants)
+    List<String> finalVideoUrls = [];
+    
+    for (int i = 0; i < videos.length; i++) {
+      final vUrl = await _upload(videos[i], 'thix_media/$nid/videos/episode_$i');
+      finalVideoUrls.add(vUrl);
+      
+      // Mise à jour fine de la barre de progression
+      final currentProgress = 0.1 + (0.9 * ((i + 1) / videos.length));
+      onProgress(currentProgress); 
+    }
+
+    // 3. Mise à jour de l'objet avec les URLs cloud générées
+    final updatedContent = content.copyWith(
+      id: nid,
+      userId: user.id,
+      videoUrl: finalVideoUrls.isNotEmpty ? finalVideoUrls.first : '', // La première vidéo
+      episodesUrls: finalVideoUrls.length > 1 ? finalVideoUrls.sublist(1) : [], // Les vidéos suivantes
+      coverUrl: finalCoverUrl,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // 4. Insertion Finale BDD
+    await supabase.from('media_content').insert(updatedContent.toJson());
   }
 
   Future<void> deleteMedia(MediaContent item) async { 
