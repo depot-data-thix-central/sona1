@@ -4,10 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 // ✅ Design System THIX v1
 import 'package:thix_id/core/theme/thix_design_policy.dart';
-
+import '../providers/book_provider.dart'; 
 import '../providers/education_provider.dart' hide certificatesProvider;
 import '../providers/certificate_provider.dart';
 import 'package:thix_id/presentation/education/models/book.dart';
